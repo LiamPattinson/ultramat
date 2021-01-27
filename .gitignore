@@ -1,3 +1,28 @@
+# Build dir, lib dir
+build/
+lib/
+
+# Vim swap files
+*.swp
+
+# HDF5 files
+*.h5
+
+# cmake
+CMakeCache.txt
+cmake_install.cmake
+CMakeFiles/
+install_manifest.txt
+Makefile
+MANIFEST
+CTestTestfile.cmake
+
+# Google Test
+Testing/
+googletest*
+
+## Auto generated:
+
 # Prerequisites
 *.d
 
