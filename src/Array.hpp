@@ -43,12 +43,41 @@ public:
     // Assignment and move assignment
     Array& operator=( const Array& other);
     // TODO Array& operator=( Array&& other);
+    
+    void reset();
+    Array copy();
+
+    // ===============================================
+    // Status handling.
+
+    static constexpr char uninitialised   = 0x00;
+    static constexpr char initialised     = 0x01;
+    static constexpr char own_data        = 0x02;
+    static constexpr char contiguous      = 0x04;
+    static constexpr char semi_contiguous = 0x08;
+    static constexpr char row_major       = 0x10;
+    static constexpr char col_major       = 0x20;
+    static constexpr char c_contiguous    = contiguous | row_major;
+    static constexpr char f_contiguous    = contiguous | col_major;
+
+    inline char is_initialised(){ return _status & initialised;}
+    inline char is_initialized(){ return _status & initialised;}
+    inline char owns_data(){ return _status & own_data;}
+    inline char is_contiguous(){ return _status & contiguous;}
+    inline char is_semi_contiguous(){ return _status & semi_contiguous;}
+    inline char is_c_contiguous(){ return _status & c_contiguous;}
+    inline char is_f_contiguous(){ return _status & f_contiguous;}
+    inline char is_row_major(){ return _status & row_major;}
+    inline char is_col_major(){ return _status & col_major;}
+    inline void set_status( char status){ _status = status;}
+    inline void update_status( char status){ _status |= status;}
 
     // ===============================================
     // Attributes
 
     std::size_t size() const;
-    std::size_t shape( std::size_t dim) const;
+    std::size_t size( std::size_t dim) const;
+    std::size_t shape( std::size_t dim) const; // alias for size(std::size_t)
 
     // ===============================================
     // Data access
@@ -95,53 +124,121 @@ public:
     // ===============================================
     // Iteration
 
-    // Several types of iterator are available.
+    // Two types of iterator are available, covering 3 distinct iteration strategies.
     // 
-    // Contiguous:      fast_iterator
-    // Semi-contiguous: stripe_iterator
-    // Non-contiguous:  iterator
+    // (Semi-)Contiguous: fast_iterator
+    // Non-contiguous:    iterator
     // 
     // The non-contiguous 'iterator' will work in all cases, and will be reasonably fast,
     // though it is unlikely to make use of any vectorisation.
     // 
-    // The semi-contiguous 'stripe_iterator' may be used with arrays that are contiguous in 
-    // the last dimension (if row_major) or first dimension (if column_major). This
-    // frequently occurs when taking views of an Array. Each stripe_iterator operates over
-    // a limited strip of contiguous memory. A nested for-loop is required: one over the
-    // total number of stripes, and one over contiguous memory within each stripe.
+    // 'fast_iterator' should only be used with Arrays that are (semi-)contiguous. If
+    // fully contiguous (i.e. not a view of an existing Array and not sliced), one should
+    // call 'begin_fast()' and 'end_fast()'. These methods are simple aliases for the
+    // begin() and end() methods of _data.
     //
-    // The contiguous 'fast_iterator' should only be used with Arrays that are fully
-    // contiguous i.e. not a view of an existing Array, and not sliced.
+    // If semi-contiguous, the user should instead make use of 'begin_stripe(size_t stripe)'
+    // and 'end_stripe(size_t stripe)'. This returns the same type of iterator, but the positions
+    // given by begin and end will be the start and finish of one contiguous 'stripe' of the
+    // fastest incrementing dimension (the last when row-major or first when column-major).
     //
-    // Note that iterators will behave differently for row-major and column-major Arrays, 
-    // and this may lead to confusing behaviour.
+    // Note that all iteration strategies will behave differently for row-major and column-major
+    // Arrays, and this may lead to confusing behaviour. Avoid mixing the two wherever possible.
+    
+    // (Semi-)Contiguous access
+    using fast_iterator = std::vector<T>::iterator;
+    using const_fast_iterator = std::vector<T>::const_iterator;
 
-    // ===============================================
-    // Status handling.
+    inline fast_iterator begin_fast() { return _data.begin(); }
+    inline fast_iterator end_fast() { return _data.end(); }
+    inline const_fast_iterator begin_fast() const { return _data.begin(); }
+    inline const_fast_iterator end_fast() const { return _data.end(); }
 
-    static constexpr char uninitialised   = 0x00;
-    static constexpr char initialised     = 0x01;
-    static constexpr char own_data        = 0x02;
-    static constexpr char contiguous      = 0x04;
-    static constexpr char semi_contiguous = 0x04;
-    static constexpr char row_major       = 0x10;
-    static constexpr char col_major       = 0x20;
-    static constexpr char c_contiguous    = contiguous | row_major;
-    static constexpr char f_contiguous    = contiguous | col_major;
+    std::size_t num_stripes() const;
+    fast_iterator begin_stripe( std::size_t stripe);
+    fast_iterator end_stripe( std::size_t stripe);
+    const_fast_iterator begin_stripe( std::size_t stripe) const;
+    const_fast_iterator end_stripe( std::size_t stripe) const;
 
-    inline char is_initialised(){ return _status & initialised;}
-    inline char is_initialized(){ return _status & initialised;}
-    inline char owns_data(){ return _status & own_data;}
-    inline char is_contiguous(){ return _status & contiguous;}
-    inline char is_semi_contiguous(){ return _status & semi_contiguous;}
-    inline char is_c_contiguous(){ return _status & c_contiguous;}
-    inline char is_f_contiguous(){ return _status & f_contiguous;}
-    inline char is_row_major(){ return _status & row_major;}
-    inline char is_col_major(){ return _status & col_major;}
-    inline void set_status( char status){ _status = status;}
-    inline void update_status( char status){ _status |= status;}
+    // Generic access
+    template<bool constness> class base_iterator;
+    using iterator = base_iterator<false>;
+    using const_iterator = base_iterator<true>;
+    iterator begin();
+    iterator end();
+    const_iterator begin() const;
+    const_iterator end() const;
+
 };
 
+// ===============================================
+// Define custom iterator
+
+template<class t>
+template<bool constness>
+class Array<T>::base_iterator {
+
+    using ptr_t = std::conditional_t<constness, const T*, T*>;
+
+    ptr_t        _ptr;
+    std::size_t  _dims;
+    std::size_t* _shape;
+    std::size_t* _stride;
+    std::size_t* _pos;
+
+    public:
+
+    // ===============================================
+    // Constructors
+ 
+    base_iterator( ptr_t ptr, std::size_t dim, std::size_t* shape, std::size_t* stride, std::size_t start_count=0);
+    ~base_iterator();
+    base_iterator( const base_iterator<constness>& other) = default;
+    base_iterator( base_iterator<constness>&& other) = default;
+    base_iterator<conx
+
+    // ===============================================
+    // Standard iterator interface
+
+    T operator*() const;
+    T& operator*();
+    base_iterator<constness> operator++();
+
+    template<bool constness_l, bool constness_r>
+    friend bool operator==( const base_iterator<constness_l>& it_l, base_iterator<constness_r>& it_r);
+
+    template<bool constness_l, bool constness_r>
+    friend bool operator!=( const base_iterator<constness_l>& it_l, base_iterator<constness_r>& it_r);
+
+    // ===============================================
+    // 'Random access' interface
+
+    base_iterator<constness>& operator+=();
+    base_iterator<constness>& operator-=();
+
+    friend base_iterator<constness> operator+( const base_iterator<constness>& it, std::ptrdiff_t shift);
+    friend base_iterator<constness> operator-( const base_iterator<constness>& it, std::ptrdiff_t shift);
+
+    template<bool constness_l, bool constness_r>
+    friend std::ptrdiff_t distance( const base_iterator<constness_l>& it_l, const base_iterator<constness_r>& it_r);
+
+    template<bool constness_l, bool constness_r>
+    friend std::ptrdiff_t operator-( const base_iterator<constness_l>& it_l, const base_iterator<constness_r>& it_r);
+
+    template<bool constness_l, bool constness_r>
+    friend bool operator<( const base_iterator<constness_l>& it_l, base_iterator<constness_r>& it_r);
+
+    template<bool constness_l, bool constness_r>
+    friend bool operator>( const base_iterator<constness_l>& it_l, base_iterator<constness_r>& it_r);
+
+    template<bool constness_l, bool constness_r>
+    friend bool operator<=( const base_iterator<constness_l>& it_l, base_iterator<constness_r>& it_r);
+
+    template<bool constness_l, bool constness_r>
+    friend bool operator>=( const base_iterator<constness_l>& it_l, base_iterator<constness_r>& it_r);
+};
+
+// ===============================================
 // Function definitions follow
 
 template<class T>
@@ -155,13 +252,7 @@ Array<T>::Array() :
 
 template<class T>
 Array<T>::~Array() {
-    if( is_initialised() ){
-        delete[] _shape;
-        delete[] _stride;
-    }
-    if( owns_data() ){
-        delete[] _data;
-    }
+    reset();
 }
 
 template<class T>
@@ -176,7 +267,8 @@ Array<T>::Array( const Array<T>& other) :
         std::copy( other._stride, other._stride+_dims, _stride);
         // If 'other' owns its own data, perform a full copy.
         // An array that owns its own data will also be contiguous, so can used std::copy
-        // Otherwise, simply copy over the data pointer.
+        // Otherwise, simply copy over the data pointer: a copy of a view is also a view.
+        // Use the explicit 'copy' function to get a new contiguous array from a view.
         if( other.owns_data() ){
             std::size_t n_elements = size();
             _data = new T[n_elements];
@@ -259,10 +351,28 @@ Array<T>& Array<T>::operator=( const Array<T>& other){
 }
 
 template<class T>
+void Array<T>::reset(){
+    if( is_initialised() ){
+        delete[] _shape;
+        delete[] _stride;
+    }
+    if( owns_data() ){
+        delete[] _data;
+    }
+    _status = uninitialised;
+    _dims=0;
+}
+
+template<class T>
 std::size_t Array<T>::size() const {
     std::size_t result=1;
     for( unsigned ii=0; ii<_dims; ++ii) result *= shape[ii];
     return result;
+}
+
+template<class T>
+std::size_t Array<T>::size( std::size_t dim) const {
+    return _shape[dim];
 }
 
 template<class T>
