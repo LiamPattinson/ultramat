@@ -1,6 +1,5 @@
 #include "Array.hpp"
 #include <gtest/gtest.h>
-#include <vector>
 
 using namespace ultra;
 using size_vec = std::vector<std::size_t>;
@@ -69,33 +68,29 @@ TEST(ArrayTest,Constructors){
     for(unsigned ii=0; ii<3; ++ii) EXPECT_TRUE(array_5.size(ii) == shape_3[ii]);
 }
 
-/*
+
 TEST(ArrayTest,ElementAccess){
-    arma::ivec shape = arma::ivec{50,30};
+    size_vec shape = {50,30,10};
     Array<float> array(shape);
 
-    array(arma::ivec{21,0}) = 42.42;
-    array(arma::ivec{0,10}) = 3.14159;
-    array(arma::ivec{5,5}) = 64.32;
+    array(21,0,0) = 42.42;
+    array(0,10,5) = 3.14159;
+    array(5,5,3) = 64.32;
 
     // test that direct access does in fact write, and does in fact return what we expect
-    EXPECT_TRUE(fabs(array(arma::ivec{21,0}) - 42.42) < 1e-5);
-    EXPECT_TRUE(fabs(array(arma::ivec{0,10}) - 3.14159) < 1e-5);
-    EXPECT_TRUE(fabs(array(arma::ivec{5,5}) - 64.32) < 1e-5);
+    EXPECT_TRUE(fabs(array(21,0,0) - 42.42) < 1e-5);
+    EXPECT_TRUE(fabs(array(0,10,5) - 3.14159) < 1e-5);
+    EXPECT_TRUE(fabs(array(5,5,3) - 64.32) < 1e-5);
 
-    // test that direct access writes where we expect it to
-    auto it = array.begin();
+    // Repeat for a column major array
+    Array<float> f_array(shape);
 
-    EXPECT_TRUE( fabs(*(it+21) - 42.42) < 1e-5 );
-    EXPECT_TRUE( fabs(*(it+500) - 3.14159) < 1e-5 );
-    EXPECT_TRUE( fabs(*(it+255) - 64.32) < 1e-5 );
+    f_array(21,0,0) = 42.42;
+    f_array(0,10,5) = 3.14159;
+    f_array(5,5,3) = 64.32;
 
-    // repeat for the harder case of a 3D array
-    arma::ivec shape_2 = arma::ivec{50,30,10};
-    Array<float> array_2(shape_2);
-    array_2(arma::ivec{5,5,5}) = 420.69;
-    it = array_2.begin();
-    EXPECT_TRUE( fabs(array_2(arma::ivec{5,5,5}) - 420.69) < 1e-5);
-    EXPECT_TRUE( fabs(*(it+ 5+50*(5+30*5)) - 420.69) < 1e-5);
+    EXPECT_TRUE(fabs(f_array(21,0,0) - 42.42) < 1e-5);
+    EXPECT_TRUE(fabs(f_array(0,10,5) - 3.14159) < 1e-5);
+    EXPECT_TRUE(fabs(f_array(5,5,3) - 64.32) < 1e-5);
 }
-*/
+

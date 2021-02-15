@@ -1,6 +1,7 @@
 #ifndef __ARRAY_HPP
 #define __ARRAY_HPP
 
+#include <cmath>
 #include <stdexcept>
 #include <string>
 #include <array>
