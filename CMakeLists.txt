@@ -18,7 +18,7 @@ file(GLOB_RECURSE CXX_INC "${CMAKE_SOURCE_DIR}/src/*.hpp")
 # =========================================================
 
 # Set C++ standard, plus warning errors
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CXX_STANDARD_REQUIRED True)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall -Wextra -Werror -pedantic -g -fPIC -fmax-errors=5")
 

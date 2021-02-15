@@ -6,13 +6,15 @@ using namespace ultra;
 using size_vec = std::vector<std::size_t>;
 
 TEST(ArrayTest,Constructors){
-    size_vec shape_1 = {25};
-    size_vec shape_2 = {50,30};
+    std::size_t shape_1 = 25;
+    std::size_t shape_2[2] = {50,30};
     size_vec shape_3 = {12,15,90};
 
-    Array<int>    array_1(shape_1);
-    Array<float>  array_2(shape_2);
-    Array<double> array_3(shape_3, Array<double>::col_major);
+    // Note: All of these array building methods result in a simple call to the same generic method.
+    //  `    There is no need to test passing a size_vec directly, as the same method is called implicity by the pointer method.
+    Array<int>    array_1(shape_1); // test single int 1D array build
+    Array<float>  array_2(shape_2); // test c-array build
+    Array<double> array_3(shape_3.data(), 3, Array<double>::col_major); // test dynamic c_array build
 
     // Test status
 

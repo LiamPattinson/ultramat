@@ -1,9 +1,12 @@
 #ifndef __ARRAY_HPP
 #define __ARRAY_HPP
 
-#include <string>
-#include <algorithm>
 #include <stdexcept>
+#include <string>
+#include <array>
+#include <vector>
+#include <algorithm>
+#include <type_traits>
 
 // Array.hpp
 // A generic multidimensional array, templated over the type it contains.
@@ -37,9 +40,23 @@ public:
     Array( Array&& other);
 
     // Build with given size
+    
     // Templated over std::vector-like structures
-    template<class V>
+    template<class V, std::enable_if_t<std::is_class<V>::value,bool> = true>
     Array( const V& shape, char rc_order=row_major);
+
+    // Build 1D array with single integer arg
+    template<class Int, std::enable_if_t<std::is_integral<Int>::value,bool> = true>
+    Array( Int shape, char rc_order=row_major) : Array( std::array<Int,1>{shape}, rc_order ) {}
+
+    // Build with c-arrays
+    template<class CArray, std::enable_if_t<std::is_array<CArray>::value,bool> = true>
+    Array( const CArray& shape, char rc_order=row_major) : Array( std::to_array(shape), rc_order) {}
+
+    // Build with dynamic c-arrays
+    // (does not take ownership of int_ptr)
+    template<class Int>
+    Array( Int* int_ptr, std::size_t N, char rc_order=row_major) : Array( std::vector<Int>(int_ptr,int_ptr+N), rc_order) {}
 
     // Assignment and move assignment
     // TODO Array& operator=( const Array& other);
@@ -313,7 +330,7 @@ Array<T>::Array( Array<T>&& other ):
 }
 
 template<class T>
-template<class V>
+template<class V, std::enable_if_t<std::is_class<V>::value,bool>>
 Array<T>::Array( const V& shape, char rc_order) :
     _status( initialised | own_data | contiguous | semicontiguous | rc_order ),
     _dims(shape.size())
@@ -355,7 +372,8 @@ Array<T>::Array( const V& shape, char rc_order) :
             }
     }
 }
-/* TODO
+
+    /* TODO
 template<class T>
 Array<T>& Array<T>::operator=( const Array<T>& other){
     if( other.is_initialised() ){
