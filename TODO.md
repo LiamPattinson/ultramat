@@ -2,7 +2,6 @@
 
 ## Array.hpp
 
-* Begin testing
 * Implement iterators
 * Implementing assignment etc
 * Implement slicing

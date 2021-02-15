@@ -50,16 +50,16 @@ public:
 
     // Build 1D array with single integer arg
     template<class Int, std::enable_if_t<std::is_integral<Int>::value,bool> = true>
-    Array( Int shape, char rc_order=row_major) : Array( std::array<Int,1>{shape}, rc_order ) {}
+    Array( Int shape, char rc_order=row_major);
 
     // Build with c-arrays
     template<class CArray, std::enable_if_t<std::is_array<CArray>::value && std::rank<CArray>::value==1,bool> = true>
-    Array( const CArray& shape, char rc_order=row_major) : Array( std::to_array(shape), rc_order) {}
+    Array( const CArray& shape, char rc_order=row_major);
 
     // Build with dynamic c-arrays
     // (does not take ownership of int_ptr)
     template<class Int>
-    Array( Int* int_ptr, std::size_t N, char rc_order=row_major) : Array( std::vector<Int>(int_ptr,int_ptr+N), rc_order) {}
+    Array( Int* int_ptr, std::size_t N, char rc_order=row_major);
 
     // Assignment and move assignment
     // TODO Array& operator=( const Array& other);
@@ -67,6 +67,13 @@ public:
     
     // Additional utils
     void reset();
+
+    // Specialised grid building methods
+
+    //TODO
+    //Array<T> view( const slice& );
+    //Array<T> operator()( const slice& );
+    //Array<T> broadcast()( ...something... );
 
     // ===============================================
     // Status handling.
@@ -107,6 +114,23 @@ public:
     // ===============================================
     // Data access
 
+    // Access via many ints.
+    // Warning: No checks are performed to ensure the correct version has been called.
+
+private:
+    template<std::size_t N, class Int, class... Ints>
+    std::ptrdiff_t variadic_memjump( Int coord, Ints... coords) const;
+
+    template<std::size_t N, class Int>
+    std::ptrdiff_t variadic_memjump( Int coord) const;
+public:
+
+    template<class... Ints> 
+    T operator()( Ints... coords ) const;
+    
+    template<class... Ints> 
+    T& operator()( Ints... coords );
+
     // Access via anything that looks like a std::vector
 
     template<class Coords, std::enable_if_t<std::is_class<Coords>::value,bool> = true>
@@ -131,37 +155,6 @@ public:
     template<class Int>
     T& operator()( Int* coords, std::size_t N); 
 
-    // Access via many ints.
-    // Warning: No checks are performed to ensure the correct version has been called.
-
-private:
-
-    // Base case(s)
-    template<std::size_t N, class Int>
-    std::ptrdiff_t variadic_memjump( Int coord) const {
-        static_assert(std::is_integral<std::remove_reference_t<Int>>::value); 
-        return _stride[N] * coord; 
-    }
-
-    // Recursive step
-    template<std::size_t N, class Int, class... Ints>
-    std::ptrdiff_t variadic_memjump( Int coord, Ints... coords) const {
-        static_assert(std::is_integral<std::remove_reference_t<Int>>::value); 
-        return (_stride[N] * coord) + variadic_memjump<N+1,Ints...>(coords...);
-    }
-
-public:
-
-    template<class... Ints> 
-    T operator()( Ints... coords ) const {
-        return *(_data + variadic_memjump<0,Ints...>(coords...));
-    }
-    
-    template<class... Ints> 
-    T& operator()( Ints... coords ) {
-        return *(_data + variadic_memjump<0,Ints...>(coords...));
-    }
-
     // ===============================================
     // Iteration
 
@@ -176,7 +169,7 @@ public:
     // 'fast_iterator' should only be used with Arrays that are (semi-)contiguous. If
     // fully contiguous (i.e. not a view of an existing Array and not sliced), one should
     // call 'begin_fast()' and 'end_fast()'. The 'fast_iterator' is actually little more
-    // than a pointer to T.
+    // than a pointer to T, similar to std::vector<T>::iterator.
     //
     // If semi-contiguous, the user should instead make use of 'begin_stripe(size_t stripe)'
     // and 'end_stripe(size_t stripe)'. This returns the same type of iterator, but the positions
@@ -187,13 +180,16 @@ public:
     // Arrays, and this may lead to confusing behaviour. Avoid mixing the two wherever possible.
     
     // (Semi-)Contiguous access
-    using fast_iterator = T*;
-    using const_fast_iterator = const T*;
+    template<bool constness>
+    class base_fast_iterator;
 
-    inline fast_iterator begin_fast() { return _data; }
-    inline fast_iterator end_fast() { return _data + size(); }
-    inline const_fast_iterator begin_fast() const { return _data; }
-    inline const_fast_iterator end_fast() const { return _data + size(); }
+    using fast_iterator = base_fast_iterator<false>;
+    using const_fast_iterator = base_fast_iterator<true>;
+
+    fast_iterator begin_fast(); 
+    fast_iterator end_fast();
+    const_fast_iterator begin_fast() const;
+    const_fast_iterator end_fast() const;
 
     std::size_t num_stripes() const;
     fast_iterator begin_stripe( std::size_t stripe);
@@ -202,9 +198,12 @@ public:
     const_fast_iterator end_stripe( std::size_t stripe) const;
 
     // Generic access
-    template<bool constness> class base_iterator;
+    template<bool constness>
+    class base_iterator;
+    
     using iterator = base_iterator<false>;
     using const_iterator = base_iterator<true>;
+    
     iterator begin();
     iterator end();
     const_iterator begin() const;
@@ -213,20 +212,124 @@ public:
 };
 
 // ===============================================
-// Define custom iterator
+// Define custom iterators
 
-/*
-}// temporarily close namespace to pre-declare operators
+}// temporarily close namespace to pre-declare operator overloads
 
-template<class T> typename ultra::Array<T>::iterator operator+( const typename ultra::Array<T>::iterator& it, std::ptrdiff_t shift);
-template<class T> typename ultra::Array<T>::iterator operator-( const typename ultra::Array<T>::iterator& it, std::ptrdiff_t shift);
-template<class T> typename ultra::Array<T>::const_iterator operator+( const typename ultra::Array<T>::const_iterator& it, std::ptrdiff_t shift);
-template<class T> typename ultra::Array<T>::const_iterator operator-( const typename ultra::Array<T>::const_iterator& it, std::ptrdiff_t shift);
+template<class U, bool C>
+typename ultra::Array<U>::base_fast_iterator<C> operator+( const typename ultra::Array<U>::base_fast_iterator<C>& it_l, std::ptrdiff_t diff);
+
+template<class U, bool C>
+typename ultra::Array<U>::base_fast_iterator<C> operator-( const typename ultra::Array<U>::base_fast_iterator<C>& it_l, std::ptrdiff_t diff);
+
+template<class U, bool constness_l, bool constness_r>
+std::ptrdiff_t operator-( const typename ultra::Array<U>::base_fast_iterator<constness_l>& it_l, const typename ultra::Array<U>::base_fast_iterator<constness_r>& it_r);
+
+template<class T, bool constness_l, bool constness_r>
+bool operator==( const typename ultra::Array<T>::base_fast_iterator<constness_l>& it_l, const typename ultra::Array<T>::base_fast_iterator<constness_r>& it_r);
+
+template<class T, bool constness_l, bool constness_r>
+bool operator!=( const typename ultra::Array<T>::base_fast_iterator<constness_l>& it_l, const typename ultra::Array<T>::base_fast_iterator<constness_r>& it_r);
+
+template<class T, bool constness_l, bool constness_r>
+bool operator<=( const typename ultra::Array<T>::base_fast_iterator<constness_l>& it_l, const typename ultra::Array<T>::base_fast_iterator<constness_r>& it_r);
+
+template<class T, bool constness_l, bool constness_r>
+bool operator>=( const typename ultra::Array<T>::base_fast_iterator<constness_l>& it_l, const typename ultra::Array<T>::base_fast_iterator<constness_r>& it_r);
+
+template<class T, bool constness_l, bool constness_r>
+bool operator<( const typename ultra::Array<T>::base_fast_iterator<constness_l>& it_l, const typename ultra::Array<T>::base_fast_iterator<constness_r>& it_r);
+
+template<class T, bool constness_l, bool constness_r>
+bool operator>( const typename ultra::Array<T>::base_fast_iterator<constness_l>& it_l, const typename ultra::Array<T>::base_fast_iterator<constness_r>& it_r);
 
 
 // reopen namespace
 namespace ultra {
 
+template<class T>
+template<bool constness>
+class Array<T>::base_fast_iterator {
+
+public:
+
+    using ptr_t = std::conditional_t<constness,const T*, T*>;
+
+private:
+
+    ptr_t _ptr;
+
+public:
+
+    // ===============================================
+    // Constructors
+ 
+    base_fast_iterator( ptr_t ptr);
+
+    template<bool other_constness>
+    base_fast_iterator( const base_fast_iterator<other_constness>& other);
+
+    template<bool other_constness>
+    base_fast_iterator( base_fast_iterator<other_constness>&& other);
+
+    template<bool other_constness>
+    base_fast_iterator& operator=( const base_fast_iterator<other_constness>& other);
+
+    template<bool other_constness>
+    base_fast_iterator& operator=( base_fast_iterator<other_constness>&& other);
+
+    // ===============================================
+    // Standard iterator interface
+
+    T operator*() const;
+    
+    template<bool not_const=!constness, std::enable_if_t<not_const,bool> = true>
+    T& operator*();
+    
+    base_fast_iterator<constness>& operator++();
+    base_fast_iterator<constness> operator++(int) const;
+
+    base_fast_iterator<constness>& operator--();
+    base_fast_iterator<constness> operator--(int) const;
+
+    // ===============================================
+    // Arithmetic
+
+    base_fast_iterator<constness>& operator+=( std::ptrdiff_t diff);
+    base_fast_iterator<constness>& operator-=( std::ptrdiff_t diff);
+
+    template<class U, bool C>
+    friend typename Array<U>::base_fast_iterator<C> (::operator+)( const typename Array<U>::base_fast_iterator<C>& it, std::ptrdiff_t diff);
+
+    template<class U, bool C>
+    friend typename Array<U>::base_fast_iterator<C> (::operator-)( const typename Array<U>::base_fast_iterator<C>& it, std::ptrdiff_t diff);
+
+    template<class U, bool constness_l, bool constness_r>
+    friend std::ptrdiff_t ::operator-( const typename Array<U>::base_fast_iterator<constness_l>& it_l, const typename Array<U>::base_fast_iterator<constness_r>& it_r);
+
+    // ===============================================
+    // Comparisons
+
+    template<class U, bool constness_l, bool constness_r>
+    friend bool ::operator==( const typename Array<U>::base_fast_iterator<constness_l>& it_l, const typename Array<U>::base_fast_iterator<constness_r>& it_r);
+
+    template<class U, bool constness_l, bool constness_r>
+    friend bool ::operator!=( const typename Array<U>::base_fast_iterator<constness_l>& it_l, const typename Array<U>::base_fast_iterator<constness_r>& it_r);
+
+    template<class U, bool constness_l, bool constness_r>
+    friend bool ::operator<=( const typename Array<U>::base_fast_iterator<constness_l>& it_l, const typename Array<U>::base_fast_iterator<constness_r>& it_r);
+
+    template<class U, bool constness_l, bool constness_r>
+    friend bool ::operator>=( const typename Array<U>::base_fast_iterator<constness_l>& it_l, const typename Array<U>::base_fast_iterator<constness_r>& it_r);
+
+    template<class U, bool constness_l, bool constness_r>
+    friend bool ::operator<( const typename Array<U>::base_fast_iterator<constness_l>& it_l, const typename Array<U>::base_fast_iterator<constness_r>& it_r);
+
+    template< class U, bool constness_l, bool constness_r>
+    friend bool ::operator>( const typename Array<U>::base_fast_iterator<constness_l>& it_l, const typename Array<U>::base_fast_iterator<constness_r>& it_r);
+};
+
+/*
 template<class T>
 template<bool constness>
 class Array<T>::base_iterator {
@@ -337,6 +440,29 @@ Array<T>::Array( const Array<T>& other) :
         _data = nullptr;
     }
 }
+
+template<class T>
+template<class Int, std::enable_if_t<std::is_integral<Int>::value,bool>>
+Array<T>::Array( Int shape, char rc_order) : 
+    Array( std::array<Int,1>{shape}, rc_order )
+{}
+
+template<class T>
+template<class CArray, std::enable_if_t<std::is_array<CArray>::value && std::rank<CArray>::value==1,bool>>
+Array<T>::Array( const CArray& shape, char rc_order) :
+    Array( std::to_array(shape), rc_order)
+{
+    static_assert(std::is_integral<std::remove_extent_t<CArray>>::value,"UltraArray: C array constructor must have integral type.");
+}
+
+template<class T>
+template<class Int>
+Array<T>::Array( Int* int_ptr, std::size_t N, char rc_order) :
+    Array( std::vector<Int>(int_ptr,int_ptr+N), rc_order)
+{
+    static_assert(std::is_integral<Int>::value,"UltraArray: Dynamic array constructor must take pointer to integral type.");
+}
+
 
 template<class T>
 Array<T>::Array( Array<T>&& other ):
@@ -451,6 +577,34 @@ template<class T>
 T* Array<T>::data() const {
     return _data;
 }
+    
+// Base case(s)
+template<class T>
+template<std::size_t N, class Int>
+std::ptrdiff_t Array<T>::variadic_memjump( Int coord) const {
+    static_assert(std::is_integral<std::remove_reference_t<Int>>::value); 
+    return _stride[N] * coord; 
+}
+
+// Recursive step
+template<class T>
+template<std::size_t N, class Int, class... Ints>
+std::ptrdiff_t Array<T>::variadic_memjump( Int coord, Ints... coords) const {
+    static_assert(std::is_integral<std::remove_reference_t<Int>>::value); 
+    return (_stride[N] * coord) + variadic_memjump<N+1,Ints...>(coords...);
+}
+
+template<class T>
+template<class... Ints> 
+T Array<T>::operator()( Ints... coords ) const {
+    return *(_data + variadic_memjump<0,Ints...>(coords...));
+}
+    
+template<class T>
+template<class... Ints> 
+T& Array<T>::operator()( Ints... coords ) {
+    return *(_data + variadic_memjump<0,Ints...>(coords...));
+}
 
 template<class T>
 template<class Coords, std::enable_if_t<std::is_class<Coords>::value,bool>>
@@ -487,6 +641,165 @@ template<class Int>
 T& Array<T>::operator()( Int* coords, std::size_t N) {
     return *(_data+std::inner_product(coords,coords+N,_stride,0));
 }
+
+template<class T>
+typename Array<T>::fast_iterator Array<T>::begin_fast() {
+    return fast_iterator(_data);
+}
+
+template<class T>
+typename Array<T>::fast_iterator Array<T>::end_fast() {
+    return fast_iterator(_data + size());
+}
+
+template<class T>
+typename Array<T>::const_fast_iterator Array<T>::begin_fast() const {
+    return const_fast_iterator(_data);
+}
+
+template<class T>
+typename Array<T>::const_fast_iterator Array<T>::end_fast() const {
+    return const_fast_iterator(_data + size());
+}
+
+template<class T>
+template<bool constness>
+Array<T>::base_fast_iterator<constness>::base_fast_iterator( typename Array<T>::base_fast_iterator<constness>::ptr_t ptr ) :
+    _ptr(ptr)
+{}
+
+template<class T>
+template<bool constness>
+template<bool other_constness>
+Array<T>::base_fast_iterator<constness>::base_fast_iterator( const typename Array<T>::base_fast_iterator<other_constness>& other ) :
+    _ptr(other._ptr)
+{}
+template<class T>
+template<bool constness>
+template<bool other_constness>
+Array<T>::base_fast_iterator<constness>::base_fast_iterator( typename Array<T>::base_fast_iterator<other_constness>&& other) :
+    _ptr(other._ptr)
+{}
+
+template<class T>
+template<bool constness>
+template<bool other_constness>
+typename Array<T>::base_fast_iterator<constness>&
+Array<T>::base_fast_iterator<constness>::operator=( const typename Array<T>::base_fast_iterator<other_constness>& other) {
+    _ptr = other._ptr;
+    return *this;
+}
+
+template<class T>
+template<bool constness>
+template<bool other_constness>
+typename Array<T>::base_fast_iterator<constness>&
+Array<T>::base_fast_iterator<constness>::operator=( typename Array<T>::base_fast_iterator<other_constness>&& other) {
+    _ptr = other._ptr;
+    return *this;
+}
+
+template<class T>
+template<bool constness>
+T Array<T>::base_fast_iterator<constness>::operator*() const {
+    return *_ptr;
+}
+    
+template<class T>
+template<bool constness>
+template<bool not_const, std::enable_if_t<not_const,bool>>
+T& Array<T>::base_fast_iterator<constness>::operator*() {
+    return *_ptr;
+}
+    
+template<class T>
+template<bool constness>
+typename Array<T>::base_fast_iterator<constness>& Array<T>::base_fast_iterator<constness>::operator++(){
+    ++_ptr;
+    return *this;
+}
+
+template<class T>
+template<bool constness>
+typename Array<T>::base_fast_iterator<constness> Array<T>::base_fast_iterator<constness>::operator++(int) const {
+    return Array<T>::base_fast_iterator<constness>(_ptr+1);
+}
+
+template<class T>
+template<bool constness>
+typename Array<T>::base_fast_iterator<constness>& Array<T>::base_fast_iterator<constness>::operator--(){
+    --_ptr;
+    return *this;
+}
+
+template<class T>
+template<bool constness>
+typename Array<T>::base_fast_iterator<constness> Array<T>::base_fast_iterator<constness>::operator--(int) const {
+    return Array<T>::base_fast_iterator<constness>(_ptr-1);
+}
+
+template<class T>
+template<bool constness>
+typename Array<T>::base_fast_iterator<constness>& Array<T>::base_fast_iterator<constness>::operator+=( std::ptrdiff_t diff) {
+    _ptr += diff;
+    return *this;
+}
+
+template<class T>
+template<bool constness>
+typename Array<T>::base_fast_iterator<constness>& Array<T>::base_fast_iterator<constness>::operator-=( std::ptrdiff_t diff) {
+    _ptr -= diff;
+    return *this;
+}
+
+} // namespace
+
+template<class U, bool C>
+typename ultra::Array<U>::base_fast_iterator<C> operator+( const typename ultra::Array<U>::base_fast_iterator<C>& it, std::ptrdiff_t diff) {
+    return ultra::Array<U>::base_fast_iterator<C>( it._ptr + diff);
+}
+
+template<class U, bool C>
+typename ultra::Array<U>::base_fast_iterator<C> operator-( const typename ultra::Array<U>::base_fast_iterator<C>& it, std::ptrdiff_t diff) {
+    return ultra::Array<U>::base_fast_iterator<C>( it._ptr - diff);
+}
+
+template<class U, bool constness_l, bool constness_r>
+std::ptrdiff_t operator-( const typename ultra::Array<U>::base_fast_iterator<constness_l>& it_l, const typename ultra::Array<U>::base_fast_iterator<constness_r>& it_r) {
+    return it_l._ptr - it_r._ptr;
+}
+
+template<class T, bool constness_l, bool constness_r>
+bool operator==( const typename ultra::Array<T>::base_fast_iterator<constness_l>& it_l, const typename ultra::Array<T>::base_fast_iterator<constness_r>& it_r) {
+    return it_l._ptr == it_r._ptr;
+}
+
+template<class T, bool constness_l, bool constness_r>
+bool operator!=( const typename ultra::Array<T>::base_fast_iterator<constness_l>& it_l, const typename ultra::Array<T>::base_fast_iterator<constness_r>& it_r) {
+    return it_l._ptr != it_r._ptr;
+}
+
+template<class T, bool constness_l, bool constness_r>
+bool operator<=( const typename ultra::Array<T>::base_fast_iterator<constness_l>& it_l, const typename ultra::Array<T>::base_fast_iterator<constness_r>& it_r) {
+    return it_l._ptr <= it_r._ptr;
+}
+
+template<class T, bool constness_l, bool constness_r>
+bool operator>=( const typename ultra::Array<T>::base_fast_iterator<constness_l>& it_l, const typename ultra::Array<T>::base_fast_iterator<constness_r>& it_r) {
+    return it_l._ptr >= it_r._ptr;
+}
+
+template<class T, bool constness_l, bool constness_r>
+bool operator<( const typename ultra::Array<T>::base_fast_iterator<constness_l>& it_l, const typename ultra::Array<T>::base_fast_iterator<constness_r>& it_r) {
+    return it_l._ptr < it_r._ptr;
+}
+
+template<class T, bool constness_l, bool constness_r>
+bool operator>( const typename ultra::Array<T>::base_fast_iterator<constness_l>& it_l, const typename ultra::Array<T>::base_fast_iterator<constness_r>& it_r) {
+    return it_l._ptr > it_r._ptr;
+}
+
+namespace ultra {
 
 } // namespace
 #endif
