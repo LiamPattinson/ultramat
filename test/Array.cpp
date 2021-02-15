@@ -102,5 +102,37 @@ TEST(ArrayTest,ElementAccess){
     EXPECT_TRUE(fabs(*(f_array.data() + 21) - 42.42) < 1e-5);
     EXPECT_TRUE(fabs(*(f_array.data() + 10*50 + 5*1500) - 3.14159) < 1e-5);
     EXPECT_TRUE(fabs(*(f_array.data() + 5 + 5*50 + 3*1500) - 64.32) < 1e-5);
+
+    // Test again with std::vector-like coordinates
+    EXPECT_TRUE(fabs(array(std::vector{21,0,0}) - 42.42) < 1e-5);
+    EXPECT_TRUE(fabs(array(std::vector{0,10,5}) - 3.14159) < 1e-5);
+    EXPECT_TRUE(fabs(array(std::vector{5,5,3}) - 64.32) < 1e-5);
+    EXPECT_TRUE(fabs(f_array(std::vector{21,0,0}) - 42.42) < 1e-5);
+    EXPECT_TRUE(fabs(f_array(std::vector{0,10,5}) - 3.14159) < 1e-5);
+    EXPECT_TRUE(fabs(f_array(std::vector{5,5,3}) - 64.32) < 1e-5);
+
+    // Test again with C array coordinates
+    int coord_1[3] = {21,0,0};
+    unsigned coord_2[3] = {0,10,5};
+    std::ptrdiff_t coord_3[3] = {5,5,3};
+
+    EXPECT_TRUE(fabs(array(coord_1) - 42.42) < 1e-5);
+    EXPECT_TRUE(fabs(array(coord_2) - 3.14159) < 1e-5);
+    EXPECT_TRUE(fabs(array(coord_3) - 64.32) < 1e-5);
+    EXPECT_TRUE(fabs(f_array(coord_1) - 42.42) < 1e-5);
+    EXPECT_TRUE(fabs(f_array(coord_2) - 3.14159) < 1e-5);
+    EXPECT_TRUE(fabs(f_array(coord_3) - 64.32) < 1e-5);
+
+    // Test again with dynamic C array coordinates (uses std::vector for simplicity)
+    std::vector<int> v_coord_1 = {21,0,0};
+    std::vector<unsigned> v_coord_2 = {0,10,5};
+    std::vector<std::ptrdiff_t> v_coord_3 = {5,5,3};
+
+    EXPECT_TRUE(fabs(array(v_coord_1) - 42.42) < 1e-5);
+    EXPECT_TRUE(fabs(array(v_coord_2) - 3.14159) < 1e-5);
+    EXPECT_TRUE(fabs(array(v_coord_3) - 64.32) < 1e-5);
+    EXPECT_TRUE(fabs(f_array(v_coord_1) - 42.42) < 1e-5);
+    EXPECT_TRUE(fabs(f_array(v_coord_2) - 3.14159) < 1e-5);
+    EXPECT_TRUE(fabs(f_array(v_coord_3) - 64.32) < 1e-5);
 }
 

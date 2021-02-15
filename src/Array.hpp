@@ -7,6 +7,8 @@
 #include <array>
 #include <vector>
 #include <algorithm>
+#include <numeric>
+#include <functional>
 #include <type_traits>
 
 // Array.hpp
@@ -51,7 +53,7 @@ public:
     Array( Int shape, char rc_order=row_major) : Array( std::array<Int,1>{shape}, rc_order ) {}
 
     // Build with c-arrays
-    template<class CArray, std::enable_if_t<std::is_array<CArray>::value,bool> = true>
+    template<class CArray, std::enable_if_t<std::is_array<CArray>::value && std::rank<CArray>::value==1,bool> = true>
     Array( const CArray& shape, char rc_order=row_major) : Array( std::to_array(shape), rc_order) {}
 
     // Build with dynamic c-arrays
@@ -106,43 +108,59 @@ public:
     // Data access
 
     // Access via anything that looks like a std::vector
-    template<class Coords>
+
+    template<class Coords, std::enable_if_t<std::is_class<Coords>::value,bool> = true>
     T operator()( const Coords& coords) const; 
-    template<class Coords>
+
+    template<class Coords, std::enable_if_t<std::is_class<Coords>::value,bool> = true>
     T& operator()( const Coords& coords); 
 
+    // Access via C array
+
+    template<class Coords, std::enable_if_t<std::is_array<Coords>::value && std::rank<Coords>::value==1,bool> = true>
+    T operator()( const Coords& coords) const; 
+
+    template<class Coords, std::enable_if_t<std::is_array<Coords>::value && std::rank<Coords>::value==1,bool> = true>
+    T& operator()( const Coords& coords); 
+
+    // Access via dynamic C array (for the truly perverted)
+
+    template<class Int>
+    T operator()( Int* coords, std::size_t N) const; 
+
+    template<class Int>
+    T& operator()( Int* coords, std::size_t N); 
+
     // Access via many ints.
-    // No checks are performed to ensure the correct version has been called.
-    // Works up to _dims==10. Anything above that should probably be considered a warcrime anyway.
-    // (There's probably a neat way to do this with variadic templates, but I can't figure it out right now)
-    T operator()( std::size_t i0) const;
-    T operator()( std::size_t i0, std::size_t i1) const;
-    T operator()( std::size_t i0, std::size_t i1, std::size_t i2) const;
-    T operator()( std::size_t i0, std::size_t i1, std::size_t i2, std::size_t i3) const;
-    T operator()( std::size_t i0, std::size_t i1, std::size_t i2, std::size_t i3, std::size_t i4) const;
-    T operator()( std::size_t i0, std::size_t i1, std::size_t i2, std::size_t i3, std::size_t i4, std::size_t i5) const;
-    T operator()( std::size_t i0, std::size_t i1, std::size_t i2, std::size_t i3, std::size_t i4, std::size_t i5,
-        std::size_t i6) const;
-    T operator()( std::size_t i0, std::size_t i1, std::size_t i2, std::size_t i3, std::size_t i4, std::size_t i5,
-        std::size_t i6, std::size_t i7) const;
-    T operator()( std::size_t i0, std::size_t i1, std::size_t i2, std::size_t i3, std::size_t i4, std::size_t i5,
-        std::size_t i6, std::size_t i7, std::size_t i8) const;
-    T operator()( std::size_t i0, std::size_t i1, std::size_t i2, std::size_t i3, std::size_t i4, std::size_t i5,
-        std::size_t i6, std::size_t i7, std::size_t i8, std::size_t i9) const;
-    T& operator()( std::size_t i0);
-    T& operator()( std::size_t i0, std::size_t i1);
-    T& operator()( std::size_t i0, std::size_t i1, std::size_t i2);
-    T& operator()( std::size_t i0, std::size_t i1, std::size_t i2, std::size_t i3);
-    T& operator()( std::size_t i0, std::size_t i1, std::size_t i2, std::size_t i3, std::size_t i4);
-    T& operator()( std::size_t i0, std::size_t i1, std::size_t i2, std::size_t i3, std::size_t i4, std::size_t i5);
-    T& operator()( std::size_t i0, std::size_t i1, std::size_t i2, std::size_t i3, std::size_t i4, std::size_t i5,
-        std::size_t i6);
-    T& operator()( std::size_t i0, std::size_t i1, std::size_t i2, std::size_t i3, std::size_t i4, std::size_t i5,
-        std::size_t i6, std::size_t i7);
-    T& operator()( std::size_t i0, std::size_t i1, std::size_t i2, std::size_t i3, std::size_t i4, std::size_t i5,
-        std::size_t i6, std::size_t i7, std::size_t i8);
-    T& operator()( std::size_t i0, std::size_t i1, std::size_t i2, std::size_t i3, std::size_t i4, std::size_t i5,
-        std::size_t i6, std::size_t i7, std::size_t i8, std::size_t i9);
+    // Warning: No checks are performed to ensure the correct version has been called.
+
+private:
+
+    // Base case(s)
+    template<std::size_t N, class Int>
+    std::ptrdiff_t variadic_memjump( Int coord) const {
+        static_assert(std::is_integral<std::remove_reference_t<Int>>::value); 
+        return _stride[N] * coord; 
+    }
+
+    // Recursive step
+    template<std::size_t N, class Int, class... Ints>
+    std::ptrdiff_t variadic_memjump( Int coord, Ints... coords) const {
+        static_assert(std::is_integral<std::remove_reference_t<Int>>::value); 
+        return (_stride[N] * coord) + variadic_memjump<N+1,Ints...>(coords...);
+    }
+
+public:
+
+    template<class... Ints> 
+    T operator()( Ints... coords ) const {
+        return *(_data + variadic_memjump<0,Ints...>(coords...));
+    }
+    
+    template<class... Ints> 
+    T& operator()( Ints... coords ) {
+        return *(_data + variadic_memjump<0,Ints...>(coords...));
+    }
 
     // ===============================================
     // Iteration
@@ -157,8 +175,8 @@ public:
     // 
     // 'fast_iterator' should only be used with Arrays that are (semi-)contiguous. If
     // fully contiguous (i.e. not a view of an existing Array and not sliced), one should
-    // call 'begin_fast()' and 'end_fast()'. These methods are simple aliases for the
-    // begin() and end() methods of _data.
+    // call 'begin_fast()' and 'end_fast()'. The 'fast_iterator' is actually little more
+    // than a pointer to T.
     //
     // If semi-contiguous, the user should instead make use of 'begin_stripe(size_t stripe)'
     // and 'end_stripe(size_t stripe)'. This returns the same type of iterator, but the positions
@@ -169,13 +187,13 @@ public:
     // Arrays, and this may lead to confusing behaviour. Avoid mixing the two wherever possible.
     
     // (Semi-)Contiguous access
-    using fast_iterator = typename std::vector<T>::iterator;
-    using const_fast_iterator = typename std::vector<T>::const_iterator;
+    using fast_iterator = T*;
+    using const_fast_iterator = const T*;
 
-    inline fast_iterator begin_fast() { return _data.begin(); }
-    inline fast_iterator end_fast() { return _data.end(); }
-    inline const_fast_iterator begin_fast() const { return _data.begin(); }
-    inline const_fast_iterator end_fast() const { return _data.end(); }
+    inline fast_iterator begin_fast() { return _data; }
+    inline fast_iterator end_fast() { return _data + size(); }
+    inline const_fast_iterator begin_fast() const { return _data; }
+    inline const_fast_iterator end_fast() const { return _data + size(); }
 
     std::size_t num_stripes() const;
     fast_iterator begin_stripe( std::size_t stripe);
@@ -416,9 +434,7 @@ std::size_t Array<T>::dims() const {
 
 template<class T>
 std::size_t Array<T>::size() const {
-    std::size_t result=1;
-    for( unsigned ii=0; ii<_dims; ++ii) result *= _shape[ii];
-    return result;
+    return std::accumulate( _shape, _shape+_dims, 1, std::multiplies<std::size_t>() );
 }
 
 template<class T>
@@ -437,135 +453,39 @@ T* Array<T>::data() const {
 }
 
 template<class T>
-template<class Coords>
+template<class Coords, std::enable_if_t<std::is_class<Coords>::value,bool>>
 T Array<T>::operator()( const Coords& coords) const {
-    std::size_t memjump=0;
-    for( unsigned ii=0; ii<_dims; ++ii) memjump+= coords[ii]*_stride[ii];
-    return *(_data+memjump);
+    return *(_data+std::inner_product(coords.begin(),coords.end(),_stride,0));
 }
 
 template<class T>
-template<class Coords>
+template<class Coords, std::enable_if_t<std::is_class<Coords>::value,bool>>
 T& Array<T>::operator()( const Coords& coords) {
-    std::size_t memjump=0;
-    for( unsigned ii=0; ii<_dims; ++ii) memjump+= coords[ii]*_stride[ii];
-    return *(_data+memjump);
+    return *(_data+std::inner_product(coords.begin(),coords.end(),_stride,0));
 }
 
 template<class T>
-T Array<T>::operator()( std::size_t i0) const {
-    return *(_data + i0*_stride[0]);
+template<class Coords, std::enable_if_t<std::is_array<Coords>::value && std::rank<Coords>::value==1,bool>>
+T Array<T>::operator()( const Coords& coords) const {
+    return *(_data+std::inner_product(coords,coords+std::extent<Coords>::value,_stride,0));
 }
 
 template<class T>
-T Array<T>::operator()( std::size_t i0, std::size_t i1) const {
-    return *(_data + i0*_stride[0] + i1*_stride[1]);
+template<class Coords, std::enable_if_t<std::is_array<Coords>::value && std::rank<Coords>::value==1,bool>>
+T& Array<T>::operator()( const Coords& coords) {
+    return *(_data+std::inner_product(coords,coords+std::extent<Coords>::value,_stride,0));
 }
 
 template<class T>
-T Array<T>::operator()( std::size_t i0, std::size_t i1, std::size_t i2) const {
-    return *(_data + i0*_stride[0] + i1*_stride[1] + i2*_stride[2]);
+template<class Int>
+T Array<T>::operator()( Int* coords, std::size_t N) const {
+    return *(_data+std::inner_product(coords,coords+N,_stride,0));
 }
 
 template<class T>
-T Array<T>::operator()( std::size_t i0, std::size_t i1, std::size_t i2, std::size_t i3) const {
-    return *(_data + i0*_stride[0] + i1*_stride[1] + i2*_stride[2] + i3*_stride[3]);
-}
-
-template<class T>
-T Array<T>::operator()( std::size_t i0, std::size_t i1, std::size_t i2, std::size_t i3, std::size_t i4) const {
-    return *(_data + i0*_stride[0] + i1*_stride[1] + i2*_stride[2] + i3*_stride[3] + i4*_stride[4]);
-}
-
-template<class T>
-T Array<T>::operator()( std::size_t i0, std::size_t i1, std::size_t i2, std::size_t i3, std::size_t i4, std::size_t i5) const {
-    return *(_data + i0*_stride[0] + i1*_stride[1] + i2*_stride[2] + i3*_stride[3] + i4*_stride[4] + i5*_stride[5]);
-}
-
-template<class T>
-T Array<T>::operator()( std::size_t i0, std::size_t i1, std::size_t i2, std::size_t i3, std::size_t i4, std::size_t i5,
-    std::size_t i6) const {
-    return *(_data + i0*_stride[0] + i1*_stride[1] + i2*_stride[2] + i3*_stride[3] + i4*_stride[4] + i5*_stride[5] +
-        i6*_stride[6]);
-}
-
-template<class T>
-T Array<T>::operator()( std::size_t i0, std::size_t i1, std::size_t i2, std::size_t i3, std::size_t i4, std::size_t i5,
-    std::size_t i6, std::size_t i7) const {
-    return *(_data + i0*_stride[0] + i1*_stride[1] + i2*_stride[2] + i3*_stride[3] + i4*_stride[4] + i5*_stride[5] +
-        i6*_stride[6] + i7*_stride[7]);
-}
-
-template<class T>
-T Array<T>::operator()( std::size_t i0, std::size_t i1, std::size_t i2, std::size_t i3, std::size_t i4, std::size_t i5,
-    std::size_t i6, std::size_t i7, std::size_t i8) const {
-    return *(_data + i0*_stride[0] + i1*_stride[1] + i2*_stride[2] + i3*_stride[3] + i4*_stride[4] + i5*_stride[5] +
-        i6*_stride[6] + i7*_stride[7] + i8*_stride[8]);
-}
-
-template<class T>
-T Array<T>::operator()( std::size_t i0, std::size_t i1, std::size_t i2, std::size_t i3, std::size_t i4, std::size_t i5,
-    std::size_t i6, std::size_t i7, std::size_t i8, std::size_t i9) const {
-    return *(_data + i0*_stride[0] + i1*_stride[1] + i2*_stride[2] + i3*_stride[3] + i4*_stride[4] + i5*_stride[5] +
-        i6*_stride[6] + i7*_stride[7] + i8*_stride[8] + i9*_stride[9]);
-}
-
-template<class T>
-T& Array<T>::operator()( std::size_t i0){
-    return *(_data + i0*_stride[0]);
-}
-
-template<class T>
-T& Array<T>::operator()( std::size_t i0, std::size_t i1){
-    return *(_data + i0*_stride[0] + i1*_stride[1]);
-}
-
-template<class T>
-T& Array<T>::operator()( std::size_t i0, std::size_t i1, std::size_t i2){
-    return *(_data + i0*_stride[0] + i1*_stride[1] + i2*_stride[2]);
-}
-
-template<class T>
-T& Array<T>::operator()( std::size_t i0, std::size_t i1, std::size_t i2, std::size_t i3){
-    return *(_data + i0*_stride[0] + i1*_stride[1] + i2*_stride[2] + i3*_stride[3]);
-}
-
-template<class T>
-T& Array<T>::operator()( std::size_t i0, std::size_t i1, std::size_t i2, std::size_t i3, std::size_t i4){
-    return *(_data + i0*_stride[0] + i1*_stride[1] + i2*_stride[2] + i3*_stride[3] + i4*_stride[4]);
-}
-
-template<class T>
-T& Array<T>::operator()( std::size_t i0, std::size_t i1, std::size_t i2, std::size_t i3, std::size_t i4, std::size_t i5){
-    return *(_data + i0*_stride[0] + i1*_stride[1] + i2*_stride[2] + i3*_stride[3] + i4*_stride[4] + i5*_stride[5]);
-}
-
-template<class T>
-T& Array<T>::operator()( std::size_t i0, std::size_t i1, std::size_t i2, std::size_t i3, std::size_t i4, std::size_t i5,
-    std::size_t i6){
-    return *(_data + i0*_stride[0] + i1*_stride[1] + i2*_stride[2] + i3*_stride[3] + i4*_stride[4] + i5*_stride[5] +
-        i6*_stride[6]);
-}
-
-template<class T>
-T& Array<T>::operator()( std::size_t i0, std::size_t i1, std::size_t i2, std::size_t i3, std::size_t i4, std::size_t i5,
-    std::size_t i6, std::size_t i7){
-    return *(_data + i0*_stride[0] + i1*_stride[1] + i2*_stride[2] + i3*_stride[3] + i4*_stride[4] + i5*_stride[5] +
-        i6*_stride[6] + i7*_stride[7]);
-}
-
-template<class T>
-T& Array<T>::operator()( std::size_t i0, std::size_t i1, std::size_t i2, std::size_t i3, std::size_t i4, std::size_t i5,
-    std::size_t i6, std::size_t i7, std::size_t i8){
-    return *(_data + i0*_stride[0] + i1*_stride[1] + i2*_stride[2] + i3*_stride[3] + i4*_stride[4] + i5*_stride[5] +
-        i6*_stride[6] + i7*_stride[7] + i8*_stride[8]);
-}
-
-template<class T>
-T& Array<T>::operator()( std::size_t i0, std::size_t i1, std::size_t i2, std::size_t i3, std::size_t i4, std::size_t i5,
-    std::size_t i6, std::size_t i7, std::size_t i8, std::size_t i9){
-    return *(_data + i0*_stride[0] + i1*_stride[1] + i2*_stride[2] + i3*_stride[3] + i4*_stride[4] + i5*_stride[5] +
-        i6*_stride[6] + i7*_stride[7] + i8*_stride[8] + i9*_stride[9]);
+template<class Int>
+T& Array<T>::operator()( Int* coords, std::size_t N) {
+    return *(_data+std::inner_product(coords,coords+N,_stride,0));
 }
 
 } // namespace
