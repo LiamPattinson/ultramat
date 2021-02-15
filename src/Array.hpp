@@ -65,7 +65,6 @@ public:
     
     // Additional utils
     void reset();
-    Array copy();
 
     // ===============================================
     // Status handling.
@@ -98,6 +97,10 @@ public:
     std::size_t size() const;
     std::size_t size( std::size_t dim) const;
     std::size_t shape( std::size_t dim) const; // alias for size(std::size_t)
+
+    // return raw pointer, useful for interfacing with C libraries.
+    // Will lead to strange behaviour if called by a non-contiguous Array.
+    T* data() const;
 
     // ===============================================
     // Data access
@@ -426,6 +429,11 @@ std::size_t Array<T>::size( std::size_t dim) const {
 template<class T>
 std::size_t Array<T>::shape( std::size_t dim) const {
     return _shape[dim];
+}
+
+template<class T>
+T* Array<T>::data() const {
+    return _data;
 }
 
 template<class T>

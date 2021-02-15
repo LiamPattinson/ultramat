@@ -73,17 +73,23 @@ TEST(ArrayTest,ElementAccess){
     size_vec shape = {50,30,10};
     Array<float> array(shape);
 
+    // Set a few values
     array(21,0,0) = 42.42;
     array(0,10,5) = 3.14159;
     array(5,5,3) = 64.32;
 
-    // test that direct access does in fact write, and does in fact return what we expect
+    // Test that direct access does in fact write, and does in fact return what we expect
     EXPECT_TRUE(fabs(array(21,0,0) - 42.42) < 1e-5);
     EXPECT_TRUE(fabs(array(0,10,5) - 3.14159) < 1e-5);
     EXPECT_TRUE(fabs(array(5,5,3) - 64.32) < 1e-5);
 
+    // Test that these are at the correct locations in memory
+    EXPECT_TRUE(fabs(*(array.data() + 21*300) - 42.42) < 1e-5);
+    EXPECT_TRUE(fabs(*(array.data() + 5 + 10*10) - 3.14159) < 1e-5);
+    EXPECT_TRUE(fabs(*(array.data() + 3 + 5*10 + 5*300) - 64.32) < 1e-5);
+
     // Repeat for a column major array
-    Array<float> f_array(shape);
+    Array<float> f_array(shape, Array<float>::col_major);
 
     f_array(21,0,0) = 42.42;
     f_array(0,10,5) = 3.14159;
@@ -92,5 +98,9 @@ TEST(ArrayTest,ElementAccess){
     EXPECT_TRUE(fabs(f_array(21,0,0) - 42.42) < 1e-5);
     EXPECT_TRUE(fabs(f_array(0,10,5) - 3.14159) < 1e-5);
     EXPECT_TRUE(fabs(f_array(5,5,3) - 64.32) < 1e-5);
+
+    EXPECT_TRUE(fabs(*(f_array.data() + 21) - 42.42) < 1e-5);
+    EXPECT_TRUE(fabs(*(f_array.data() + 10*50 + 5*1500) - 3.14159) < 1e-5);
+    EXPECT_TRUE(fabs(*(f_array.data() + 5 + 5*50 + 3*1500) - 64.32) < 1e-5);
 }
 
