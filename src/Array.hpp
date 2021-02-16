@@ -243,6 +243,32 @@ bool operator<( const typename ultra::Array<T>::base_fast_iterator<constness_l>&
 template<class T, bool constness_l, bool constness_r>
 bool operator>( const typename ultra::Array<T>::base_fast_iterator<constness_l>& it_l, const typename ultra::Array<T>::base_fast_iterator<constness_r>& it_r);
 
+template<class U, bool C>
+typename ultra::Array<U>::base_iterator<C> operator+( const typename ultra::Array<U>::base_iterator<C>& it_l, std::ptrdiff_t diff);
+
+template<class U, bool C>
+typename ultra::Array<U>::base_iterator<C> operator-( const typename ultra::Array<U>::base_iterator<C>& it_l, std::ptrdiff_t diff);
+
+template<class U, bool constness_l, bool constness_r>
+std::ptrdiff_t operator-( const typename ultra::Array<U>::base_iterator<constness_l>& it_l, const typename ultra::Array<U>::base_iterator<constness_r>& it_r);
+
+template<class T, bool constness_l, bool constness_r>
+bool operator==( const typename ultra::Array<T>::base_iterator<constness_l>& it_l, const typename ultra::Array<T>::base_iterator<constness_r>& it_r);
+
+template<class T, bool constness_l, bool constness_r>
+bool operator!=( const typename ultra::Array<T>::base_iterator<constness_l>& it_l, const typename ultra::Array<T>::base_iterator<constness_r>& it_r);
+
+template<class T, bool constness_l, bool constness_r>
+bool operator<=( const typename ultra::Array<T>::base_iterator<constness_l>& it_l, const typename ultra::Array<T>::base_iterator<constness_r>& it_r);
+
+template<class T, bool constness_l, bool constness_r>
+bool operator>=( const typename ultra::Array<T>::base_iterator<constness_l>& it_l, const typename ultra::Array<T>::base_iterator<constness_r>& it_r);
+
+template<class T, bool constness_l, bool constness_r>
+bool operator<( const typename ultra::Array<T>::base_iterator<constness_l>& it_l, const typename ultra::Array<T>::base_iterator<constness_r>& it_r);
+
+template<class T, bool constness_l, bool constness_r>
+bool operator>( const typename ultra::Array<T>::base_iterator<constness_l>& it_l, const typename ultra::Array<T>::base_iterator<constness_r>& it_r);
 
 // reopen namespace
 namespace ultra {
@@ -329,75 +355,99 @@ public:
     friend bool ::operator>( const typename Array<U>::base_fast_iterator<constness_l>& it_l, const typename Array<U>::base_fast_iterator<constness_r>& it_r);
 };
 
-/*
 template<class T>
 template<bool constness>
 class Array<T>::base_iterator {
 
+public:
+
     using ptr_t = std::conditional_t<constness, const T*, T*>;
+
+private:
 
     ptr_t        _ptr;
     std::size_t  _dims;
     std::size_t* _shape;
-    std::size_t* _stride;
-    std::size_t* _pos;
+    std::ptrdiff_t* _stride;
+    std::ptrdiff_t* _pos;
 
-    public:
+public:
 
     // ===============================================
     // Constructors
  
-    base_iterator( ptr_t ptr, std::size_t dim, std::size_t* shape, std::size_t* stride, std::size_t start_count=0);
+    base_iterator( ptr_t ptr, std::size_t dim, std::size_t* shape, std::ptrdiff_t* stride, bool end, bool col_major);
+
     ~base_iterator();
-    base_iterator( const base_iterator<constness>& other) = default;
-    base_iterator( base_iterator<constness>&& other) = default;
-    base_iterator<constness>& operator=( const base_iterator<constness>& other) = default;
-    base_iterator<constness>& operator=( base_iterator<constness>&& other) = default;
+
+    template<bool other_constness>
+    base_iterator( const base_iterator<other_constness>& other);
+
+    template<bool other_constness>
+    base_iterator( base_iterator<other_constness>&& other);
+
+    template<bool other_constness>
+    base_iterator& operator=( const base_iterator<other_constness>& other);
+
+    template<bool other_constness>
+    base_iterator& operator=( base_iterator<other_constness>&& other);
 
     // ===============================================
     // Standard iterator interface
 
     T operator*() const;
+    
+    template<bool not_const=!constness, std::enable_if_t<not_const,bool> = true>
     T& operator*();
-    base_iterator<constness> operator++();
+    
+    base_iterator<constness>& operator++();
+    base_iterator<constness> operator++(int) const;
 
-    template<bool constness_l, bool constness_r>
-    friend bool ::operator==( const base_iterator<constness_l>& it_l, base_iterator<constness_r>& it_r);
-
-    template<bool constness_l, bool constness_r>
-    friend bool ::operator!=( const base_iterator<constness_l>& it_l, base_iterator<constness_r>& it_r);
+    base_iterator<constness>& operator--();
+    base_iterator<constness> operator--(int) const;
 
     // ===============================================
-    // 'Random access' interface
+    // Arithmetic
 
-    base_iterator<constness>& ::operator+=( std::ptrdiff_t shift);
-    base_iterator<constness>& ::operator-=( std::ptrdiff_t shift);
+    base_iterator<constness>& operator+=( std::ptrdiff_t diff);
+    base_iterator<constness>& operator-=( std::ptrdiff_t diff);
 
-    friend base_iterator<constness> ::operator+( const base_iterator<constness>& it, std::ptrdiff_t shift);
-    friend base_iterator<constness> ::operator-( const base_iterator<constness>& it, std::ptrdiff_t shift);
+    template<class U, bool C>
+    friend typename Array<U>::base_iterator<C> (::operator+)( const typename Array<U>::base_iterator<C>& it, std::ptrdiff_t diff);
 
-    template<bool constness_l, bool constness_r>
-    friend std::ptrdiff_t distance( const base_iterator<constness_l>& it_l, const base_iterator<constness_r>& it_r);
+    template<class U, bool C>
+    friend typename Array<U>::base_iterator<C> (::operator-)( const typename Array<U>::base_iterator<C>& it, std::ptrdiff_t diff);
 
-    template<bool constness_l, bool constness_r>
-    friend std::ptrdiff_t ::operator-( const base_iterator<constness_l>& it_l, const base_iterator<constness_r>& it_r);
+    template<class U, bool constness_l, bool constness_r>
+    friend std::ptrdiff_t ::operator-( const typename Array<U>::base_iterator<constness_l>& it_l, const typename Array<U>::base_iterator<constness_r>& it_r);
 
-    template<bool constness_l, bool constness_r>
-    friend bool ::operator<( const base_iterator<constness_l>& it_l, base_iterator<constness_r>& it_r);
+    // ===============================================
+    // Comparisons
 
-    template<bool constness_l, bool constness_r>
-    friend bool ::operator>( const base_iterator<constness_l>& it_l, base_iterator<constness_r>& it_r);
+    template<class U, bool constness_l, bool constness_r>
+    friend bool ::operator==( const typename Array<U>::base_iterator<constness_l>& it_l, const typename Array<U>::base_iterator<constness_r>& it_r);
 
-    template<bool constness_l, bool constness_r>
-    friend bool ::operator<=( const base_iterator<constness_l>& it_l, base_iterator<constness_r>& it_r);
+    template<class U, bool constness_l, bool constness_r>
+    friend bool ::operator!=( const typename Array<U>::base_iterator<constness_l>& it_l, const typename Array<U>::base_iterator<constness_r>& it_r);
 
-    template<bool constness_l, bool constness_r>
-    friend bool ::operator>=( const base_iterator<constness_l>& it_l, base_iterator<constness_r>& it_r);
+    template<class U, bool constness_l, bool constness_r>
+    friend bool ::operator<=( const typename Array<U>::base_iterator<constness_l>& it_l, const typename Array<U>::base_iterator<constness_r>& it_r);
+
+    template<class U, bool constness_l, bool constness_r>
+    friend bool ::operator>=( const typename Array<U>::base_iterator<constness_l>& it_l, const typename Array<U>::base_iterator<constness_r>& it_r);
+
+    template<class U, bool constness_l, bool constness_r>
+    friend bool ::operator<( const typename Array<U>::base_iterator<constness_l>& it_l, const typename Array<U>::base_iterator<constness_r>& it_r);
+
+    template< class U, bool constness_l, bool constness_r>
+    friend bool ::operator>( const typename Array<U>::base_iterator<constness_l>& it_l, const typename Array<U>::base_iterator<constness_r>& it_r);
 };
-*/
 
 // ===============================================
 // Function definitions follow
+
+// ===============================================
+// Array
 
 template<class T>
 Array<T>::Array() :
@@ -662,6 +712,9 @@ typename Array<T>::const_fast_iterator Array<T>::end_fast() const {
     return const_fast_iterator(_data + size());
 }
 
+// ===============================================
+// fast_iterator
+
 template<class T>
 template<bool constness>
 Array<T>::base_fast_iterator<constness>::base_fast_iterator( typename Array<T>::base_fast_iterator<constness>::ptr_t ptr ) :
@@ -799,7 +852,278 @@ bool operator>( const typename ultra::Array<T>::base_fast_iterator<constness_l>&
     return it_l._ptr > it_r._ptr;
 }
 
+// ===============================================
+// iterator
+
 namespace ultra {
 
+template<class T>
+template<bool constness>
+Array<T>::base_iterator<constness>::base_iterator( typename Array<T>::base_iterator<constness>::ptr_t ptr, std::size_t dims, std::size_t* shape, std::ptrdiff_t* stride, bool end, bool col_major) :
+    _ptr(ptr),
+    _dims(dims),
+    _shape(new std::size_t[dims]),
+    _stride(new std::ptrdiff_t[dims]),
+    _pos(new std::ptrdiff_t[dims])
+{
+    for( std::size_t ii=0; ii<_dims; ++ii) _pos[ii] = 0;
+
+    // if col major, we need to reverse shape and stride so that it looks row major.
+    if( col_major ){
+        std::reverse_copy(shape,shape+dims,_shape);
+        std::reverse_copy(stride,stride+dims,_stride);
+    } else {
+        std::copy(shape,shape+dims,_shape);
+        std::copy(stride,stride+dims,_stride);
+    }
+
+    // If this is an 'end' iterator, pos should be zero in all dimensions except the slowest incrementing.
+    // Since this will look like row major (first dimension is slowest), this means pos[0];
+    if(end) _pos[0] = _shape[0]+1;
+}
+
+template<class T>
+template<bool constness>
+Array<T>::base_iterator<constness>::~base_iterator() {
+    if( _ptr != nullptr ){
+        delete[] _shape;
+        delete[] _stride;
+        delete[] _pos;
+    }
+}
+
+template<class T>
+template<bool constness>
+template<bool other_constness>
+Array<T>::base_iterator<constness>::base_iterator( const typename Array<T>::base_iterator<other_constness>& other ) :
+    _ptr(other._ptr),
+    _dims(other._dims),
+    _shape(new std::size_t[other._dims]),
+    _stride(new std::ptrdiff_t[other._dims]),
+    _pos(new std::ptrdiff_t[other._dims])
+{
+    std::copy( other._shape, other._shape+_dims, _shape);
+    std::copy( other._stride, other._stride+_dims, _stride);
+    std::copy( other._pos, other._pos+_dims, _pos);
+}
+template<class T>
+template<bool constness>
+template<bool other_constness>
+Array<T>::base_iterator<constness>::base_iterator( typename Array<T>::base_iterator<other_constness>&& other) :
+    _ptr(other._ptr),
+    _dims(other._dims),
+    _shape(other._shape),
+    _stride(other._stride),
+    _pos(other._pos)
+{
+    // invalidate other so it won't delete[] shape/stride/pos.
+    other._ptr = nullptr;
+}
+
+template<class T>
+template<bool constness>
+template<bool other_constness>
+typename Array<T>::base_iterator<constness>&
+Array<T>::base_iterator<constness>::operator=( const typename Array<T>::base_iterator<other_constness>& other) {
+    // if other has different dims, need to reallocate internals
+    if( _dims != other._dims ){
+        _dims = other._dims;
+        if( _ptr != nullptr ){
+            delete[] _shape;
+            delete[] _stride;
+            delete[] _pos;
+        }
+        _shape = new std::size_t[_dims];
+        _stride = new std::ptrdiff_t[_dims];
+        _pos = new std::ptrdiff_t[_dims];
+    }
+    _ptr = other._ptr;
+    std::copy( other._shape, other._shape+_dims, _shape);
+    std::copy( other._stride, other._stride+_dims, _stride);
+    std::copy( other._pos, other._pos+_dims, _pos);
+    return *this;
+}
+
+template<class T>
+template<bool constness>
+template<bool other_constness>
+typename Array<T>::base_iterator<constness>&
+Array<T>::base_iterator<constness>::operator=( typename Array<T>::base_iterator<other_constness>&& other) {
+    _ptr = other._ptr;
+    _dims = other._dims;
+    _shape = other._shape;
+    _stride = other._stride;
+    _pos = other._pos;
+    // invalidate other so it won't delete[] shape/stride/pos.
+    other._ptr = nullptr;
+    return *this;
+}
+
+template<class T>
+template<bool constness>
+T Array<T>::base_iterator<constness>::operator*() const {
+    return *_ptr;
+}
+    
+template<class T>
+template<bool constness>
+template<bool not_const, std::enable_if_t<not_const,bool>>
+T& Array<T>::base_iterator<constness>::operator*() {
+    return *_ptr;
+}
+    
+template<class T>
+template<bool constness>
+typename Array<T>::base_iterator<constness>& Array<T>::base_iterator<constness>::operator++(){
+    std::size_t idx = _dims-1;
+    _ptr += _stride[idx];
+    ++_pos[idx];
+    while( _pos[idx] == _shape[idx] && idx != 0 ){
+        // Go back to start of current dimension
+        _ptr -= _stride[idx] * _shape[idx];
+        _pos[idx]=0;
+        // Increment one in next dimension
+        _ptr += _stride[idx-1];
+        ++_pos[idx-1];
+        // Repeat for remaining dimensions
+        --idx;
+    }
+    return *this;
+}
+
+template<class T>
+template<bool constness>
+typename Array<T>::base_iterator<constness> Array<T>::base_iterator<constness>::operator++(int) const {
+    return ++Array<T>::base_iterator<constness>(*this);
+}
+
+template<class T>
+template<bool constness>
+typename Array<T>::base_iterator<constness>& Array<T>::base_iterator<constness>::operator--(){
+    std::size_t idx = _dims-1;
+    _ptr -= _stride[idx];
+    --_pos[idx];
+    while( _pos[idx] == -1 && idx != 0 ){
+        // Go to end of current dimension
+        _ptr += _stride[idx] * _shape[idx];
+        _pos[idx]=_shape[idx]-1;
+        // Decrement one in next dimension
+        _ptr -= _stride[idx-1];
+        --_pos[idx-1];
+        // Repeat for remaining dimensions
+        --idx;
+    }
+    return *this;
+}
+
+template<class T>
+template<bool constness>
+typename Array<T>::base_iterator<constness> Array<T>::base_iterator<constness>::operator--(int) const {
+    return --Array<T>::base_iterator<constness>(*this);
+}
+
+template<class T>
+template<bool constness>
+typename Array<T>::base_iterator<constness>& Array<T>::base_iterator<constness>::operator+=( std::ptrdiff_t diff) {
+    // If diff is less than 0, call the in-place subtract method instead
+    if( diff < 0){
+        return (*this -= (-diff));
+    } else {
+        std::size_t idx = _dims-1;
+        do{
+            // Go back to start of current dimension, add the difference onto diff
+            _ptr -= _pos[idx] * _stride[idx];
+            diff += _pos[idx];
+            // Go forward diff % shape, then divide diff by shape
+            _ptr += (diff % _shape[idx]) * _stride[idx] ;
+            _pos[idx] += (diff % _shape[idx]);
+            diff /= _shape[idx];
+            // Repeat for remaining dimensions until diff == 0 or idx=0
+            --idx;
+        } while( diff != 0 && idx != 0 );
+        return *this;
+    }
+}
+
+template<class T>
+template<bool constness>
+typename Array<T>::base_iterator<constness>& Array<T>::base_iterator<constness>::operator-=( std::ptrdiff_t diff) {
+    // If diff is less than 0, call the in-place add method instead
+    if( diff < 0){
+        return (*this += (-diff));
+    } else {
+        std::size_t idx = _dims-1;
+        do {
+            // Go to end of current dimension, add the difference onto diff
+            _ptr -= (_shape[idx]-_pos[idx]) * _stride[idx];
+            diff += (_shape[idx]-_pos[idx]);
+            // Go back diff % shape, then divide diff by shape
+            _ptr -= (diff % _shape[idx]) * _stride[idx] ;
+            _pos[idx] -= (diff % _shape[idx]);
+            diff /= _shape[idx];
+            // Repeat for remaining dimensions until diff == 0 or idx ==0
+            --idx;
+        } while( diff != 0 && idx != 0 );
+        return *this;
+    }
+}
+
 } // namespace
+
+template<class U, bool C>
+typename ultra::Array<U>::base_iterator<C> operator+( const typename ultra::Array<U>::base_iterator<C>& it, std::ptrdiff_t diff) {
+    typename ultra::Array<U>::base_iterator<C> result(it);
+    result += diff;
+    return result;
+}
+
+template<class U, bool C>
+typename ultra::Array<U>::base_iterator<C> operator-( const typename ultra::Array<U>::base_iterator<C>& it, std::ptrdiff_t diff) {
+    typename ultra::Array<U>::base_iterator<C> result(it);
+    result -= diff;
+    return result;
+}
+
+template<class U, bool constness_l, bool constness_r>
+std::ptrdiff_t operator-( const typename ultra::Array<U>::base_iterator<constness_l>& it_l, const typename ultra::Array<U>::base_iterator<constness_r>& it_r) {
+    // Assumes both pointers are looking at the same thing. If not, the results are undefined.
+    std::ptrdiff_t distance = 0;
+    std::size_t shape_cum_prod = 1;
+    for( std::size_t ii = it_l._dims; ii != 0; ++ii){
+        distance += shape_cum_prod*(it_l._pos[ii-1] - it_r._pos[ii-1]);
+        shape_cum_prod *= it_l._shape[ii-1];
+    }
+    return distance;
+}
+
+template<class T, bool constness_l, bool constness_r>
+bool operator==( const typename ultra::Array<T>::base_iterator<constness_l>& it_l, const typename ultra::Array<T>::base_iterator<constness_r>& it_r) {
+    return it_l._ptr == it_r._ptr;
+}
+
+template<class T, bool constness_l, bool constness_r>
+bool operator!=( const typename ultra::Array<T>::base_iterator<constness_l>& it_l, const typename ultra::Array<T>::base_iterator<constness_r>& it_r) {
+    return it_l._ptr != it_r._ptr;
+}
+
+template<class T, bool constness_l, bool constness_r>
+bool operator<=( const typename ultra::Array<T>::base_iterator<constness_l>& it_l, const typename ultra::Array<T>::base_iterator<constness_r>& it_r) {
+    return (it_l - it_r) <= 0;
+}
+
+template<class T, bool constness_l, bool constness_r>
+bool operator>=( const typename ultra::Array<T>::base_iterator<constness_l>& it_l, const typename ultra::Array<T>::base_iterator<constness_r>& it_r) {
+    return (it_l - it_r) >= 0;
+}
+
+template<class T, bool constness_l, bool constness_r>
+bool operator<( const typename ultra::Array<T>::base_iterator<constness_l>& it_l, const typename ultra::Array<T>::base_iterator<constness_r>& it_r) {
+    return (it_l - it_r) < 0;
+}
+
+template<class T, bool constness_l, bool constness_r>
+bool operator>( const typename ultra::Array<T>::base_iterator<constness_l>& it_l, const typename ultra::Array<T>::base_iterator<constness_r>& it_r) {
+    return (it_l - it_r._ptr) > 0;
+}
+
 #endif
