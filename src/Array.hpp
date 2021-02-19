@@ -40,7 +40,12 @@ public:
     ~Array();
 
     // Copy and move
-    Array( const Array& other);
+    
+    Array( const Array<T>& other);
+
+    template<class U>
+    Array( const Array<U>& other);
+
     Array( Array&& other);
 
     // Build with given size
@@ -63,9 +68,14 @@ public:
     Array( Int* int_ptr, std::size_t N, char rc_order=row_major);
 
     // Assignment and move assignment
-    Array& operator=( const Array& other);
-    Array& operator=( Array&& other);
     
+    Array& operator=( const Array<T>& other);
+    
+    template<class U>
+    Array& operator=( const Array<U>& other);
+
+    Array& operator=( Array&& other);
+
     // Additional utils
     void reset();
 
@@ -494,6 +504,45 @@ Array<T>::Array( const Array<T>& other) :
 }
 
 template<class T>
+template<class U>
+Array<T>::Array( const Array<U>& other) :
+    _status(other._status),
+    _dims(other._dims),
+    _size(other._size)
+{
+    if( other.is_initialised() ){
+        if( other.owns_data() ){
+            _data = new T[_size];
+            std::copy( other._data, other._data+_size, _data);
+        } else {
+            throw std::invalid_argument("UltraArray: Cannot copy Array<T1> to Array<T2> if Array<T1> does not own its own data.");
+        }
+        _shape  = new std::size_t[_dims];
+        _stride = new std::ptrdiff_t[_dims];
+        std::copy( other._shape, other._shape+_dims, _shape);
+        std::copy( other._stride, other._stride+_dims, _stride);
+    } else {
+        _shape = nullptr;
+        _stride = nullptr;
+        _data = nullptr;
+    }
+}
+
+template<class T>
+Array<T>::Array( Array<T>&& other ):
+    _status(other._status),
+    _dims(other._dims),
+    _size(other._size),
+    _shape(other._shape),
+    _stride(other._stride),
+    _data(other._data)
+{
+    // Set status of other to uninitialised.
+    // The new object now handles the lifetimes of _data, _shape, and _stride.
+    other.set_status(uninitialised);
+}
+
+template<class T>
 template<class Int, std::enable_if_t<std::is_integral<Int>::value,bool>>
 Array<T>::Array( Int shape, char rc_order) : 
     Array( std::array<Int,1>{shape}, rc_order )
@@ -513,21 +562,6 @@ Array<T>::Array( Int* int_ptr, std::size_t N, char rc_order) :
     Array( std::vector<Int>(int_ptr,int_ptr+N), rc_order)
 {
     static_assert(std::is_integral<Int>::value,"UltraArray: Dynamic array constructor must take pointer to integral type.");
-}
-
-
-template<class T>
-Array<T>::Array( Array<T>&& other ):
-    _status(other._status),
-    _dims(other._dims),
-    _size(other._size),
-    _shape(other._shape),
-    _stride(other._stride),
-    _data(other._data)
-{
-    // Set status of other to uninitialised.
-    // The new object now handles the lifetimes of _data, _shape, and _stride.
-    other.set_status(uninitialised);
 }
 
 template<class T>
@@ -580,10 +614,24 @@ template<class T>
 Array<T>& Array<T>::operator=( const Array<T>& other){
     if( other.is_initialised() ){
         if( is_initialised() ){
-            // If we own data and either: A) sizes do not match, or B) other does not own data, delete data.
-            if( owns_data() && (_size != other._size || !other.owns_data()) ){
-                delete[] _data;
-                if( other.owns_data() ) _data = new T[other._size];
+            // Determine if we need to destroy and/or (re)build _data
+            if( owns_data() ){
+                if( other.owns_data()){
+                    if( _size != other._size){
+                        delete[] _data;
+                        _data = new T[other._size];
+                    } else {
+                        // Do nothing! Can simply copy data across
+                    }
+                } else {
+                    delete[] _data;
+                }
+            } else {
+                if( other.owns_data()){
+                    _data = new T[other._size];
+                } else {
+                    // Do nothing! Can copy data pointer across
+                }
             }
             // If this and other have different dims, rebuild shape and stride.
             if( _dims != other._dims){
@@ -608,6 +656,45 @@ Array<T>& Array<T>::operator=( const Array<T>& other){
         } else {
             _data = other._data;
         }
+        // Copy status
+        set_status( other._status );
+    } else {
+        // delete everything, return to uninitialised state
+        reset();
+    }
+    return *this;
+}
+
+template<class T>
+template<class U>
+Array<T>& Array<T>::operator=( const Array<U>& other){
+    // Very similar to the standard copy assignment, but disallows copy of an array which does not own its own data
+    if( other.is_initialised() ){
+        if( !other.owns_data() ){
+            throw std::invalid_argument("UltraArray: Cannot copy Array<T1> to Array<T2> if Array<T1> does not own its own data.");
+        }
+        if( is_initialised() ){
+            if( owns_data() ){
+                if( _size != other._size){
+                    delete[] _data;
+                    _data = new T[other._size];
+                } else {
+                    // Do nothing! Can simply copy data across
+                }
+            } else {
+                _data = new T[other._size];
+            }
+        } else {
+            _shape = new std::size_t[other._dims];
+            _stride = new std::ptrdiff_t[other._dims];
+            if( other.owns_data() ) _data = new T[other._size];
+        }
+        _dims = other._dims;
+        _size = other._size;
+        // Copy over shape, stride, and data
+        std::copy( other._shape, other._shape+_dims, _shape);
+        std::copy( other._stride, other._stride+_dims, _stride);
+        std::copy( other._data, other._data+size(), _data);
         // Copy status
         set_status( other._status );
     } else {
