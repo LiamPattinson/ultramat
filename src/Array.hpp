@@ -23,11 +23,12 @@ namespace ultra {
 template<class T>
 class Array {
 
-    char         _status;
-    std::size_t  _dims;
-    std::size_t* _shape;
-    std::size_t* _stride;
-    T*           _data;
+    char            _status;
+    std::size_t     _dims;
+    std::size_t     _size;
+    std::size_t*    _shape;
+    std::ptrdiff_t* _stride;
+    T*              _data;
     
 public:
 
@@ -62,8 +63,8 @@ public:
     Array( Int* int_ptr, std::size_t N, char rc_order=row_major);
 
     // Assignment and move assignment
-    // TODO Array& operator=( const Array& other);
-    // TODO Array& operator=( Array&& other);
+    Array& operator=( const Array& other);
+    Array& operator=( Array&& other);
     
     // Additional utils
     void reset();
@@ -453,6 +454,7 @@ template<class T>
 Array<T>::Array() :
     _status(uninitialised),
     _dims(0),
+    _size(0),
     _shape(nullptr),
     _stride(nullptr),
     _data(nullptr)
@@ -466,11 +468,12 @@ Array<T>::~Array() {
 template<class T>
 Array<T>::Array( const Array<T>& other) :
     _status(other._status),
-    _dims(other._dims)
+    _dims(other._dims),
+    _size(other._size)
 {
     if( other.is_initialised() ){
         _shape  = new std::size_t[_dims];
-        _stride = new std::size_t[_dims];
+        _stride = new std::ptrdiff_t[_dims];
         std::copy( other._shape, other._shape+_dims, _shape);
         std::copy( other._stride, other._stride+_dims, _stride);
         // If 'other' owns its own data, perform a full copy.
@@ -478,9 +481,8 @@ Array<T>::Array( const Array<T>& other) :
         // Otherwise, simply copy over the data pointer: a copy of a view is also a view.
         // Use the explicit 'copy' function to get a new contiguous array from a view.
         if( other.owns_data() ){
-            std::size_t n_elements = size();
-            _data = new T[n_elements];
-            std::copy( other._data, other._data+n_elements, _data);
+            _data = new T[_size];
+            std::copy( other._data, other._data+_size, _data);
         } else {
             _data = other._data;
         }
@@ -518,6 +520,7 @@ template<class T>
 Array<T>::Array( Array<T>&& other ):
     _status(other._status),
     _dims(other._dims),
+    _size(other._size),
     _shape(other._shape),
     _stride(other._stride),
     _data(other._data)
@@ -543,6 +546,7 @@ Array<T>::Array( const V& shape, char rc_order) :
     // if _dims==1, set both c- and f-contiguous
     switch(_dims){
         case 0:
+            _size=0;
             _shape=nullptr;
             _stride=nullptr;
             _data=nullptr;
@@ -553,9 +557,10 @@ Array<T>::Array( const V& shape, char rc_order) :
             [[fallthrough]];
         default:
             _shape = new std::size_t[_dims];
-            _stride = new std::size_t[_dims];
+            _stride = new std::ptrdiff_t[_dims];
             std::copy( shape.begin(), shape.end(), _shape);
-            _data = new T[size()];
+            _size = std::accumulate( _shape, _shape+_dims, 1, std::multiplies<std::size_t>() );
+            _data = new T[_size];
             // Determine strides
             if( is_row_major() ){
                 _stride[_dims-1] = 1;
@@ -571,36 +576,73 @@ Array<T>::Array( const V& shape, char rc_order) :
     }
 }
 
-    /* TODO
 template<class T>
 Array<T>& Array<T>::operator=( const Array<T>& other){
     if( other.is_initialised() ){
-        // If 'other' owns its own data, perform a full copy.
-        // Otherwise, copy only _data pointer and other details.
-        if( other.owns_data() ){
-            // check if this and other have the same shape. If so, copy elements.
-            // Otherwise, rebuild everything
-            // TODO
+        if( is_initialised() ){
+            // If we own data and either: A) sizes do not match, or B) other does not own data, delete data.
+            if( owns_data() && (_size != other._size || !other.owns_data()) ){
+                delete[] _data;
+                if( other.owns_data() ) _data = new T[other._size];
+            }
+            // If this and other have different dims, rebuild shape and stride.
+            if( _dims != other._dims){
+                delete[] _shape;
+                delete[] _stride;
+                _shape = new std::size_t[other._dims];
+                _stride = new std::ptrdiff_t[other._dims];
+            }
         } else {
-            // TODO
+            _shape = new std::size_t[other._dims];
+            _stride = new std::ptrdiff_t[other._dims];
+            if( other.owns_data() ) _data = new T[other._size];
         }
+        _dims = other._dims;
+        _size = other._size;
+        // Copy over shape and stride
+        std::copy( other._shape, other._shape+_dims, _shape);
+        std::copy( other._stride, other._stride+_dims, _stride);
+        // Copy data
+        if( other.owns_data()){
+            std::copy( other._data, other._data+size(), _data);
+        } else {
+            _data = other._data;
+        }
+        // Copy status
+        set_status( other._status );
     } else {
         // delete everything, return to uninitialised state
-        // TODO
+        reset();
     }
 }
-*/
+
+template<class T>
+Array<T>& Array<T>::operator=( Array<T>&& other){
+    // Delete anything currently held, take control of other.
+    reset();
+    _status = other._status;
+    _dims = other._dims;
+    _shape = other._shape;
+    _stride = other._stride;
+    _data = other._data;
+    other.set_status(uninitialised);
+}
+
+
 template<class T>
 void Array<T>::reset(){
     if( is_initialised() ){
         delete[] _shape;
         delete[] _stride;
-    }
-    if( owns_data() ){
-        delete[] _data;
+        if( owns_data() ){
+            delete[] _data;
+        }
     }
     _status = uninitialised;
     _dims=0;
+    _shape=nullptr;
+    _stride=nullptr;
+    _data=nullptr;
 }
 
 template<class T>
@@ -610,7 +652,7 @@ std::size_t Array<T>::dims() const {
 
 template<class T>
 std::size_t Array<T>::size() const {
-    return std::accumulate( _shape, _shape+_dims, 1, std::multiplies<std::size_t>() );
+    return _size;
 }
 
 template<class T>
