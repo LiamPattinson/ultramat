@@ -614,6 +614,7 @@ Array<T>& Array<T>::operator=( const Array<T>& other){
         // delete everything, return to uninitialised state
         reset();
     }
+    return *this;
 }
 
 template<class T>
@@ -622,10 +623,12 @@ Array<T>& Array<T>::operator=( Array<T>&& other){
     reset();
     _status = other._status;
     _dims = other._dims;
+    _size = other._size;
     _shape = other._shape;
     _stride = other._stride;
     _data = other._data;
     other.set_status(uninitialised);
+    return *this;
 }
 
 

@@ -66,6 +66,66 @@ TEST(ArrayTest,Constructors){
     EXPECT_TRUE(array_5.dims() == 3);  
     EXPECT_TRUE(array_5.size() == 12*15*90);
     for(unsigned ii=0; ii<3; ++ii) EXPECT_TRUE(array_5.size(ii) == shape_3[ii]);
+
+    // Test copy assignment to uninitialised
+    Array<double> array_6;
+    array_6 = array_5;
+
+    EXPECT_TRUE( array_5.is_initialised() && array_5.owns_data() && array_5.is_contiguous() && array_5.is_semicontiguous());
+    EXPECT_TRUE( !array_5.is_row_major() && array_5.is_col_major());
+    EXPECT_TRUE(array_5.dims() == 3);  
+    EXPECT_TRUE(array_5.size() == 12*15*90);
+    for(unsigned ii=0; ii<3; ++ii) EXPECT_TRUE(array_5.size(ii) == shape_3[ii]);
+    
+    EXPECT_TRUE( array_6.is_initialised() && array_6.owns_data() && array_6.is_contiguous() && array_6.is_semicontiguous());
+    EXPECT_TRUE( !array_6.is_row_major() && array_6.is_col_major());
+    EXPECT_TRUE(array_6.dims() == 3);  
+    EXPECT_TRUE(array_6.size() == 12*15*90);
+    for(unsigned ii=0; ii<3; ++ii) EXPECT_TRUE(array_6.size(ii) == shape_3[ii]);
+
+    // Test copy assignment to initialised
+ 
+    Array<float> array_7(shape_2); // Same size and shape
+    Array<float> array_8(5); // Different size and shape
+    array_7 = array_4;
+    array_8 = array_4;
+
+    EXPECT_TRUE( array_4.is_initialised() && array_4.owns_data() && array_4.is_contiguous() && array_4.is_semicontiguous());
+    EXPECT_TRUE( array_4.is_row_major() && !array_4.is_col_major());
+    EXPECT_TRUE(array_4.dims() == 2);  
+    EXPECT_TRUE(array_4.size() == 50*30);
+    for(unsigned ii=0; ii<2; ++ii) EXPECT_TRUE(array_4.size(ii) == shape_2[ii]);
+
+    EXPECT_TRUE( array_7.is_initialised() && array_7.owns_data() && array_7.is_contiguous() && array_7.is_semicontiguous());
+    EXPECT_TRUE( array_7.is_row_major() && !array_7.is_col_major());
+    EXPECT_TRUE(array_7.dims() == 2);  
+    EXPECT_TRUE(array_7.size() == 50*30);
+    for(unsigned ii=0; ii<2; ++ii) EXPECT_TRUE(array_7.size(ii) == shape_2[ii]);
+
+    EXPECT_TRUE( array_8.is_initialised() && array_8.owns_data() && array_8.is_contiguous() && array_8.is_semicontiguous());
+    EXPECT_TRUE( array_8.is_row_major() && !array_8.is_col_major());
+    EXPECT_TRUE(array_8.dims() == 2);  
+    EXPECT_TRUE(array_8.size() == 50*30);
+    for(unsigned ii=0; ii<2; ++ii) EXPECT_TRUE(array_8.size(ii) == shape_2[ii]);
+
+    // Test copy assignment from uninitialised
+    
+    array_6 = array_3;
+    EXPECT_FALSE( array_3.is_initialised() || array_3.owns_data());
+    EXPECT_FALSE( array_6.is_initialised() || array_6.owns_data());
+
+    // Test move assignment
+
+    Array<double> array_9;
+    array_9 = std::move(array_5);
+
+    EXPECT_FALSE( array_5.is_initialised() || array_5.owns_data());
+
+    EXPECT_TRUE( array_9.is_initialised() && array_9.owns_data() && array_9.is_contiguous() && array_9.is_semicontiguous());
+    EXPECT_TRUE( !array_9.is_row_major() && array_9.is_col_major());
+    EXPECT_TRUE(array_9.dims() == 3);  
+    EXPECT_TRUE(array_9.size() == 12*15*90);
+    for(unsigned ii=0; ii<3; ++ii) EXPECT_TRUE(array_9.size(ii) == shape_3[ii]);
 }
 
 
