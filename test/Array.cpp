@@ -2,15 +2,15 @@
 #include <gtest/gtest.h>
 
 using namespace ultra;
-using size_vec = std::vector<std::size_t>;
+using shape_vec = std::vector<std::size_t>;
 
 TEST(ArrayTest,Constructors){
     std::size_t shape_1 = 25;
     std::size_t shape_2[2] = {50,30};
-    size_vec shape_3 = {12,15,90};
+    shape_vec shape_3 = {12,15,90};
 
     // Note: All of these array building methods result in a simple call to the same generic method.
-    //  `    There is no need to test passing a size_vec directly, as the same method is called implicity by the pointer method.
+    //  `    There is no need to test passing a shape_vec directly, as the same method is called implicity by the pointer method.
     Array<int>    array_1(shape_1); // test single int 1D array build
     Array<float>  array_2(shape_2); // test c-array build
     Array<double> array_3(shape_3.data(), 3, Array<double>::col_major); // test dynamic c_array build
@@ -130,7 +130,7 @@ TEST(ArrayTest,Constructors){
 
 
 TEST(ArrayTest,ElementAccess){
-    size_vec shape = {50,30,10};
+    shape_vec shape = {50,30,10};
     Array<float> array(shape);
 
     // Set a few values
@@ -196,3 +196,42 @@ TEST(ArrayTest,ElementAccess){
     EXPECT_TRUE(fabs(f_array(v_coord_3) - 64.32) < 1e-5);
 }
 
+TEST(ArrayTest,FastIteration){
+    shape_vec shape = {10,5,20};
+    Array<int> row_array(shape, Array<int>::row_major);
+    Array<int> col_array(shape, Array<int>::col_major);
+
+    bool row_major_correct = true;
+    {
+        int count=0;
+        for( auto it = row_array.begin_fast(); it != row_array.end_fast(); ++it) *it = count++;
+
+        for( int ii=0; ii<10; ++ii){
+            for( int jj=0; jj<5; ++jj){
+                for( int kk=0; kk<20; ++kk){
+                    if( row_array(ii,jj,kk) != (20*5)*ii + 20*jj + kk){
+                       row_major_correct = false;
+                    }
+                }
+            }
+        }
+    }
+    EXPECT_TRUE(row_major_correct);
+
+    bool col_major_correct = true;
+    {
+        int count=0;
+        for( auto it = col_array.begin_fast(); it != col_array.end_fast(); ++it) *it = count++;
+
+        for( int kk=0; kk<20; ++kk){
+            for( int jj=0; jj<5; ++jj){
+                for( int ii=0; ii<10; ++ii){
+                    if( col_array(ii,jj,kk) != (10*5)*kk + 10*jj + ii){
+                       col_major_correct = false;
+                    }
+                }
+            }
+        }
+    }
+    EXPECT_TRUE(col_major_correct);
+}
