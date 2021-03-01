@@ -23,13 +23,26 @@ namespace ultra {
 template<class T>
 class Array {
 
+protected:
+
     char            _status;
     std::size_t     _dims;
     std::size_t     _size;
     std::size_t*    _shape;
     std::ptrdiff_t* _stride;
     T*              _data;
+
+    // ===============================================
+    // Memory helpers
+
+    template<std::size_t N, class Int, class... Ints>
+    std::ptrdiff_t variadic_memjump( Int coord, Ints... coords) const;
+
+    template<std::size_t N, class Int>
+    std::ptrdiff_t variadic_memjump( Int coord) const;
     
+    std::ptrdiff_t jump_to_stripe( std::size_t stripe, bool jump_to_end) const;
+
 public:
 
     // ===============================================
@@ -86,29 +99,6 @@ public:
     //Array<T> operator()( const slice& );
     //Array<T> broadcast()( ...something... );
 
-    // ===============================================
-    // Status handling.
-
-    static constexpr char uninitialised   = 0x00;
-    static constexpr char uninitialized   = 0x00;
-    static constexpr char initialised     = 0x01;
-    static constexpr char initialized     = 0x01;
-    static constexpr char own_data        = 0x02;
-    static constexpr char contiguous      = 0x04;
-    static constexpr char semicontiguous  = 0x08;
-    static constexpr char row_major       = 0x10;
-    static constexpr char col_major       = 0x20;
-
-    inline bool is_initialised() const { return _status & initialised;}
-    inline bool is_initialized() const { return _status & initialised;}
-    inline bool owns_data() const { return _status & own_data;}
-    inline bool is_contiguous() const { return _status & contiguous;}
-    inline bool is_semicontiguous() const { return _status & semicontiguous;}
-    inline bool is_row_major() const { return _status & row_major;}
-    inline bool is_col_major() const { return _status & col_major;}
-
-    inline char get_status() const { return _status;}
-    inline void set_status( char status){ _status = status;}
 
     // ===============================================
     // Attributes
@@ -123,18 +113,34 @@ public:
     T* data() const;
 
     // ===============================================
+    // Status handling.
+
+    static constexpr char uninitialised   = 0x00;
+    static constexpr char uninitialized   = 0x00;
+    static constexpr char initialised     = 0x01;
+    static constexpr char initialized     = 0x01;
+    static constexpr char own_data        = 0x02;
+    static constexpr char contiguous      = 0x04;
+    static constexpr char semicontiguous  = 0x08;
+    static constexpr char row_major       = 0x10;
+    static constexpr char col_major       = 0x20;
+
+    inline char get_status() const { return _status;}
+    inline void set_status( char status){ _status = status;}
+
+    inline bool is_initialised() const { return _status & initialised;}
+    inline bool is_initialized() const { return _status & initialised;}
+    inline bool owns_data() const { return _status & own_data;}
+    inline bool is_contiguous() const { return _status & contiguous;}
+    inline bool is_semicontiguous() const { return _status & semicontiguous;}
+    inline bool is_row_major() const { return _status & row_major;}
+    inline bool is_col_major() const { return _status & col_major;}
+
+    // ===============================================
     // Data access
 
     // Access via many ints.
     // Warning: No checks are performed to ensure the correct version has been called.
-
-private:
-    template<std::size_t N, class Int, class... Ints>
-    std::ptrdiff_t variadic_memjump( Int coord, Ints... coords) const;
-
-    template<std::size_t N, class Int>
-    std::ptrdiff_t variadic_memjump( Int coord) const;
-public:
 
     template<class... Ints> 
     T operator()( Ints... coords ) const;
@@ -203,6 +209,7 @@ public:
     const_fast_iterator end_fast() const;
 
     std::size_t num_stripes() const;
+
     fast_iterator begin_stripe( std::size_t stripe);
     fast_iterator end_stripe( std::size_t stripe);
     const_fast_iterator begin_stripe( std::size_t stripe) const;
@@ -842,6 +849,74 @@ typename Array<T>::const_fast_iterator Array<T>::begin_fast() const {
 template<class T>
 typename Array<T>::const_fast_iterator Array<T>::end_fast() const {
     return const_fast_iterator(_data + size());
+}
+
+template<class T>
+std::size_t Array<T>::num_stripes() const {
+    if( _dims > 1 ){
+        return std::accumulate( _shape+is_col_major(), _shape+_dims-is_row_major(), 1, std::multiplies<std::size_t>() );
+    } else {
+        return 1;
+    }
+}
+
+template<class T>
+std::ptrdiff_t Array<T>::jump_to_stripe( std::size_t stripe, bool jump_to_end) const {
+    std::ptrdiff_t jump = 0;
+    if( is_row_major() ){
+        for( std::size_t ii=0; ii<_dims-1; ++ii ){
+            jump += _stride[ii]*(stripe % _shape[ii]);
+            stripe /= _shape[ii];
+        }
+       if( jump_to_end ) jump += _shape[_dims-1] * _stride[_dims-1]; 
+    } else {
+        for( std::size_t ii=_dims; ii>0; --ii ){
+            jump += _stride[ii]*(stripe % _shape[ii]);
+            stripe /= _shape[ii];
+        }
+       if( jump_to_end ) jump += _shape[0] * _stride[0]; 
+    }
+    return jump;
+}
+
+template<class T>
+typename Array<T>::fast_iterator Array<T>::begin_stripe( std::size_t stripe) {
+    return fast_iterator(_data + jump_to_stripe(stripe,false));
+}
+
+template<class T>
+typename Array<T>::fast_iterator Array<T>::end_stripe( std::size_t stripe) {
+    return fast_iterator(_data + jump_to_stripe(stripe,true));
+}
+
+template<class T>
+typename Array<T>::const_fast_iterator Array<T>::begin_stripe( std::size_t stripe) const {
+    return const_fast_iterator(_data + jump_to_stripe(stripe,false));
+}
+
+template<class T>
+typename Array<T>::const_fast_iterator Array<T>::end_stripe( std::size_t stripe) const {
+    return const_fast_iterator(_data + jump_to_stripe(stripe,true));
+}
+
+template<class T>
+Array<T>::iterator Array<T>::begin() {
+    return iterator( _data, _dims, _shape, _stride, false, is_col_major());
+}
+
+template<class T>
+Array<T>::iterator Array<T>::end() {
+    return iterator( _data, _dims, _shape, _stride, true, is_col_major());
+}
+
+template<class T>
+Array<T>::const_iterator Array<T>::begin() const {
+    return const_iterator( _data, _dims, _shape, _stride, false, is_col_major());
+}
+
+template<class T>
+Array<T>::const_iterator Array<T>::end() const {
+    return const_iterator( _data, _dims, _shape, _stride, true, is_col_major());
 }
 
 // ===============================================
