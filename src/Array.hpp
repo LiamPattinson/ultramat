@@ -820,13 +820,13 @@ template<class T>
 std::ptrdiff_t Array<T>::jump_to_stripe( std::size_t stripe, bool jump_to_end) const {
     std::ptrdiff_t jump = 0;
     if( is_row_major() ){
-        for( std::size_t ii=0; ii<_dims-1; ++ii ){
-            jump += _stride[ii]*(stripe % _shape[ii]);
-            stripe /= _shape[ii];
+        for( std::size_t ii=_dims-1; ii>0; --ii ){
+            jump += _stride[ii-1]*(stripe % _shape[ii-1]);
+            stripe /= _shape[ii-1];
         }
        if( jump_to_end ) jump += _shape[_dims-1] * _stride[_dims-1]; 
     } else {
-        for( std::size_t ii=_dims; ii>0; --ii ){
+        for( std::size_t ii=1; ii<_dims; ++ii ){
             jump += _stride[ii]*(stripe % _shape[ii]);
             stripe /= _shape[ii];
         }

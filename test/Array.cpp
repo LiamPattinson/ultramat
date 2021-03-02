@@ -235,3 +235,57 @@ TEST(ArrayTest,FastIteration){
     }
     EXPECT_TRUE(col_major_correct);
 }
+
+TEST(ArrayTest,StripeIteration){
+    shape_vec shape = {10,5,20};
+    Array<int> row_array(shape, Array<int>::row_major);
+    Array<int> col_array(shape, Array<int>::col_major);
+
+    std::size_t row_stripes = row_array.num_stripes();
+    std::size_t col_stripes = col_array.num_stripes();
+
+    EXPECT_TRUE(row_stripes == 50);
+    EXPECT_TRUE(col_stripes == 100);
+
+    bool row_major_correct = true;
+    {
+        int count=0;
+        for( std::size_t stripe=0; stripe<row_stripes; ++stripe){
+            for( auto it = row_array.begin_stripe(stripe); it != row_array.end_stripe(stripe); ++it){
+                *it = count++;
+            }
+        }
+
+        for( int ii=0; ii<10; ++ii){
+            for( int jj=0; jj<5; ++jj){
+                for( int kk=0; kk<20; ++kk){
+                    if( row_array(ii,jj,kk) != (20*5)*ii + 20*jj + kk){
+                       row_major_correct = false;
+                    }
+                }
+            }
+        }
+    }
+    EXPECT_TRUE(row_major_correct);
+
+    bool col_major_correct = true;
+    {
+        int count=0;
+        for( std::size_t stripe=0; stripe<col_stripes; ++stripe){
+            for( auto it = col_array.begin_stripe(stripe); it != col_array.end_stripe(stripe); ++it){
+                *it = count++;
+            }
+        }
+
+        for( int kk=0; kk<20; ++kk){
+            for( int jj=0; jj<5; ++jj){
+                for( int ii=0; ii<10; ++ii){
+                    if( col_array(ii,jj,kk) != (10*5)*kk + 10*jj + ii){
+                       col_major_correct = false;
+                    }
+                }
+            }
+        }
+    }
+    EXPECT_TRUE(col_major_correct);
+}
