@@ -1146,30 +1146,44 @@ typename Array<T>::base_iterator<constness>& Array<T>::base_iterator<constness>:
     } else {
         if( _col_major) {
             std::size_t idx = 0;
-            do{
+            while( diff != 0 && idx != _dims ) {
                 // Go back to start of current dimension, add the difference onto diff
                 _ptr -= _pos[idx] * _stride[idx];
                 diff += _pos[idx];
+                _pos[idx] = 0;
                 // Go forward diff % shape, then divide diff by shape
-                _ptr += (diff % _shape[idx]) * _stride[idx];
-                _pos[idx] += (diff % _shape[idx]);
+                // If at the last dimension, don't wrap around
+                if( idx < _dims-1 ){
+                    _ptr += (diff % _shape[idx]) * _stride[idx];
+                    _pos[idx] += (diff % _shape[idx]);
+                } else {
+                    _ptr += diff * _stride[idx];
+                    _pos[idx] += diff;
+                }
                 diff /= _shape[idx];
                 // Repeat for remaining dimensions or until diff == 0
                 ++idx;
-            } while( diff != 0 && idx != _dims );
+            }
         } else {
             std::size_t idx = _dims;
-            do{
+            while( diff != 0 && idx != 0 ) {
                 // Go back to start of current dimension, add the difference onto diff
                 _ptr -= _pos[idx-1] * _stride[idx-1];
                 diff += _pos[idx-1];
+                _pos[idx-1] = 0;
                 // Go forward diff % shape, then divide diff by shape
-                _ptr += (diff % _shape[idx-1]) * _stride[idx-1];
-                _pos[idx-1] += (diff % _shape[idx-1]);
+                // If at the last dimension, don't wrap around
+                if( idx > 1 ) {
+                    _ptr += (diff % _shape[idx-1]) * _stride[idx-1];
+                    _pos[idx-1] += (diff % _shape[idx-1]);
+                } else {
+                    _ptr += diff * _stride[idx-1];
+                    _pos[idx-1] += diff;
+                }
                 diff /= _shape[idx-1];
                 // Repeat for remaining dimensions or until diff == 0
                 --idx;
-            } while( diff != 0 && idx != 0 );
+            }
         }
         return *this;
     }
@@ -1183,30 +1197,44 @@ typename Array<T>::base_iterator<constness>& Array<T>::base_iterator<constness>:
     } else {
         if( _col_major ){
             std::size_t idx = 0;
-            do {
+            while( diff != 0 && idx != _dims ) {
                 // Go to end of current dimension, add the difference onto diff
-                _ptr -= (_shape[idx]-_pos[idx]) * _stride[idx];
+                _ptr += (_shape[idx]-_pos[idx]) * _stride[idx];
                 diff += (_shape[idx]-_pos[idx]);
+                _pos[idx] = _shape[idx];
                 // Go back diff % shape, then divide diff by shape
-                _ptr -= (diff % _shape[idx]) * _stride[idx];
-                _pos[idx] -= (diff % _shape[idx]);
+                // If at the last dimension, don't wrap around
+                if( idx < _dims-1 ){
+                    _ptr -= (diff % _shape[idx]) * _stride[idx];
+                    _pos[idx] -= (diff % _shape[idx]);
+                } else {
+                    _ptr -= diff * _stride[idx];
+                    _pos[idx] -= diff;
+                }
                 diff /= _shape[idx];
                 // Repeat for remaining dimensions or until diff == 0
                 ++idx;
-            } while( diff != 0 && idx != _dims );
+            }
         } else {
             std::size_t idx = _dims;
-            do {
+            while( diff != 0 && idx != 0 ) {
                 // Go to end of current dimension, add the difference onto diff
-                _ptr -= (_shape[idx-1]-_pos[idx-1]) * _stride[idx-1];
+                _ptr += (_shape[idx-1]-_pos[idx-1]) * _stride[idx-1];
                 diff += (_shape[idx-1]-_pos[idx-1]);
+                _pos[idx-1] = _shape[idx-1];
                 // Go back diff % shape, then divide diff by shape
-                _ptr -= (diff % _shape[idx-1]) * _stride[idx-1];
-                _pos[idx-1] -= (diff % _shape[idx-1]);
+                // If at the last dimension, don't wrap around
+                if( idx > 1 ){
+                    _ptr -= (diff % _shape[idx-1]) * _stride[idx-1];
+                    _pos[idx-1] -= (diff % _shape[idx-1]);
+                } else {
+                    _ptr -= diff * _stride[idx-1];
+                    _pos[idx-1] -= diff;
+                }
                 diff /= _shape[idx-1];
                 // Repeat for remaining dimensions or until diff == 0
                 --idx;
-            } while( diff != 0 && idx != 0 );
+            }
         }
         return *this;
     }

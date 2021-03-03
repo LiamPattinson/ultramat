@@ -329,3 +329,72 @@ TEST(ArrayTest,GenericIteration){
     }
     EXPECT_TRUE(col_major_correct);
 }
+
+TEST(ArrayTest,FastRandomAccessIteration){
+    shape_vec shape = {10,5,20};
+    Array<int> row_array(shape, Array<int>::row_major);
+    Array<int> col_array(shape, Array<int>::col_major);
+    for( auto it = row_array.begin_fast(); it != row_array.end_fast(); ++it) *it = 0;
+    for( auto it = col_array.begin_fast(); it != col_array.end_fast(); ++it) *it = 0;
+    for( auto it = row_array.begin_fast(); it != row_array.end_fast(); it+=5) *it = 5;
+    for( auto it = col_array.begin_fast(); it != col_array.end_fast(); it+=5) *it = 5;
+    for( auto it = row_array.end_fast()-1; it != row_array.begin_fast()-1; it-=10) *it = 10;
+    for( auto it = col_array.end_fast()-1; it != col_array.begin_fast()-1; it-=10) *it = 10;
+
+    bool row_major_correct = true;
+    for( int ii=0; ii<10; ++ii){
+        for( int jj=0; jj<5; ++jj){
+            for( int kk=0; kk<20; ++kk){
+                if( !(kk%5) && row_array(ii,jj,kk) != 5) row_major_correct = false;
+                if( !((kk+1)%10) && row_array(ii,jj,kk) != 10) row_major_correct = false;
+            }
+        }
+    }
+    EXPECT_TRUE(row_major_correct);
+
+    bool col_major_correct = true;
+    for( int kk=0; kk<20; ++kk){
+        for( int jj=0; jj<5; ++jj){
+            for( int ii=0; ii<10; ++ii){
+                if( !(ii%5) && col_array(ii,jj,kk) != 5) col_major_correct = false;
+                if( !((ii+1)%10) && col_array(ii,jj,kk) != 10) col_major_correct = false;
+            }
+        }
+    }
+    EXPECT_TRUE(col_major_correct);
+}
+
+TEST(ArrayTest,GenericRandomAccessIteration){
+    shape_vec shape = {10,5,20};
+    Array<int> row_array(shape, Array<int>::row_major);
+    Array<int> col_array(shape, Array<int>::col_major);
+    for( auto it = row_array.begin(); it != row_array.end(); ++it) *it = 0;
+    for( auto it = col_array.begin(); it != col_array.end(); ++it) *it = 0;
+    for( auto it = row_array.begin(); it != row_array.end(); it+=5) *it = 5;
+    for( auto it = col_array.begin(); it != col_array.end(); it+=5) *it = 5;
+    for( auto it = row_array.end()-1; it != row_array.begin()-1; it-=10) *it = 10;
+    for( auto it = col_array.end()-1; it != col_array.begin()-1; it-=10) *it = 10;
+
+    bool row_major_correct = true;
+    for( int ii=0; ii<10; ++ii){
+        for( int jj=0; jj<5; ++jj){
+            for( int kk=0; kk<20; ++kk){
+                if( !(kk%5) && row_array(ii,jj,kk) != 5) row_major_correct = false;
+                if( !((kk+1)%10) && row_array(ii,jj,kk) != 10) row_major_correct = false;
+            }
+        }
+    }
+    EXPECT_TRUE(row_major_correct);
+
+    bool col_major_correct = true;
+    for( int kk=0; kk<20; ++kk){
+        for( int jj=0; jj<5; ++jj){
+            for( int ii=0; ii<10; ++ii){
+                if( !(ii%5) && col_array(ii,jj,kk) != 5) col_major_correct = false;
+                if( !((ii+1)%10) && col_array(ii,jj,kk) != 10) col_major_correct = false;
+            }
+        }
+    }
+    EXPECT_TRUE(col_major_correct);
+
+}
