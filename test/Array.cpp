@@ -289,3 +289,43 @@ TEST(ArrayTest,StripeIteration){
     }
     EXPECT_TRUE(col_major_correct);
 }
+
+TEST(ArrayTest,GenericIteration){
+    shape_vec shape = {10,5,20};
+    Array<int> row_array(shape, Array<int>::row_major);
+    Array<int> col_array(shape, Array<int>::col_major);
+
+    bool row_major_correct = true;
+    {
+        int count=0;
+        for( auto it = row_array.begin(); it != row_array.end(); ++it) *it = count++;
+
+        for( int ii=0; ii<10; ++ii){
+            for( int jj=0; jj<5; ++jj){
+                for( int kk=0; kk<20; ++kk){
+                    if( row_array(ii,jj,kk) != (20*5)*ii + 20*jj + kk){
+                       row_major_correct = false;
+                    }
+                }
+            }
+        }
+    }
+    EXPECT_TRUE(row_major_correct);
+
+    bool col_major_correct = true;
+    {
+        int count=0;
+        for( auto it = col_array.begin(); it != col_array.end(); ++it) *it = count++;
+
+        for( int kk=0; kk<20; ++kk){
+            for( int jj=0; jj<5; ++jj){
+                for( int ii=0; ii<10; ++ii){
+                    if( col_array(ii,jj,kk) != (10*5)*kk + 10*jj + ii){
+                       col_major_correct = false;
+                    }
+                }
+            }
+        }
+    }
+    EXPECT_TRUE(col_major_correct);
+}

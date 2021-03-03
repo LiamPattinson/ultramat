@@ -967,9 +967,11 @@ Array<T>::base_iterator<constness>::base_iterator( typename Array<T>::base_itera
     // If this is an 'end' iterator, pos should be zero in all dimensions except the slowest incrementing.
     if(end){
         if(_col_major){
-            _pos[_dims-1] = _shape[_dims-1]+1;
+            _pos[_dims-1] = _shape[_dims-1];
+            _ptr += _stride[_dims-1]*_shape[_dims-1];
         } else {
-            _pos[0] = _shape[0]+1;
+            _pos[0] = _shape[0];
+            _ptr += _stride[0]*_shape[0];
         }
     }
 }
@@ -1064,7 +1066,7 @@ typename Array<T>::base_iterator<constness>& Array<T>::base_iterator<constness>:
         std::size_t idx = 0;
         _ptr += _stride[idx];
         ++_pos[idx];
-        while( _pos[idx] == _shape[idx] && idx != _dims-1 ){
+        while( _pos[idx] == static_cast<std::ptrdiff_t>(_shape[idx]) && idx != _dims-1 ){
             // Go back to start of current dimension
             _ptr -= _stride[idx] * _shape[idx];
             _pos[idx]=0;
@@ -1078,7 +1080,7 @@ typename Array<T>::base_iterator<constness>& Array<T>::base_iterator<constness>:
         std::size_t idx = _dims-1;
         _ptr += _stride[idx];
         ++_pos[idx];
-        while( _pos[idx] == _shape[idx] && idx != 0 ){
+        while( _pos[idx] == static_cast<std::ptrdiff_t>(_shape[idx]) && idx != 0 ){
             // Go back to start of current dimension
             _ptr -= _stride[idx] * _shape[idx];
             _pos[idx]=0;
