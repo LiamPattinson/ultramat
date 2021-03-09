@@ -681,8 +681,8 @@ Array<T> Array<T>::view( const Slices&... var_slices) const {
     result._dims = _dims;
     result._shape = new std::size_t[_dims];
     result._stride = new ptrdiff_t[_dims];
-    result._status = other._status;
-    result._data = other._data;
+    result._status = _status;
+    result._data = _data;
     if( owns_data() ) result._status -= own_data;
     // Modify shape and stride
     // Create copy of slice which we can edit
@@ -720,7 +720,8 @@ Array<T> Array<T>::view( const Slices&... var_slices) const {
     }
     // Set remaining info and return
     result._size = std::accumulate( result._shape, result._shape+_dims, 1, std::multiplies<std::size_t>() );
-};
+    return result;
+}
 
 template<class T>
 std::size_t Array<T>::dims() const {
