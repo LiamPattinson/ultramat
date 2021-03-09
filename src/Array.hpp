@@ -1,5 +1,5 @@
-#ifndef __ARRAY_HPP
-#define __ARRAY_HPP
+#ifndef __ULTRA_ARRAY_HPP
+#define __ULTRA_ARRAY_HPP
 
 #include <cmath>
 #include <stdexcept>
@@ -8,10 +8,12 @@
 #include <vector>
 #include <algorithm>
 #include <numeric>
+#include <limits>
 #include <functional>
 #include <type_traits>
 
 // Array.hpp
+//
 // A generic multidimensional array, templated over the type it contains.
 // Can be contiguous or non-contiguous, row-major or column-major.
 // 
@@ -19,6 +21,18 @@
 // after creation.
 
 namespace ultra {
+
+// Define slice : a tool for generating views of Arrays and related objects.
+// Is an 'aggregate'/'pod' type.
+
+struct Slice { 
+    static constexpr std::ptrdiff_t all = std::numeric_limits<std::ptrdiff_t>::max();
+    std::ptrdiff_t start;
+    std::ptrdiff_t end;
+    std::ptrdiff_t step=1;
+};
+
+// Define Array
 
 template<class T>
 class Array {
@@ -94,11 +108,11 @@ public:
 
     // Specialised grid building methods
 
-    //TODO
-    //Array<T> view( const slice& );
-    //Array<T> operator()( const slice& );
-    //Array<T> broadcast()( ...something... );
+    template<class... Slices>
+    Array<T> view( const Slices&... ) const;
 
+    //TODO
+    //Array<T> broadcast()( ...something... );
 
     // ===============================================
     // Attributes
@@ -124,6 +138,7 @@ public:
     static constexpr char semicontiguous  = 0x08;
     static constexpr char row_major       = 0x10;
     static constexpr char col_major       = 0x20;
+    static constexpr char bcast           = 0x40;
 
     inline char get_status() const { return _status;}
     inline void set_status( char status){ _status = status;}
@@ -135,6 +150,7 @@ public:
     inline bool is_semicontiguous() const { return _status & semicontiguous;}
     inline bool is_row_major() const { return _status & row_major;}
     inline bool is_col_major() const { return _status & col_major;}
+    inline bool is_broadcast() const { return _status & bcast;}
 
     // ===============================================
     // Data access
@@ -653,6 +669,58 @@ void Array<T>::reset(){
     _stride=nullptr;
     _data=nullptr;
 }
+
+template<class T>
+template<class... Slices>
+Array<T> Array<T>::view( const Slices&... var_slices) const {
+    constexpr std::array<const Slice&,sizeof...(Slices)> slices = {{ var_slices... }};
+    // Create an uninitialised array, return this if 'viewing' something uninitialised.
+    Array<T> result;
+    if( !is_initialised() ) return result;
+    // Copy over relevant info
+    result._dims = _dims;
+    result._shape = new std::size_t[_dims];
+    result._stride = new ptrdiff_t[_dims];
+    result._status = other._status;
+    result._data = other._data;
+    if( owns_data() ) result._status -= own_data;
+    // Modify shape and stride
+    // Create copy of slice which we can edit
+    Slice slice;
+    for( std::size_t ii=0; ii<_dims; ++ii){
+        if( ii < slices.size() ){
+            slice = slices[ii];
+        } else { // if not enough slices provided, assume start=all, end=all, step=1
+            slice = { Slice::all, Slice::all, 1 };
+        }
+        // Account for negative start/end
+        if( slice.start < 0 ) slice.start = _shape[ii] + slice.start;
+        if( slice.end < 0 ) slice.end = _shape[ii] + slice.end;
+        // Account for 'all' specifiers
+        if( slice.start == Slice::all ) slice.start = 0;
+        if( slice.end == Slice::all ) slice.end = _shape[ii];
+        // Throw exceptions if slice is impossible
+        if( slice.start < 0 || slice.end > _shape[ii] ) throw std::invalid_argument("UltraArray: Slice out of bounds.");
+        if( slice.end <= slice.start ) throw std::invalid_argument("UltraArray: Slice end is less than or equal to start.");
+        if( slice.step == 0 ) throw std::invalid_argument("UltraArray: Slice has zero step.");
+        // Account for the case of step size larger than shape
+        if( slice.end - slice.start < abs(slice.step) ) slice.step = (slice.end - slice.start) * (slice.step < 0 ? -1 : 1);
+        // Set shape and stride of result
+        result._shape[ii] = (slice.end - slice.start)/abs(slice.step);
+        result._stride[ii] *= slice.step;
+        // Move data to start of slice (be sure to use this stride rather than result stride)
+        if( slice.step > 0 ){
+            result._data += slice.start * _stride[ii];
+        } else {
+            result._data += (slice.end-1) * _stride[ii];
+        }
+        // Set contiguity status depending on how shape/stride have been changed
+        if( is_contiguous() && ( slice.start != 0 || slice.end != _shape[ii] || slice.step != 1)) result._status -= contiguous;
+        if( (is_semicontiguous() && slice.step != 1) && ((is_row_major() && ii==_dims-1) || (is_col_major() && ii==0) )) result._status -= semicontiguous;
+    }
+    // Set remaining info and return
+    result._size = std::accumulate( result._shape, result._shape+_dims, 1, std::multiplies<std::size_t>() );
+};
 
 template<class T>
 std::size_t Array<T>::dims() const {
@@ -1285,22 +1353,36 @@ bool Array<T>::base_iterator<constness>::operator!=( const typename Array<T>::ba
 
 template<class T> template<bool constness> template<bool constness_r>
 bool Array<T>::base_iterator<constness>::operator>=( const typename Array<T>::base_iterator<constness_r>& it_r) const {
-    return _ptr >= it_r._ptr;
+    return !(*this < it_r);
 }
 
 template<class T> template<bool constness> template<bool constness_r>
 bool Array<T>::base_iterator<constness>::operator<=( const typename Array<T>::base_iterator<constness_r>& it_r) const {
-    return _ptr <= it_r._ptr;
+    return (*this == it_r) || (*this < it_r);
 }
 
 template<class T> template<bool constness> template<bool constness_r>
 bool Array<T>::base_iterator<constness>::operator>( const typename Array<T>::base_iterator<constness_r>& it_r) const {
-    return _ptr > it_r._ptr;
+    return !(*this <= it_r);
 }
 
 template<class T> template<bool constness> template<bool constness_r>
 bool Array<T>::base_iterator<constness>::operator<( const typename Array<T>::base_iterator<constness_r>& it_r) const {
-    return _ptr < it_r._ptr;
+    bool result = false;
+    if( _col_major ){
+        for( std::size_t ii=_dims; ii>0; --ii ){
+            if( _pos[ii-1] == it_r._pos[ii-1] ) continue;
+            if( _pos[ii-1] < it_r._pos[ii-1] ) result = true;
+            break; // leaves result=false if _pos[ii-1] > it_r._pos[ii-1]
+        }
+    } else {
+        for( std::size_t ii=0; ii<_dims; ++ii ){
+            if( _pos[ii] == it_r._pos[ii] ) continue;
+            if( _pos[ii] < it_r._pos[ii] ) result = true;
+            break; // leaves result=false if _pos[ii] > it_r._pos[ii]
+        }
+    }
+    return result;
 }
 
 } // namespace

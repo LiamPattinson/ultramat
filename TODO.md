@@ -2,12 +2,13 @@
 
 ## Array.hpp
 
-* Implement iterators
-    * Need to test
-* Implementing assignment etc
-    * need casting copy constructor and assignment. Not move though.
-    * need to test after implementing slicing/broadcast etc.
-* Implement slicing
+* Implement slicing/views
+    * test constructors/attributes
+    * test iterators for the following cases:
+        - contiguous view
+        - semi contiguous view
+        - non contiguous view
+        - non contiguous view with negative stride
 * Implement broadcasting
 * Implement fixed size
     * Variadic templates, first element of type, the rest as `std::size_t`
