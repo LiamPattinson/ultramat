@@ -107,6 +107,8 @@ public:
     void reset();
 
     // Specialised grid building methods
+    
+    Array<T> view() const;
 
     template<class... Slices>
     Array<T> view( const Slices&... ) const;
@@ -671,9 +673,27 @@ void Array<T>::reset(){
 }
 
 template<class T>
+Array<T> Array<T>::view() const {
+    // Create an uninitialised array, return this if 'viewing' something uninitialised.
+    Array<T> result;
+    if( !is_initialised() ) return result;
+    // Copy over relevant info
+    result._status = _status;
+    if( owns_data() ) result._status -= own_data;
+    result._dims = _dims;
+    result._size = _size;
+    result._shape = new std::size_t[_dims];
+    std::copy( _shape, _shape+_dims, result._shape);
+    result._stride = new ptrdiff_t[_dims];
+    std::copy( _stride, _stride+_dims, result._stride);
+    result._data = _data;
+    return result;
+}
+
+template<class T>
 template<class... Slices>
 Array<T> Array<T>::view( const Slices&... var_slices) const {
-    constexpr std::array<const Slice&,sizeof...(Slices)> slices = {{ var_slices... }};
+    std::array<Slice,sizeof...(Slices)> slices = {{ var_slices... }};
     // Create an uninitialised array, return this if 'viewing' something uninitialised.
     Array<T> result;
     if( !is_initialised() ) return result;
@@ -700,14 +720,14 @@ Array<T> Array<T>::view( const Slices&... var_slices) const {
         if( slice.start == Slice::all ) slice.start = 0;
         if( slice.end == Slice::all ) slice.end = _shape[ii];
         // Throw exceptions if slice is impossible
-        if( slice.start < 0 || slice.end > _shape[ii] ) throw std::invalid_argument("UltraArray: Slice out of bounds.");
+        if( slice.start < 0 || slice.end > static_cast<std::ptrdiff_t>(_shape[ii]) ) throw std::invalid_argument("UltraArray: Slice out of bounds.");
         if( slice.end <= slice.start ) throw std::invalid_argument("UltraArray: Slice end is less than or equal to start.");
         if( slice.step == 0 ) throw std::invalid_argument("UltraArray: Slice has zero step.");
         // Account for the case of step size larger than shape
         if( slice.end - slice.start < abs(slice.step) ) slice.step = (slice.end - slice.start) * (slice.step < 0 ? -1 : 1);
-        // Set shape and stride of result
-        result._shape[ii] = (slice.end - slice.start)/abs(slice.step);
-        result._stride[ii] *= slice.step;
+        // Set shape and stride of result. Shape is (slice.end-slice.start)/abs(slice.step), but rounding up rather than down.
+        result._shape[ii] = (slice.end - slice.start + ((slice.end-slice.start)%abs(slice.step)))/abs(slice.step);
+        result._stride[ii] = _stride[ii]*slice.step;
         // Move data to start of slice (be sure to use this stride rather than result stride)
         if( slice.step > 0 ){
             result._data += slice.start * _stride[ii];
@@ -715,8 +735,12 @@ Array<T> Array<T>::view( const Slices&... var_slices) const {
             result._data += (slice.end-1) * _stride[ii];
         }
         // Set contiguity status depending on how shape/stride have been changed
-        if( is_contiguous() && ( slice.start != 0 || slice.end != _shape[ii] || slice.step != 1)) result._status -= contiguous;
-        if( (is_semicontiguous() && slice.step != 1) && ((is_row_major() && ii==_dims-1) || (is_col_major() && ii==0) )) result._status -= semicontiguous;
+        if( result.is_contiguous() && ( slice.start != 0 || slice.end != static_cast<std::ptrdiff_t>(_shape[ii]) || slice.step != 1)){
+            result._status -= contiguous;
+        }
+        if( result.is_semicontiguous() && slice.step != 1 && ((is_row_major() && ii==_dims-1) || (is_col_major() && ii==0) )){
+            result._status -= semicontiguous;
+        }
     }
     // Set remaining info and return
     result._size = std::accumulate( result._shape, result._shape+_dims, 1, std::multiplies<std::size_t>() );

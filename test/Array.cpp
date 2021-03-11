@@ -396,5 +396,321 @@ TEST(ArrayTest,GenericRandomAccessIteration){
         }
     }
     EXPECT_TRUE(col_major_correct);
+}
 
+TEST(ArrayTest,ViewCreation){
+    shape_vec shape = {10,5,20};
+    Array<double> row_array(shape, Array<double>::row_major);
+    Array<double> col_array(shape, Array<double>::col_major);
+
+    // Create full view
+    auto full_row_view = row_array.view();
+    auto full_col_view = col_array.view();
+
+    EXPECT_TRUE( full_row_view.shape(0) == 10 );
+    EXPECT_TRUE( full_col_view.shape(0) == 10 );
+    EXPECT_TRUE( full_row_view.shape(1) == 5 );
+    EXPECT_TRUE( full_col_view.shape(1) == 5 );
+    EXPECT_TRUE( full_row_view.shape(2) == 20 );
+    EXPECT_TRUE( full_col_view.shape(2) == 20 );
+    EXPECT_TRUE( full_row_view.is_row_major() );
+    EXPECT_TRUE( full_col_view.is_col_major() );
+    EXPECT_TRUE( full_row_view.is_contiguous() && full_row_view.is_semicontiguous());
+    EXPECT_TRUE( full_col_view.is_contiguous() && full_col_view.is_semicontiguous());
+    EXPECT_TRUE( row_array.owns_data() && col_array.owns_data() );
+    EXPECT_FALSE( full_row_view.owns_data() || full_col_view.owns_data() );
+    EXPECT_TRUE( full_row_view.data() == row_array.data() );
+    EXPECT_TRUE( full_col_view.data() == col_array.data() );
+
+    // Create view excluding boundary elements
+    Slice interior(1,-1);
+    auto interior_row_view = row_array.view(interior,interior,interior);
+    auto interior_col_view = col_array.view(interior,interior,interior);
+
+    EXPECT_TRUE( interior_row_view.shape(0) == 8 );
+    EXPECT_TRUE( interior_col_view.shape(0) == 8 );
+    EXPECT_TRUE( interior_row_view.shape(1) == 3 );
+    EXPECT_TRUE( interior_col_view.shape(1) == 3 );
+    EXPECT_TRUE( interior_row_view.shape(2) == 18 );
+    EXPECT_TRUE( interior_col_view.shape(2) == 18 );
+    EXPECT_TRUE( interior_row_view.is_row_major() );
+    EXPECT_TRUE( interior_col_view.is_col_major() );
+    EXPECT_TRUE( interior_row_view.is_semicontiguous());
+    EXPECT_TRUE( interior_col_view.is_semicontiguous());
+    EXPECT_FALSE( interior_row_view.is_contiguous());
+    EXPECT_FALSE( interior_col_view.is_contiguous());
+    EXPECT_TRUE( row_array.owns_data() && col_array.owns_data() );
+    EXPECT_FALSE( interior_row_view.owns_data() || interior_col_view.owns_data() );
+    EXPECT_TRUE( interior_row_view.data() == row_array.data() + 1 + 20 + 100);
+    EXPECT_TRUE( interior_col_view.data() == col_array.data() + 1 + 10 + 50);
+
+    // Create partial view excluding boundary elements in 0 and 1 dimensions, but not in 2 dimension
+    auto partial_interior_row_view = row_array.view(interior,interior);
+    auto partial_interior_col_view = col_array.view(interior,interior);
+
+    EXPECT_TRUE( partial_interior_row_view.shape(0) == 8 );
+    EXPECT_TRUE( partial_interior_col_view.shape(0) == 8 );
+    EXPECT_TRUE( partial_interior_row_view.shape(1) == 3 );
+    EXPECT_TRUE( partial_interior_col_view.shape(1) == 3 );
+    EXPECT_TRUE( partial_interior_row_view.shape(2) == 20 );
+    EXPECT_TRUE( partial_interior_col_view.shape(2) == 20 );
+    EXPECT_TRUE( partial_interior_row_view.is_row_major() );
+    EXPECT_TRUE( partial_interior_col_view.is_col_major() );
+    EXPECT_TRUE( partial_interior_row_view.is_semicontiguous());
+    EXPECT_TRUE( partial_interior_col_view.is_semicontiguous());
+    EXPECT_FALSE( partial_interior_row_view.is_contiguous());
+    EXPECT_FALSE( partial_interior_col_view.is_contiguous());
+    EXPECT_TRUE( row_array.owns_data() && col_array.owns_data() );
+    EXPECT_FALSE( partial_interior_row_view.owns_data() || partial_interior_col_view.owns_data() );
+    EXPECT_TRUE( partial_interior_row_view.data() == row_array.data() + 20 + 100);
+    EXPECT_TRUE( partial_interior_col_view.data() == col_array.data() + 1 + 10);
+
+    // Create stepped view with more interesting slices
+    auto stepped_row_view = row_array.view(Slice{2,-4,2},Slice{2,-1},Slice{1,Slice::all,3});
+    auto stepped_col_view = col_array.view(Slice{2,-4,2},Slice{2,-1},Slice{1,Slice::all,3});
+
+    EXPECT_TRUE( stepped_row_view.shape(0) == 2 );
+    EXPECT_TRUE( stepped_col_view.shape(0) == 2 );
+    EXPECT_TRUE( stepped_row_view.shape(1) == 2 );
+    EXPECT_TRUE( stepped_col_view.shape(1) == 2 );
+    EXPECT_TRUE( stepped_row_view.shape(2) == 6 );
+    EXPECT_TRUE( stepped_col_view.shape(2) == 6 );
+    EXPECT_TRUE( stepped_row_view.is_row_major() );
+    EXPECT_TRUE( stepped_col_view.is_col_major() );
+    EXPECT_FALSE( stepped_row_view.is_semicontiguous());
+    EXPECT_FALSE( stepped_col_view.is_semicontiguous());
+    EXPECT_FALSE( stepped_row_view.is_contiguous());
+    EXPECT_FALSE( stepped_col_view.is_contiguous());
+    EXPECT_TRUE( row_array.owns_data() && col_array.owns_data() );
+    EXPECT_FALSE( stepped_row_view.owns_data() || stepped_col_view.owns_data() );
+    EXPECT_TRUE( stepped_row_view.data() == row_array.data() + 1 + 2*20 + 2*100);
+    EXPECT_TRUE( stepped_col_view.data() == col_array.data() + 2 + 2*10 + 50);
+
+    // Create reverse view
+    Slice reverse{Slice::all,Slice::all,-1};
+    auto reverse_row_view = row_array.view(reverse,reverse,reverse);
+    auto reverse_col_view = col_array.view(reverse,reverse,reverse);
+
+    EXPECT_TRUE( reverse_row_view.shape(0) == 10 );
+    EXPECT_TRUE( reverse_col_view.shape(0) == 10 );
+    EXPECT_TRUE( reverse_row_view.shape(1) == 5 );
+    EXPECT_TRUE( reverse_col_view.shape(1) == 5 );
+    EXPECT_TRUE( reverse_row_view.shape(2) == 20 );
+    EXPECT_TRUE( reverse_col_view.shape(2) == 20 );
+    EXPECT_TRUE( reverse_row_view.is_row_major() );
+    EXPECT_TRUE( reverse_col_view.is_col_major() );
+    EXPECT_FALSE( reverse_row_view.is_semicontiguous());
+    EXPECT_FALSE( reverse_col_view.is_semicontiguous());
+    EXPECT_FALSE( reverse_row_view.is_contiguous());
+    EXPECT_FALSE( reverse_col_view.is_contiguous());
+    EXPECT_TRUE( row_array.owns_data() && col_array.owns_data() );
+    EXPECT_FALSE( reverse_row_view.owns_data() || reverse_col_view.owns_data() );
+    EXPECT_TRUE( reverse_row_view.data() == row_array.data() + (10*5*20) -1);
+    EXPECT_TRUE( reverse_col_view.data() == col_array.data() + (10*5*20) -1);
+
+    // Copy constructor
+    Array<double> copy(stepped_row_view);
+    EXPECT_TRUE( copy.shape(0) == 2 );
+    EXPECT_TRUE( copy.shape(1) == 2 );
+    EXPECT_TRUE( copy.shape(2) == 6 );
+    EXPECT_TRUE( copy.is_row_major() );
+    EXPECT_FALSE( copy.is_semicontiguous());
+    EXPECT_FALSE( copy.is_contiguous());
+    EXPECT_FALSE( copy.owns_data() );
+    EXPECT_TRUE( copy.data() == row_array.data() + 1 + 2*20 + 2*100);
+
+    // Move constructor
+    Array<double> move(std::move(reverse_col_view));
+    EXPECT_TRUE( move.shape(0) == 10 );
+    EXPECT_TRUE( move.shape(1) == 5 );
+    EXPECT_TRUE( move.shape(2) == 20 );
+    EXPECT_TRUE( move.is_col_major() );
+    EXPECT_FALSE( move.is_semicontiguous());
+    EXPECT_FALSE( move.is_contiguous());
+    EXPECT_FALSE( move.owns_data() );
+    EXPECT_TRUE( move.data() == col_array.data() + (10*5*20) -1);
+    EXPECT_FALSE( reverse_col_view.is_initialised() );
+}
+
+TEST(ArrayTest,ViewIteration){
+    shape_vec shape = {10,5,20};
+    Array<double> row_array(shape, Array<double>::row_major);
+    Array<double> col_array(shape, Array<double>::col_major);
+    for( auto it=row_array.begin_fast(); it != row_array.end_fast(); ++it) *it = it - row_array.begin_fast();
+    for( auto it=col_array.begin_fast(); it != col_array.end_fast(); ++it) *it = it - col_array.begin_fast();
+    std::size_t count;
+
+    // Full view
+    auto full_row_view = row_array.view();
+    auto full_col_view = col_array.view();
+    // Fast iteration
+    for( auto it=full_row_view.begin_fast(); it != full_row_view.end_fast(); ++it) EXPECT_TRUE(*it == it - full_row_view.begin_fast());
+    for( auto it=full_col_view.begin_fast(); it != full_col_view.end_fast(); ++it) EXPECT_TRUE(*it == it - full_col_view.begin_fast());
+    // Stripe iteration
+    count = 0;
+    for( std::size_t stripe=0; stripe != full_row_view.num_stripes(); ++stripe){
+        for( auto it=full_row_view.begin_stripe(stripe); it != full_row_view.end_stripe(stripe); ++it){
+            EXPECT_TRUE(*it == count++);
+        }
+    }
+    count = 0;
+    for( std::size_t stripe=0; stripe != full_col_view.num_stripes(); ++stripe){
+        for( auto it=full_col_view.begin_stripe(stripe); it != full_col_view.end_stripe(stripe); ++it){
+            EXPECT_TRUE(*it == count++);
+        }
+    }
+    // Generic iteration
+    count=0;
+    for( auto it=full_row_view.begin(); it != full_row_view.end(); ++it) EXPECT_TRUE(*it == count++);
+    count=0;
+    for( auto it=full_col_view.begin(); it != full_col_view.end(); ++it) EXPECT_TRUE(*it == count++);
+
+    // Interior view
+    Slice interior(1,-1);
+    auto interior_row_view = row_array.view(interior,interior,interior);
+    auto interior_col_view = col_array.view(interior,interior,interior);
+    // Stripe iteration
+    EXPECT_TRUE(interior_row_view.num_stripes() == 24);
+    for( std::size_t stripe=0; stripe != interior_row_view.num_stripes(); ++stripe){
+        count = 121 + (stripe%3)*(20) + (stripe/3)*(100);
+        auto it=interior_row_view.begin_stripe(stripe);
+        auto end=interior_row_view.end_stripe(stripe);
+        EXPECT_TRUE( end - it == 18 );
+        for( ; it != end; ++it){
+            EXPECT_TRUE(*it == count++);
+        }
+    }
+    EXPECT_TRUE(interior_col_view.num_stripes() == 54);
+    for( std::size_t stripe=0; stripe != interior_col_view.num_stripes(); ++stripe){
+        count = 61 + (stripe%3)*(10) + (stripe/3)*(50);
+        auto it=interior_col_view.begin_stripe(stripe);
+        auto end=interior_col_view.end_stripe(stripe);
+        EXPECT_TRUE( end - it == 8 );
+        for( ; it != end; ++it){
+            EXPECT_TRUE(*it == count++);
+        }
+    }
+    // Generic iteration
+    {
+        auto it=interior_row_view.begin();
+        auto end=interior_row_view.end();
+        for( std::size_t ii=1; ii<9; ++ii){
+            for( std::size_t jj=1; jj<4; ++jj){
+                for( std::size_t kk=1; kk<19; ++kk){
+                    EXPECT_TRUE( *it == ii*100 + jj*20 + kk );
+                    EXPECT_TRUE( it != end );
+                    ++it;
+                }
+            }
+        }
+    }
+    {
+        auto it=interior_col_view.begin();
+        auto end=interior_col_view.end();
+        for( std::size_t kk=1; kk<19; ++kk){
+            for( std::size_t jj=1; jj<4; ++jj){
+                for( std::size_t ii=1; ii<9; ++ii){
+                    EXPECT_TRUE( *it == ii + jj*10 + kk*50 );
+                    EXPECT_TRUE( it != end );
+                    ++it;
+                }
+            }
+        }
+    }
+
+    // Stepped view
+    Slice stepped(1,-1,3);
+    auto stepped_row_view = row_array.view(stepped,stepped,stepped);
+    auto stepped_col_view = col_array.view(stepped,stepped,stepped);
+    // Generic iteration
+    {
+        auto it=stepped_row_view.begin();
+        auto end=stepped_row_view.end();
+        for( std::size_t ii=1; ii<9; ii+=3){
+            for( std::size_t jj=1; jj<4; jj+=3){
+                for( std::size_t kk=1; kk<19; kk+=3){
+                    EXPECT_TRUE( *it == ii*100 + jj*20 + kk );
+                    EXPECT_TRUE( it != end );
+                    ++it;
+                }
+            }
+        }
+    }
+    {
+        auto it=stepped_col_view.begin();
+        auto end=stepped_col_view.end();
+        for( std::size_t kk=1; kk<19; kk+=3){
+            for( std::size_t jj=1; jj<4; jj+=3){
+                for( std::size_t ii=1; ii<9; ii+=3){
+                    EXPECT_TRUE( *it == ii + jj*10 + kk*50 );
+                    EXPECT_TRUE( it != end );
+                    ++it;
+                }
+            }
+        }
+    }
+
+    // reverse view
+    Slice reverse(Slice::all,Slice::all,-1);
+    auto reverse_row_view = row_array.view(reverse,reverse,reverse);
+    auto reverse_col_view = col_array.view(reverse,reverse,reverse);
+    // Generic iteration
+    {
+        auto it=reverse_row_view.begin();
+        auto end=reverse_row_view.end();
+        for( std::ptrdiff_t ii=9; ii>=0; --ii){
+            for( std::ptrdiff_t jj=4; jj>=0; --jj){
+                for( std::ptrdiff_t kk=19; kk>=0; --kk){
+                    EXPECT_TRUE( *it == ii*100 + jj*20 + kk );
+                    EXPECT_TRUE( it != end );
+                    ++it;
+                }
+            }
+        }
+    }
+    {
+        auto it=reverse_col_view.begin();
+        auto end=reverse_col_view.end();
+        for( std::ptrdiff_t kk=19; kk>=0; --kk){
+            for( std::ptrdiff_t jj=4; jj>=0; --jj){
+                for( std::ptrdiff_t ii=9; ii>=0; --ii){
+                    EXPECT_TRUE( *it == ii + jj*10 + kk*50 );
+                    EXPECT_TRUE( it != end );
+                    ++it;
+                }
+            }
+        }
+    }
+
+    // partially reverse view
+    Slice reverse2(Slice::all,Slice::all,-2);
+    auto partial_reverse_row_view = row_array.view(stepped,reverse2,stepped);
+    auto partial_reverse_col_view = col_array.view(stepped,reverse2,stepped);
+    // Generic iteration
+    {
+        auto it=partial_reverse_row_view.begin();
+        auto end=partial_reverse_row_view.end();
+        for( std::size_t ii=1; ii<9; ii+=3){
+            for( std::ptrdiff_t jj=4; jj>=0; jj-=2){
+                for( std::size_t kk=1; kk<19; kk+=3){
+                    EXPECT_TRUE( *it == ii*100 + jj*20 + kk );
+                    EXPECT_TRUE( it != end );
+                    ++it;
+                }
+            }
+        }
+    }
+    {
+        auto it=partial_reverse_col_view.begin();
+        auto end=partial_reverse_col_view.end();
+        for( std::size_t kk=1; kk<19; kk+=3){
+            for( std::ptrdiff_t jj=4; jj>=0; jj-=2){
+                for( std::size_t ii=1; ii<9; ii+=3){
+                    EXPECT_TRUE( *it == ii + jj*10 + kk*50 );
+                    EXPECT_TRUE( it != end );
+                    ++it;
+                }
+            }
+        }
+    }
 }
