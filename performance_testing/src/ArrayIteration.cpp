@@ -17,8 +17,8 @@
 #include <armadillo>
 #include <Eigen/Dense>
 
-const std::size_t ROWS = 1000;
-const std::size_t COLS = 10000;
+const std::size_t ROWS = 10000;
+const std::size_t COLS = 1000;
 const int NUM_TESTS = 5;
 
 template<class T>
@@ -54,6 +54,10 @@ void round_bracket_row_major( T& t, std::uniform_real_distribution<double>& dist
             t(ii,jj) += dist(rng);
         }
     }
+}
+
+void square_bracket( ultra::Array<double>& t, std::uniform_real_distribution<double>& dist, std::mt19937_64& rng){
+    for( std::size_t ii = 0; ii<t.size(); ++ii) t[ii] += dist(rng);
 }
 
 template<class T>
@@ -98,6 +102,8 @@ int main(void){
         {"Eigen round brackets", speed_test(eigen_mat,round_bracket_col_major<Eigen::MatrixXd>)},
         {"Ultramat row major round brackets", speed_test(ultra_mat_row_major,round_bracket_row_major<ultra::Array<double>>)},
         {"Ultramat col major round brackets", speed_test(ultra_mat_col_major,round_bracket_col_major<ultra::Array<double>>)},
+        {"Ultramat row major square brackets", speed_test(ultra_mat_row_major,square_bracket)},
+        {"Ultramat col major square brackets", speed_test(ultra_mat_col_major,square_bracket)},
         {"Ultramat row major iterator", speed_test(ultra_mat_row_major,iteration<ultra::Array<double>>)},
         {"Ultramat col major iterator", speed_test(ultra_mat_col_major,iteration<ultra::Array<double>>)},
         {"Ultramat row major stripes", speed_test(ultra_mat_row_major,stripe_iteration)},

@@ -54,6 +54,8 @@ protected:
 
     template<std::size_t N, class Int>
     std::ptrdiff_t variadic_memjump( Int coord) const;
+
+    std::ptrdiff_t idx_to_memjump(std::size_t idx) const;
     
     std::ptrdiff_t jump_to_stripe( std::size_t stripe, bool jump_to_end) const;
 
@@ -186,6 +188,12 @@ public:
 
     template<class Int>
     T& operator()( Int* coords, std::size_t N); 
+
+    // Access via square brackets
+    // Treats all arrays as 1D containers.
+
+    T operator[](std::size_t ii) const;
+    T& operator[](std::size_t ii);
 
     // ===============================================
     // Iteration
@@ -835,6 +843,33 @@ template<class T>
 template<class Int>
 T& Array<T>::operator()( Int* coords, std::size_t N) {
     return *(_data+std::inner_product(coords,coords+N,_stride,0));
+}
+
+template<class T>
+std::ptrdiff_t Array<T>::idx_to_memjump(std::size_t idx) const {
+    std::ptrdiff_t jump = 0;
+    if( is_col_major() ){
+        for(std::size_t ii=0; ii<_dims; ++ii){
+            jump += _stride[ii]*(idx%_shape[ii]);
+            idx /= _shape[ii];
+        }
+    } else {
+        for(std::size_t ii=_dims; ii>0; --ii){
+            jump += _stride[ii-1]*(idx%_shape[ii-1]);
+            idx /= _shape[ii-1];
+        }
+    }
+    return jump;
+}
+
+template<class T>
+T Array<T>::operator[](std::size_t idx) const {
+    return *(_data+idx_to_memjump(idx));
+}
+
+template<class T>
+T& Array<T>::operator[](std::size_t idx) {
+    return *(_data+idx_to_memjump(idx));
 }
 
 template<class T>
