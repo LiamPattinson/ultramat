@@ -17,8 +17,8 @@
 #include <armadillo>
 #include <Eigen/Dense>
 
-const std::size_t ROWS = 10000;
-const std::size_t COLS = 1000;
+const std::size_t ROWS = 1000;
+const std::size_t COLS = 10000;
 const int NUM_TESTS = 5;
 
 template<class T>
@@ -62,16 +62,18 @@ void square_bracket( ultra::Array<double>& t, std::uniform_real_distribution<dou
 
 template<class T>
 void iteration( T& t, std::uniform_real_distribution<double>& dist, std::mt19937_64& rng){
-    for( auto it = t.begin(); it<t.end(); ++it) *it += dist(rng);
+    for( auto it = t.begin(), end=t.end(); it!=end; ++it) *it += dist(rng);
+    // Could equally write:
+    //for( auto&& x : t) x += dist(rng);
 }
 
 void fast_iteration( ultra::Array<double>& t, std::uniform_real_distribution<double>& dist, std::mt19937_64& rng){
-    for( auto it = t.begin_fast(); it<t.end_fast(); ++it) *it += dist(rng);
+    for( auto it = t.begin_fast(), end=t.end_fast(); it!=end; ++it) *it += dist(rng);
 }
 
 void stripe_iteration( ultra::Array<double>& t, std::uniform_real_distribution<double>& dist, std::mt19937_64& rng){
     for( std::size_t stripe = 0; stripe < t.num_stripes(); ++stripe){
-        for( auto it = t.begin_stripe(stripe); it<t.end_stripe(stripe); ++it) *it += dist(rng);
+        for( auto it = t.begin_stripe(stripe), end=t.end_stripe(stripe); it!=end; ++it) *it += dist(rng);
     }
 }
 
@@ -97,19 +99,19 @@ int main(void){
 
     // Get results of each test
     std::map<std::string,double> results{
-        {"Armadillo round brackets", speed_test(arma_mat,round_bracket_col_major<arma::mat>)},
-        {"Armadillo iterator", speed_test(arma_mat,iteration<arma::mat>)},
-        {"Eigen round brackets", speed_test(eigen_mat,round_bracket_col_major<Eigen::MatrixXd>)},
-        {"Ultramat row major round brackets", speed_test(ultra_mat_row_major,round_bracket_row_major<ultra::Array<double>>)},
-        {"Ultramat col major round brackets", speed_test(ultra_mat_col_major,round_bracket_col_major<ultra::Array<double>>)},
-        {"Ultramat row major square brackets", speed_test(ultra_mat_row_major,square_bracket)},
-        {"Ultramat col major square brackets", speed_test(ultra_mat_col_major,square_bracket)},
-        {"Ultramat row major iterator", speed_test(ultra_mat_row_major,iteration<ultra::Array<double>>)},
-        {"Ultramat col major iterator", speed_test(ultra_mat_col_major,iteration<ultra::Array<double>>)},
-        {"Ultramat row major stripes", speed_test(ultra_mat_row_major,stripe_iteration)},
-        {"Ultramat col major stripes", speed_test(ultra_mat_col_major,stripe_iteration)},
-        {"Ultramat row major fast", speed_test(ultra_mat_row_major,fast_iteration)},
-        {"Ultramat col major fast", speed_test(ultra_mat_col_major,fast_iteration)}
+        {"Round Brackets Armadillo", speed_test(arma_mat,round_bracket_col_major<arma::mat>)},
+        {"Round Brackets Eigen", speed_test(eigen_mat,round_bracket_col_major<Eigen::MatrixXd>)},
+        {"Round Brackets Ultramat row major", speed_test(ultra_mat_row_major,round_bracket_row_major<ultra::Array<double>>)},
+        {"Round Brackets Ultramat col major", speed_test(ultra_mat_col_major,round_bracket_col_major<ultra::Array<double>>)},
+        {"Iterator Armadillo", speed_test(arma_mat,iteration<arma::mat>)},
+        {"Iterator Ultramat row major", speed_test(ultra_mat_row_major,iteration<ultra::Array<double>>)},
+        {"Iterator Ultramat col major", speed_test(ultra_mat_col_major,iteration<ultra::Array<double>>)},
+        {"Square Brackets Ultramat row major", speed_test(ultra_mat_row_major,square_bracket)},
+        {"Square Brackets Ultramat col major", speed_test(ultra_mat_col_major,square_bracket)},
+        {"Stripe Iterator Ultramat row major", speed_test(ultra_mat_row_major,stripe_iteration)},
+        {"Stripe Iterator Ultramat col major", speed_test(ultra_mat_col_major,stripe_iteration)},
+        {"Fast Iterator Ultramat row major", speed_test(ultra_mat_row_major,fast_iteration)},
+        {"Fast Iterator Ultramat col major", speed_test(ultra_mat_col_major,fast_iteration)}
     };
 
     // Print report
