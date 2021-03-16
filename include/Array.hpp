@@ -113,9 +113,6 @@ public:
     template<class... Slices>
     Array<T> view( const Slices&... ) const;
 
-    //TODO
-    //Array<T> broadcast()( ...something... );
-
     // ===============================================
     // Attributes
 
@@ -199,7 +196,8 @@ public:
     // Non-contiguous:    iterator
     // 
     // The non-contiguous 'iterator' will work in all cases, and will be reasonably fast,
-    // though it is unlikely to make use of any vectorisation.
+    // though it is unlikely to make use of any vectorisation. It may also be used for
+    // 'broadcasting'. For example, this may be treating a 1xn array as an mxn array.
     // 
     // 'fast_iterator' should only be used with Arrays that are (semi-)contiguous. If
     // fully contiguous (i.e. not a view of an existing Array and not sliced), one should
@@ -245,6 +243,9 @@ public:
     const_iterator begin() const;
     const_iterator end() const;
 
+    // TODO
+    //const_iterator begin_broadcast( ... something ...) const;
+    //const_iterator end_broadcast( ... something ...) const;
 };
 
 // ===============================================

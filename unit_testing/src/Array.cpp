@@ -1,4 +1,4 @@
-#include "Array.hpp"
+#include "ultramat/include/Array.hpp"
 #include <gtest/gtest.h>
 
 using namespace ultra;
@@ -27,7 +27,7 @@ TEST(ArrayTest,Constructors){
 
     // Test attributes
 
-    EXPECT_TRUE(array_1.dims() == 1);  
+    EXPECT_TRUE(array_1.dims() == 1);
     EXPECT_TRUE(array_2.dims() == 2);  
     EXPECT_TRUE(array_3.dims() == 3);  
 
