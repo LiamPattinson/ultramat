@@ -1,6 +1,7 @@
 #ifndef __ULTRA_ARRAY_HPP
 #define __ULTRA_ARRAY_HPP
 
+#include<iostream>
 #include <cmath>
 #include <stdexcept>
 #include <string>
@@ -112,6 +113,9 @@ public:
     Array& operator=( const Array<U>& other);
 
     Array& operator=( Array&& other);
+
+    template<class U>
+    Array& operator=( const Expression<U>& expression);
 
     // Additional utils
     void reset();
@@ -784,6 +788,49 @@ Array<T>::Array( const Expression<U>& expression) :
     // Fill in _data
     auto expr=expression.begin();
     for(auto it=begin(), it_end=end(); it != it_end; ++it, ++expr) *it = *expr;
+}
+
+
+template<class T>
+template<class U>
+Array<T>& Array<T>::operator=( const Expression<U>& expression) {
+    // Turns array into a data-owning array.
+    if( is_initialised() ){
+        // Determine if we need to destroy and/or (re)build _data
+        if( owns_data() ){
+            if( _size != expression.size()){
+                delete[] _data;
+                _data = new T[expression.size()];
+            } 
+        } else {
+            _data = new T[expression.size()];
+        }
+        // If this and other have different dims, rebuild shape and stride.
+        if( _dims != expression.dims()){
+            delete[] _shape;
+            delete[] _stride;
+            _shape = new std::size_t[expression.dims()];
+            _stride = new std::ptrdiff_t[expression.dims()];
+        }
+    } else {
+        _shape = new std::size_t[expression.dims()];
+        _stride = new std::ptrdiff_t[expression.dims()];
+        _data = new T[expression.size()];
+    }
+    _dims = expression.dims();
+    _size = expression.size();
+    // Get shape and stride. Only row major for now.
+    for( std::size_t ii=0; ii<_dims; ++ii) _shape[ii] = expression.shape(ii);
+    _stride[_dims-1] = 1;
+    for( std::size_t ii=1; ii<_dims; ++ii){
+        _stride[_dims-1-ii] = _shape[_dims-ii] * _stride[_dims-ii];
+    }
+    // Set status
+    _status = ( initialised | own_data | contiguous | semicontiguous | row_major );
+    // Fill in _data
+    auto expr=expression.begin();
+    for(auto it=begin(), it_end=end(); it != it_end; ++it, ++expr) *it = *expr;
+    return *this;
 }
 
 template<class T>
