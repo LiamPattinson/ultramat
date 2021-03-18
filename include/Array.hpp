@@ -11,6 +11,10 @@
 #include <limits>
 #include <functional>
 #include <type_traits>
+#include <concepts>
+
+#include "Expression.hpp"
+#include "Arithmetic.hpp"
 
 // Array.hpp
 //
@@ -35,7 +39,7 @@ struct Slice {
 // Define Array
 
 template<class T>
-class Array {
+class Array : public Expression<Array<T>> {
 
 protected:
 
@@ -80,7 +84,7 @@ public:
     // Build with given size
     
     // Templated over std::vector-like structures
-    template<class V, std::enable_if_t<std::is_class<V>::value,bool> = true>
+    template<std::ranges::range V, std::enable_if_t<std::is_class<V>::value,bool> = true>
     Array( const V& shape, char rc_order=row_major);
 
     // Build 1D array with single integer arg
@@ -95,6 +99,10 @@ public:
     // (does not take ownership of int_ptr)
     template<class Int>
     Array( Int* int_ptr, std::size_t N, char rc_order=row_major);
+
+    // Construct from an expression
+    template<class U>
+    Array( const Expression<U>& expression);
 
     // Assignment and move assignment
     
@@ -114,6 +122,7 @@ public:
 
     template<class... Slices>
     Array<T> view( const Slices&... ) const;
+
 
     // ===============================================
     // Attributes
@@ -511,7 +520,7 @@ Array<T>::Array( Int* int_ptr, std::size_t N, char rc_order) :
 }
 
 template<class T>
-template<class V, std::enable_if_t<std::is_class<V>::value,bool>>
+template<std::ranges::range V, std::enable_if_t<std::is_class<V>::value,bool>>
 Array<T>::Array( const V& shape, char rc_order) :
     _status( initialised | own_data | contiguous | semicontiguous | rc_order ),
     _dims(shape.size())
@@ -754,6 +763,27 @@ Array<T> Array<T>::view( const Slices&... var_slices) const {
     // Set remaining info and return
     result._size = std::accumulate( result._shape, result._shape+_dims, 1, std::multiplies<std::size_t>() );
     return result;
+}
+
+template<class T>
+template<class U>
+Array<T>::Array( const Expression<U>& expression) :
+    _status( initialised | own_data | contiguous | semicontiguous | row_major ),
+    _dims( expression.dims() ),
+    _size( expression.size() ),
+    _shape( new std::size_t[_dims] ),
+    _stride( new std::ptrdiff_t[_dims] ),
+    _data( new T[_size] )
+{
+    // Fill in shape and stride
+    for( std::size_t ii=0; ii<_dims; ++ii) _shape[ii] = expression.shape(ii);
+    _stride[_dims-1] = 1;
+    for( std::size_t ii=1; ii<_dims; ++ii){
+        _stride[_dims-1-ii] = _shape[_dims-ii] * _stride[_dims-ii];
+    }
+    // Fill in _data
+    auto expr=expression.begin();
+    for(auto it=begin(), it_end=end(); it != it_end; ++it, ++expr) *it = *expr;
 }
 
 template<class T>
