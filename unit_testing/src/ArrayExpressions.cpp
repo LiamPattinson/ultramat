@@ -17,8 +17,9 @@ TEST(ArrayExpressionTest,Arithmetic){
     for( auto&& x : c) x=3;
     for( auto&& x : d) x=4;
     for( auto&& x : e) x=2;
-    Array<double> f = a + b * c - d / e;
+    // Combine negation, addition, multiplication, subtraction, and dividing, all between different types.
+    Array<double> f = -a + b * c - d / e;
     bool correct = true;
-    for( auto&& x : f ) if( x != 5) correct=false;
+    for( auto&& x : f ) if( x != 3) correct=false;
     EXPECT_TRUE(correct);
 }
