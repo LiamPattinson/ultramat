@@ -14,7 +14,7 @@
 #include <concepts>
 
 #include "Expression.hpp"
-#include "Arithmetic.hpp"
+#include "Math.hpp"
 
 // Array.hpp
 //
@@ -742,9 +742,9 @@ Array<T> Array<T>::view( const Slices&... var_slices) const {
         if( slice.end <= slice.start ) throw std::invalid_argument("UltraArray: Slice end is less than or equal to start.");
         if( slice.step == 0 ) throw std::invalid_argument("UltraArray: Slice has zero step.");
         // Account for the case of step size larger than shape
-        if( slice.end - slice.start < abs(slice.step) ) slice.step = (slice.end - slice.start) * (slice.step < 0 ? -1 : 1);
-        // Set shape and stride of result. Shape is (slice.end-slice.start)/abs(slice.step), but rounding up rather than down.
-        result._shape[ii] = (slice.end - slice.start + ((slice.end-slice.start)%abs(slice.step)))/abs(slice.step);
+        if( slice.end - slice.start < std::abs(slice.step) ) slice.step = (slice.end - slice.start) * (slice.step < 0 ? -1 : 1);
+        // Set shape and stride of result. Shape is (slice.end-slice.start)/std::abs(slice.step), but rounding up rather than down.
+        result._shape[ii] = (slice.end - slice.start + ((slice.end-slice.start)%std::abs(slice.step)))/std::abs(slice.step);
         result._stride[ii] = _stride[ii]*slice.step;
         // Move data to start of slice (be sure to use this stride rather than result stride)
         if( slice.step > 0 ){
