@@ -22,6 +22,37 @@ struct Minus      { template<class L,class R> decltype(auto) operator()( const L
 struct Multiplies { template<class L,class R> decltype(auto) operator()( const L& l, const R& r) const { return l * r; }};
 struct Divides    { template<class L,class R> decltype(auto) operator()( const L& l, const R& r) const { return l / r; }};
 
+} // namespace
+
+// Define operator overloads
+
+template<class T>
+decltype(auto) operator-( const ultra::Expression<T>& t){
+    return ultra::ElementWiseExpression<ultra::Negate,T>(static_cast<const T&>(t));
+}
+
+template<class L, class R>
+decltype(auto) operator+( const ultra::Expression<L>& l, const ultra::Expression<R>& r){
+    return ultra::ElementWiseExpression<ultra::Plus,L,R>(static_cast<const L&>(l),static_cast<const R&>(r));
+}
+
+template<class L, class R>
+decltype(auto) operator-( const ultra::Expression<L>& l, const ultra::Expression<R>& r){
+    return ultra::ElementWiseExpression<ultra::Minus,L,R>(static_cast<const L&>(l),static_cast<const R&>(r));
+}
+
+template<class L, class R>
+decltype(auto) operator*( const ultra::Expression<L>& l, const ultra::Expression<R>& r){
+    return ultra::ElementWiseExpression<ultra::Multiplies,L,R>(static_cast<const L&>(l),static_cast<const R&>(r));
+}
+
+template<class L, class R>
+decltype(auto) operator/( const ultra::Expression<L>& l, const ultra::Expression<R>& r){
+    return ultra::ElementWiseExpression<ultra::Divides,L,R>(static_cast<const L&>(l),static_cast<const R&>(r));
+}
+
+namespace ultra {
+
 // Define function objects for most cmath function.
 
 // Unary functions
@@ -96,52 +127,36 @@ template<class T> decltype(auto) tgamma( const Expression<T>& t){ return Element
 template<class T> decltype(auto) lgamma( const Expression<T>& t){ return ElementWiseExpression<Lgamma,T>(static_cast<const T&>(t));}
 
 template<class X,class Y>
-decltype(auto) pow( const X& x, const Y& y){
+decltype(auto) pow( const Expression<X>& x, const Expression<Y>& y){
     return ElementWiseExpression<Pow,X,Y>(static_cast<const X&>(x),static_cast<const Y&>(y));
 }
 
 template<class X,class Y>
-decltype(auto) atan2( const X& x, const Y& y){
+decltype(auto) atan2( const Expression<X>& x, const Expression<Y>& y){
     return ElementWiseExpression<Atan2,X,Y>(static_cast<const X&>(x),static_cast<const Y&>(y));
 }
 
 template<class X,class Y>
-decltype(auto) hypot( const X& x, const Y& y){
+decltype(auto) hypot( const Expression<X>& x, const Expression<Y>& y){
     return ElementWiseExpression<Hypot,X,Y>(static_cast<const X&>(x),static_cast<const Y&>(y));
 }
 
 template<class X,class Y,class Z>
-decltype(auto) hypot( const X& x, const Y& y, const Z& z){
+decltype(auto) hypot( const Expression<X>& x, const Expression<Y>& y, const Expression<Z>& z){
     return ElementWiseExpression<Hypot,X,Y,Z>(static_cast<const X&>(x),static_cast<const Y&>(y),static_cast<const Z&>(z));
 }
 
+// Define cumulative functions
+
+template<class T, class StartT=int>
+decltype(auto) cumsum( const Expression<T>& t, const StartT& start = 0){
+    return CumulativeExpression<Plus,T>(static_cast<const T&>(t),start);
+}
+
+template<class T, class StartT=int>
+decltype(auto) cumprod( const Expression<T>& t, const StartT& start = 1){
+    return CumulativeExpression<Multiplies,T>(static_cast<const T&>(t),start);
+}
+
 } // namespace
-
-// Define operator overloads
-
-template<class T>
-decltype(auto) operator-( const ultra::Expression<T>& t){
-    return ultra::ElementWiseExpression<ultra::Negate,T>(static_cast<const T&>(t));
-}
-
-template<class L, class R>
-decltype(auto) operator+( const ultra::Expression<L>& l, const ultra::Expression<R>& r){
-    return ultra::ElementWiseExpression<ultra::Plus,L,R>(static_cast<const L&>(l),static_cast<const R&>(r));
-}
-
-template<class L, class R>
-decltype(auto) operator-( const ultra::Expression<L>& l, const ultra::Expression<R>& r){
-    return ultra::ElementWiseExpression<ultra::Minus,L,R>(static_cast<const L&>(l),static_cast<const R&>(r));
-}
-
-template<class L, class R>
-decltype(auto) operator*( const ultra::Expression<L>& l, const ultra::Expression<R>& r){
-    return ultra::ElementWiseExpression<ultra::Multiplies,L,R>(static_cast<const L&>(l),static_cast<const R&>(r));
-}
-
-template<class L, class R>
-decltype(auto) operator/( const ultra::Expression<L>& l, const ultra::Expression<R>& r){
-    return ultra::ElementWiseExpression<ultra::Divides,L,R>(static_cast<const L&>(l),static_cast<const R&>(r));
-}
-
 #endif

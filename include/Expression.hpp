@@ -32,6 +32,12 @@ struct Expression {
 
 template<class F, class... Args>
 class ElementWiseExpression : public Expression<ElementWiseExpression<F,Args...>> {
+
+public:
+
+    using contains = decltype( std::apply( F{}, std::tuple<typename Args::contains...>()));
+
+private:
     
     std::tuple<const Args&...> _args;
 
@@ -52,7 +58,7 @@ class ElementWiseExpression : public Expression<ElementWiseExpression<F,Args...>
     }
 
 
-    public:
+public:
 
     ElementWiseExpression( const Args&... args) : _args(args...) {
         if( std::ranges::any_of(test_dims(),[](bool b){return b;}) ){
@@ -74,9 +80,9 @@ class ElementWiseExpression : public Expression<ElementWiseExpression<F,Args...>
     // As element-wise operations are strictly non-modifying, only const_iterator will exist.
  
     // Notes:
-    // begin() should return a compound iterator over L and R, containing _l_it and _r_it.
-    // Dereferencing this will return F(*_l_it,*_r_it).
-    // Incrementing this will increment _l_it and _r_it.
+    // begin() should return a compound iterator over Args, containing _its.
+    // Dereferencing this will return F(*_its[0],*_its[1],...).
+    // Incrementing this will increment _its.
 
     class const_iterator {
         using ItsTuple = std::tuple< typename Args::const_iterator ...>;
@@ -92,6 +98,48 @@ class ElementWiseExpression : public Expression<ElementWiseExpression<F,Args...>
     };
 
     const_iterator begin() const { return const_iterator(apply_to_each(Begin{},_args)); }
+};
+
+// CumulativeExpression
+// Binary operation over a single arg. Returns something of the same shape.
+
+template<class F, class T>
+class CumulativeExpression : public Expression<CumulativeExpression<F,T>> {
+    
+public:
+
+    using contains = decltype(F{}(typename T::contains(),typename T::contains()));
+
+private:
+
+    const T& _t;
+    const T::contains _start_val;
+
+public:
+
+    CumulativeExpression( const T& t, const T::contains& start_val) : _t(t) , _start_val(start_val) {}
+
+    std::size_t size() const { return _t.size(); }
+    std::size_t shape(std::size_t ii) const { return _t.shape(ii); }
+    std::size_t dims() const { return _t.dims(); }
+
+    // Define iterator class
+    // As element-wise operations are strictly non-modifying, only const_iterator will exist.
+
+    class const_iterator {
+        
+        F f;
+        T::const_iterator _it;
+        T::contains _val;
+        
+        public:
+        
+        const_iterator( const T::const_iterator& it, const T::contains& start_val) : f{}, _it(it), _val(start_val) {}
+        decltype(auto) operator*() { _val = f(*_it,_val); return _val; }
+        const_iterator& operator++() { ++_it; return *this; }
+    };
+
+    const_iterator begin() const { return const_iterator(_t.begin(),_start_val); }
 };
 
 } // namespace

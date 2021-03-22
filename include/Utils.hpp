@@ -7,6 +7,7 @@
 // Mostly a lot of template hacking.
 
 #include <tuple>
+#include <type_traits>
 
 namespace ultra {
 

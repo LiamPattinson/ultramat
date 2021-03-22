@@ -42,6 +42,10 @@ struct Slice {
 template<class T>
 class Array : public Expression<Array<T>> {
 
+public:
+
+    using contains = T;
+
 protected:
 
     char            _status;
@@ -152,7 +156,6 @@ public:
     static constexpr char semicontiguous  = 0x08;
     static constexpr char row_major       = 0x10;
     static constexpr char col_major       = 0x20;
-    static constexpr char bcast           = 0x40;
 
     inline char get_status() const { return _status;}
     inline void set_status( char status){ _status = status;}
@@ -164,7 +167,6 @@ public:
     inline bool is_semicontiguous() const { return _status & semicontiguous;}
     inline bool is_row_major() const { return _status & row_major;}
     inline bool is_col_major() const { return _status & col_major;}
-    inline bool is_broadcast() const { return _status & bcast;}
 
     // ===============================================
     // Data access
