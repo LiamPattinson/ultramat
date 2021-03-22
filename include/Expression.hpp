@@ -142,5 +142,48 @@ public:
     const_iterator begin() const { return const_iterator(_t.begin(),_start_val); }
 };
 
+// GeneratorExpression
+// Creates new elements on demand for a given shape.
+
+template<class F>
+class GeneratorExpression : public Expression<GeneratorExpression<F>> {
+    
+public:
+
+    using contains = decltype(std::declval<F>()());
+
+private:
+
+    F _generator;
+    std::vector<std::size_t> _shape;
+
+public:
+
+    template< std::ranges::sized_range Range>
+    GeneratorExpression(const F& generator, const Range& range) : _generator(generator), _shape(std::ranges::size(range)) {
+        std::copy(range.begin(),range.end(),_shape.begin());
+    }
+
+
+    std::size_t size() const { return std::accumulate(_shape.begin(),_shape.end(),1,std::multiplies<std::size_t>{}); }
+    std::size_t shape(std::size_t ii) const { return _shape[ii]; }
+    std::size_t dims() const { return _shape.size(); }
+
+    // Define iterator class
+
+    class const_iterator {
+        
+        F _generator;
+        
+        public:
+        
+        const_iterator( const F& generator) : _generator(generator) {}
+        decltype(auto) operator*() { return _generator(); }
+        const const_iterator& operator++() { /* do nothing! */ return *this; }
+    };
+
+    const_iterator begin() const { return const_iterator(_generator); }
+};
+
 } // namespace
 #endif

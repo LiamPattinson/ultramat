@@ -79,4 +79,54 @@ TEST(ArrayMathTest,Math){
         EXPECT_TRUE(i.shape(0) == 3);
         EXPECT_TRUE(i.shape(1) == 3);
     }
+
+    // Set things to zeros/ones
+    Array<int> j = zeros(shape);
+    a = zeros(shape);
+    Array<int> k = ones(shape);
+    b = ones(shape);
+    bool zero_correct=true, one_correct=true;
+    for( auto&& x : j ) if( x ) zero_correct=false;
+    for( auto&& x : a ) if( x ) zero_correct=false;
+    for( auto&& x : k ) if( x!=1 ) one_correct=false;
+    for( auto&& x : b ) if( x!=1 ) one_correct=false;
+    EXPECT_TRUE(zero_correct);
+    EXPECT_TRUE(one_correct);
+    EXPECT_TRUE(j.shape(0) == 5);
+    EXPECT_TRUE(j.shape(1) == 10);
+    EXPECT_TRUE(j.shape(2) == 20);
+    EXPECT_TRUE(k.shape(0) == 5);
+    EXPECT_TRUE(k.shape(1) == 10);
+    EXPECT_TRUE(k.shape(2) == 20);
+    EXPECT_TRUE(a.shape(0) == 5);
+    EXPECT_TRUE(a.shape(1) == 10);
+    EXPECT_TRUE(a.shape(2) == 20);
+    EXPECT_TRUE(b.shape(0) == 5);
+    EXPECT_TRUE(b.shape(1) == 10);
+    EXPECT_TRUE(b.shape(2) == 20);
+
+    // linspace
+    {
+        Array<double> l = linspace(0,1,101);
+        EXPECT_TRUE(l.dims() == 1);
+        EXPECT_TRUE(l.size() == 101);
+        EXPECT_TRUE(l.shape(0) == 101);
+        bool linear_linspace_correct = true;
+        std::size_t idx=0;
+        for(auto&& x : l) if( std::abs(x - (idx++)*0.01) > 1e-5 ) linear_linspace_correct = false;
+        EXPECT_TRUE(linear_linspace_correct);
+    }
+
+    Array<float> m = linspace(1.f,1000.f,shape);
+    {
+        EXPECT_TRUE(m.dims() == 3);
+        EXPECT_TRUE(m.size() == 1000);
+        EXPECT_TRUE(m.shape(0) == 5);
+        EXPECT_TRUE(m.shape(1) == 10);
+        EXPECT_TRUE(m.shape(2) == 20);
+        bool ranged_linspace_correct = true;
+        std::size_t idx=1;
+        for(auto&& x : m) if( std::abs(x - (idx++)) > 1e-2 ) ranged_linspace_correct = false;
+        EXPECT_TRUE(ranged_linspace_correct);
+    }
 }
