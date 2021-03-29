@@ -1,7 +1,6 @@
 #ifndef __ULTRA_ARRAY_HPP
 #define __ULTRA_ARRAY_HPP
 
-#include<iostream>
 #include <cmath>
 #include <stdexcept>
 #include <string>

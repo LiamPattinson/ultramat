@@ -35,11 +35,12 @@ class ElementWiseExpression : public Expression<ElementWiseExpression<F,Args...>
 
 public:
 
-    using contains = decltype( std::apply( F{}, std::tuple<typename Args::contains...>()));
+    using contains = decltype( std::apply( F{}, std::tuple<typename std::remove_cvref_t<Args>::contains...>()));
 
 private:
     
-    std::tuple<const Args&...> _args;
+    using tuple_t = decltype(std::forward_as_tuple(std::declval<Args>()...));
+    tuple_t _args;
 
     template<std::size_t... I>
     decltype(auto) test_dims_impl(std::index_sequence<I...>) const {
@@ -60,7 +61,13 @@ private:
 
 public:
 
-    ElementWiseExpression( const Args&... args) : _args(args...) {
+    ElementWiseExpression() = delete;
+    ElementWiseExpression( const ElementWiseExpression<F,Args...>& ) = delete;
+    ElementWiseExpression( ElementWiseExpression<F,Args...>&& ) = default;
+    ElementWiseExpression<F,Args...>& operator=( const ElementWiseExpression<F,Args...>& ) = delete;
+    ElementWiseExpression<F,Args...>& operator=( ElementWiseExpression<F,Args...>&& ) = default;
+
+    ElementWiseExpression( Args&&... args) : _args(std::forward<Args>(args)...) {
         if( std::ranges::any_of(test_dims(),[](bool b){return b;}) ){
             throw std::runtime_error("ElementWiseExpression: args have incompatible dimensions.");
         }
@@ -71,6 +78,8 @@ public:
         }
         // No need to test size, this requirement is satisfied implicitly.
     }
+
+
 
     std::size_t size() const { return std::get<0>(_args).size(); }
     std::size_t shape(std::size_t ii) const { return std::get<0>(_args).shape(ii); }
@@ -85,14 +94,14 @@ public:
     // Incrementing this will increment _its.
 
     class const_iterator {
-        using ItsTuple = std::tuple< typename Args::const_iterator ...>;
+        using ItTuple = std::tuple< typename std::remove_cvref_t<Args>::const_iterator ...>;
         
         F f;
-        ItsTuple _its;
+        ItTuple _its;
         
         public:
         
-        const_iterator( ItsTuple&& its...) : f{}, _its(its) {}
+        const_iterator( ItTuple&& its) : f{}, _its(std::move(its)) {}
         decltype(auto) operator*() { return std::apply(f,apply_to_each(Deref{},_its)); }
         const_iterator& operator++() { apply_to_each(PrefixInc{},_its); return *this; }
     };
@@ -108,16 +117,19 @@ class CumulativeExpression : public Expression<CumulativeExpression<F,T>> {
     
 public:
 
-    using contains = decltype(F{}(typename T::contains(),typename T::contains()));
+    using inner_contains = typename std::remove_cvref_t<T>::contains;
+    using contains = decltype(F{}(inner_contains(),inner_contains()));
 
 private:
 
-    const T& _t;
-    const T::contains _start_val;
+    using ref_t = decltype(std::forward<T>(std::declval<T>()));
+
+    ref_t _t;
+    inner_contains _start_val;
 
 public:
 
-    CumulativeExpression( const T& t, const T::contains& start_val) : _t(t) , _start_val(start_val) {}
+    CumulativeExpression( T&& t, const inner_contains& start_val) : _t(std::forward<T>(t)) , _start_val(start_val) {}
 
     std::size_t size() const { return _t.size(); }
     std::size_t shape(std::size_t ii) const { return _t.shape(ii); }
@@ -127,19 +139,20 @@ public:
     // As element-wise operations are strictly non-modifying, only const_iterator will exist.
 
     class const_iterator {
-        
+
+        using it_t = typename std::remove_cvref_t<T>::const_iterator;
         F f;
-        T::const_iterator _it;
-        T::contains _val;
+        it_t _it;
+        inner_contains _val;
         
         public:
         
-        const_iterator( const T::const_iterator& it, const T::contains& start_val) : f{}, _it(it), _val(start_val) {}
+        const_iterator( it_t&& it, const inner_contains& start_val) : f{}, _it(std::move(it)), _val(start_val) {}
         decltype(auto) operator*() { _val = f(*_it,_val); return _val; }
         const_iterator& operator++() { ++_it; return *this; }
     };
 
-    const_iterator begin() const { return const_iterator(_t.begin(),_start_val); }
+    const_iterator begin() const { return const_iterator(std::move(_t.begin()),_start_val); }
 };
 
 // GeneratorExpression
@@ -156,16 +169,21 @@ private:
 
     F _generator;
     std::vector<std::size_t> _shape;
+    std::size_t _size;
 
 public:
 
     template< std::ranges::sized_range Range>
-    GeneratorExpression(const F& generator, const Range& range) : _generator(generator), _shape(std::ranges::size(range)) {
+    GeneratorExpression(const F& generator, const Range& range) : 
+        _generator(generator), 
+        _shape(std::ranges::size(range)),
+        _size(std::accumulate(range.begin(),range.end(),1,std::multiplies<std::size_t>{})) 
+    {
         std::copy(range.begin(),range.end(),_shape.begin());
     }
 
 
-    std::size_t size() const { return std::accumulate(_shape.begin(),_shape.end(),1,std::multiplies<std::size_t>{}); }
+    std::size_t size() const { return _size; }
     std::size_t shape(std::size_t ii) const { return _shape[ii]; }
     std::size_t dims() const { return _shape.size(); }
 
@@ -179,7 +197,7 @@ public:
         
         const_iterator( const F& generator) : _generator(generator) {}
         decltype(auto) operator*() { return _generator(); }
-        const const_iterator& operator++() { /* do nothing! */ return *this; }
+        const_iterator& operator++() { /* do nothing! */ return *this; }
     };
 
     const_iterator begin() const { return const_iterator(_generator); }
