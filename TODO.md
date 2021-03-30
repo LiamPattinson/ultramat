@@ -2,6 +2,9 @@
 
 ## Array.hpp
 
+    * resize
+        * Will have to look into allocators. Should this be a template
+          argument? How will it fit alongside plans for fixed arrays?
     * reshape
         * Contiguous arrays only.
         * Could be done inplace by just updating dim/shape/stride, or
@@ -17,7 +20,6 @@
 
 ## Expressions.hpp
 
-    * Generator Expressions, such as linspace, logspace, zeros, etc.
     * Evaluating expression, which force evalution of the expressions ahead of them,
       store the result in a temporary, and then pass this on. This is necessary to
       achieve high performance for more complex operations. These will be used later

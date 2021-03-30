@@ -77,3 +77,47 @@ TEST(ArrayGeneratorsTest,Logspace){
     for(auto&& x : a) if( std::fabs(x - std::pow(10,idx++)) > 1e-5 ) logspace_correct = false;
     EXPECT_TRUE(logspace_correct);
 }
+
+TEST(ArrayGeneratorsTest,Random){
+    shape_vec shape{5,10,20}; 
+    Array<double> a = random(std::uniform_real_distribution<double>(0,1),100,0);
+    Array<double> b = random(std::uniform_real_distribution<double>(0,1),100,0);
+    Array<int> c = random(std::uniform_int_distribution<int>(-5000000,500000),shape);
+    Array<int> d = random(std::uniform_int_distribution<int>(-5000000,500000),shape);
+    EXPECT_TRUE(a.dims() == 1);
+    EXPECT_TRUE(a.size() == 100);
+    EXPECT_TRUE(a.shape(0) == 100);
+    EXPECT_TRUE(b.dims() == 1);
+    EXPECT_TRUE(b.size() == 100);
+    EXPECT_TRUE(b.shape(0) == 100);
+    EXPECT_TRUE(c.dims() == 3);
+    EXPECT_TRUE(c.size() == 1000);
+    EXPECT_TRUE(c.shape(0) == 5);
+    EXPECT_TRUE(c.shape(1) == 10);
+    EXPECT_TRUE(c.shape(2) == 20);
+    EXPECT_TRUE(d.dims() == 3);
+    EXPECT_TRUE(d.size() == 1000);
+    EXPECT_TRUE(d.shape(0) == 5);
+    EXPECT_TRUE(d.shape(1) == 10);
+    EXPECT_TRUE(d.shape(2) == 20);
+    
+    // Test that numbers generated match when given same starting seed
+    bool same_seed_correct = true;
+    for( auto a_it = a.begin(), b_it = b.begin(), a_end = a.end(); a_it != a_end; ++a_it, ++b_it){
+        if( *a_it != *b_it ) same_seed_correct = false;
+    }
+    EXPECT_TRUE(same_seed_correct);
+
+    // Test that they don't match when using default seed (there is a very slim chance that this will fail!)
+    bool default_seed_correct = true;
+    for( auto c_it = c.begin(), d_it = d.begin(), c_end = c.end(); c_it != c_end; ++c_it, ++d_it){
+        if( *c_it == *d_it ) default_seed_correct = false;
+    }
+    EXPECT_TRUE(default_seed_correct);
+    
+    // Test that they can be used in arithmetic (nothing to EXPECT_TRUE here, only that it doesn't break)
+    Array<double> e = (a + b + random(std::uniform_real_distribution<double>(0,5),100)) * random(std::uniform_int_distribution<int>(0,100),100);
+    EXPECT_TRUE(e.dims() == 1);
+    EXPECT_TRUE(e.size() == 100);
+    EXPECT_TRUE(e.shape(0) == 100);
+}
