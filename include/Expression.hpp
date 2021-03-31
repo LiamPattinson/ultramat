@@ -26,6 +26,29 @@ struct Expression {
     decltype(auto) begin() const { return static_cast<const T&>(*this).begin(); }
 };
 
+// eval
+// 
+// Forces evaluation of an expession to a temporary, and returns it.
+// When applied to a container such as an array, it does not store a temporary, but rather provides
+// perfect forwarding of that container.
+
+template<class T>
+using eval_result = std::conditional_t< 
+    types<std::remove_cvref_t<T>>::is_array,
+    decltype(std::forward<T>(std::declval<T>())),
+    Array<typename std::remove_cvref_t<T>::contains>
+>;
+
+template<class T>
+decltype(auto) eval( Expression<T>& t){
+    return eval_result<T>(static_cast<T&>(t));
+}
+
+template<class T>
+decltype(auto) eval( Expression<T>&& t){
+    return eval_result<T>(static_cast<T&&>(t));
+}
+
 // ElementWiseExpression
 // Operates on arbitrary number of args, but all must be of the same shape.
 // Returns something of the same shape.

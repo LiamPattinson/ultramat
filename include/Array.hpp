@@ -1259,7 +1259,7 @@ typename Array<T>::base_iterator<constness>& Array<T>::base_iterator<constness>:
 
 template<class T> template<bool constness> template<bool C, std::enable_if_t<C,bool>>
 Array<T>::base_iterator<constness>::operator base_iterator<C>() const {
-    return base_fast_iterator<C>(_ptr,_dims,_shape,_stride,_pos,_col_major);
+    return base_iterator<C>(_ptr,_dims,_shape,_stride,_pos,_col_major);
 }
 
 template<class T> template<bool constness>

@@ -11,6 +11,22 @@
 
 namespace ultra {
 
+// Type declarations
+
+template<class T> class Array;
+
+// Type determination
+
+template<class T>
+struct types {
+    static const bool is_array = false;
+};
+
+template<class T>
+struct types<Array<T>> {
+    static const bool is_array = true;
+};
+
 // iterator utils
 // Kinda like std::begin and std::end, but for other aspects of the iterator interface.
 // Implemented as functor objects to give more flexibility

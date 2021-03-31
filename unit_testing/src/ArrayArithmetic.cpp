@@ -5,7 +5,7 @@
 using namespace ultra;
 using shape_vec = std::vector<std::size_t>;
 
-TEST(ArrayMathTest,Arithmetic){
+TEST(ArrayArithmeticTest,Arithmetic){
     auto shape = shape_vec{5,10,20};
     Array<int>         a(shape);
     Array<float>       b(shape);
