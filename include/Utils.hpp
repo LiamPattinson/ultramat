@@ -8,6 +8,8 @@
 
 #include <tuple>
 #include <type_traits>
+#include <algorithm>
+#include <utility>
 
 namespace ultra {
 
@@ -26,6 +28,10 @@ template<class T>
 struct types<Array<T>> {
     static const bool is_array = true;
 };
+
+// Define row/col order enum class
+enum class RCOrder { row_major, col_major };
+const RCOrder default_rc_order = RCOrder::row_major;
 
 // iterator utils
 // Kinda like std::begin and std::end, but for other aspects of the iterator interface.
