@@ -62,6 +62,17 @@ TEST(FixedArrayTest,Constructors){
     EXPECT_TRUE(array_5.stride(1) == 12);
     EXPECT_TRUE(array_5.stride(2) == 12*15);
     EXPECT_TRUE(array_5.stride(3) == 12*15*90);
+
+    // Test full shape and stride reading
+    auto shape = array_3.shape();
+    auto stride = array_4.stride();
+
+    EXPECT_TRUE(shape[0] == 12);
+    EXPECT_TRUE(shape[1] == 15);
+    EXPECT_TRUE(shape[2] == 90);
+    EXPECT_TRUE(stride[0] == 30*50);
+    EXPECT_TRUE(stride[1] == 30);
+    EXPECT_TRUE(stride[2] == 1);
 }
 
 

@@ -6,10 +6,22 @@
 // Defines any utility functions/structs deemed useful.
 // Mostly a lot of template hacking.
 
-#include <tuple>
-#include <type_traits>
-#include <algorithm>
+#include <cstdlib>
+#include <cmath>
 #include <utility>
+#include <stdexcept>
+#include <string>
+#include <vector>
+#include <array>
+#include <tuple>
+#include <functional>
+#include <algorithm>
+#include <numeric>
+#include <limits>
+#include <random>
+#include <type_traits>
+#include <concepts>
+#include <ranges>
 
 namespace ultra {
 
@@ -30,8 +42,41 @@ struct types<Array<T>> {
 };
 
 // Define row/col order enum class
+
 enum class RCOrder { row_major, col_major };
 const RCOrder default_rc_order = RCOrder::row_major;
+
+// Define read-only enum class
+
+enum class ReadWriteStatus { writeable, read_only };
+
+// Memory helpers
+ 
+// variadic_memjump
+// used with round-bracket indexing.
+// requires stride of length dims+1, with the largest stride iterating all the way to the location of end().
+// If row_major, the largest stride is stride[0]. If col_major, the largest stride is stride[dims].
+
+// Base case
+template<std::size_t N, std::ranges::range Stride, std::integral Int>
+requires std::integral<typename Stride::value_type>
+constexpr Stride::value_type variadic_memjump_impl(const Stride& stride, Int coord) noexcept {
+    return stride[N] * coord; 
+}
+
+// Recursive step
+template<std::size_t N, std::ranges::range Stride, std::integral Int, std::integral... Ints>
+requires std::integral<typename Stride::value_type>
+constexpr Stride::value_type variadic_memjump_impl( const Stride& stride, Int coord, Ints... coords) noexcept {
+    return (stride[N] * coord) + variadic_memjump_impl<N+1,Stride,Ints...>(stride,coords...);
+}
+
+template<RCOrder Order, std::ranges::range Stride, std::integral... Ints>
+requires std::integral<typename Stride::value_type>
+constexpr Stride::value_type variadic_memjump( const Stride& stride, Ints... coords) noexcept {
+    // if row major, must skip first element of stride
+    return variadic_memjump_impl<(Order==RCOrder::row_major?1:0),Stride,Ints...>(stride,coords...);
+}
 
 // iterator utils
 // Kinda like std::begin and std::end, but for other aspects of the iterator interface.

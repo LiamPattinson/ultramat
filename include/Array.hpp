@@ -1,18 +1,6 @@
 #ifndef __ULTRA_ARRAY_HPP
 #define __ULTRA_ARRAY_HPP
 
-#include <cmath>
-#include <stdexcept>
-#include <string>
-#include <array>
-#include <vector>
-#include <algorithm>
-#include <numeric>
-#include <limits>
-#include <functional>
-#include <type_traits>
-#include <concepts>
-
 #include "Expression.hpp"
 #include "Math.hpp"
 
@@ -139,9 +127,6 @@ public:
     std::size_t size( std::size_t dim) const;
     std::size_t shape( std::size_t dim) const; // alias for size(std::size_t)
 
-    // return raw pointer, useful for interfacing with C libraries.
-    // Will lead to strange behaviour if called by a non-contiguous Array.
-    T* data() const;
 
     // ===============================================
     // Status handling.
@@ -169,9 +154,12 @@ public:
 
     // ===============================================
     // Data access
+    
+    // return raw pointer -- use with care!
+    T* data() const;
 
-    // Access via many ints.
-    // Warning: No checks are performed to ensure the correct version has been called.
+    // Access via ints.
+    // Warning: No compile-time checks are performed to ensure the correct version has been called.
 
     template<class... Ints> 
     T operator()( Ints... coords ) const;
@@ -209,6 +197,8 @@ public:
     T operator[](std::size_t ii) const;
     T& operator[](std::size_t ii);
 
+    // ===============================================
+    // Data access
     // ===============================================
     // Iteration
 

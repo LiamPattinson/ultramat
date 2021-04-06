@@ -5,9 +5,6 @@
 //
 // Defines expressions for standard math functions.
 
-#include <cstdlib>
-#include <cmath>
-
 #include "Expression.hpp"
 
 namespace ultra {

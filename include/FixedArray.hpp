@@ -8,13 +8,6 @@
 #include "FixedArrayUtils.hpp"
 #include "Expression.hpp"
 
-#include <stdexcept>
-#include <string>
-#include <algorithm>
-#include <numeric>
-#include <concepts>
-#include <ranges>
-
 namespace ultra {
 
 // Declare Array and preferred interface
@@ -30,77 +23,28 @@ using FixedArray = FixedArrayImpl<T,default_rc_order,Dims...>;
 template<class T, RCOrder Order, std::size_t... Dims>
 class FixedArrayImpl : public Expression<FixedArrayImpl<T,Order,Dims...>> {
 
-    static_assert(sizeof...(Dims) >= 1, "FixedArray must have at least one dimension.");
+    static constexpr std::size_t _dims = sizeof...(Dims);
+    static constexpr std::size_t _size = variadic_product<Dims...>::value;
+
+    static_assert(_dims >= 1, "FixedArray must have at least one dimension.");
 
 public:
 
     using value_type = T;
-    using size_type = std::size_t;
-    using difference_type = std::ptrdiff_t;
-    using shape_type = std::array<size_type,sizeof...(Dims)>;
-    using stride_type = std::array<size_type,sizeof...(Dims)+1>;
+    static constexpr RCOrder rc_order = Order;
+    using shape_type = std::array<std::size_t,_dims>;
+    using stride_type = std::array<std::size_t,_dims+1>;
+    using data_type = std::array<T,_size>;
 
     // For convenience, specify row/col major via FixedArray<T,Dims...>::row/col_major
     using row_major = FixedArrayImpl<T,RCOrder::row_major,Dims...>;
     using col_major = FixedArrayImpl<T,RCOrder::col_major,Dims...>;
-  
+
 protected:  
-    
-    static constexpr std::size_t _size = variadic_product<Dims...>::value;
+
     static constexpr shape_type  _shape = {{Dims...}};
     static constexpr stride_type _stride = ( Order == RCOrder::row_major ? variadic_stride<Dims...>::row_major : variadic_stride<Dims...>::col_major );
-
-    using data_type = std::array<T,_size>;
     data_type _data;
-
-    // Helper functions
-    
-    // variadic_memjump
-    // used with round-bracket indexing.
-
-    // Base case
-    template<std::size_t N, std::integral Int>
-    static constexpr std::size_t variadic_memjump_impl( Int coord) noexcept {
-        return _stride[N] * coord; 
-    }
-
-    // Recursive step
-    template<std::size_t N, std::integral Int, std::integral... Ints>
-    static constexpr std::size_t variadic_memjump_impl( Int coord, Ints... coords) noexcept {
-        return (_stride[N] * coord) + variadic_memjump_impl<N+1,Ints...>(coords...);
-    }
-
-    template<std::integral... Ints>
-    static constexpr std::size_t variadic_memjump( Ints... coords) noexcept {
-        static_assert(sizeof...(Ints)==sizeof...(Dims),"FixedArray: Must index with correct number of indices.");
-        // if row major, must skip first element of stride
-        return variadic_memjump_impl<(Order==RCOrder::row_major?1:0),Ints...>(coords...);
-    }
-
-    // check_expression
-    // checks if expression matches dims and shape, throws an exception if it doesn't.
-
-    template<class U>
-    void check_expression( const Expression<U>& expression) const {
-        if( expression.dims() != dims()){
-            throw std::runtime_error("FixedArray: Tried to construct/assign array of dims " + std::to_string(dims()) 
-                    + " with expression of dims " + std::to_string(expression.dims()));
-        }
-        for( std::size_t ii=0; ii<dims(); ++ii){
-            if( expression.shape(ii) != shape(ii) ){
-                std::string expression_shape("( ");
-                std::string array_shape("( ");
-                for( std::size_t ii=0; ii<dims(); ++ii){
-                    expression_shape += std::to_string(expression.shape(ii)) + ' ';
-                    array_shape += std::to_string(shape(ii)) + ' ';
-                }
-                expression_shape += ')';
-                array_shape += ')';
-                throw std::runtime_error("FixedArray: Tried to construct/assign array of shape " + array_shape 
-                        + "with expression of shape " + expression_shape);
-            }
-        }
-    }
 
 public:
 
@@ -144,6 +88,11 @@ public:
     constexpr std::size_t size() const noexcept { return _size; }
     constexpr std::size_t shape( std::size_t dim) const noexcept { return _shape[dim]; }
     constexpr std::size_t stride( std::size_t dim) const noexcept { return _stride[dim]; }
+    constexpr const shape_type& shape() const noexcept { return _shape; }
+    constexpr const stride_type& stride() const noexcept { return _stride; }
+
+    constexpr bool is_contiguous() const { return true;}
+    constexpr bool is_read_only() const  { return false;}
 
     // ===============================================
     // Data access
@@ -157,12 +106,14 @@ public:
     
     template<std::integral... Ints> 
     T operator()( Ints... coords ) const noexcept {
-        return _data[variadic_memjump(coords...)];
+        static_assert(sizeof...(Ints)==_dims,"FixedArray: Must index with correct number of indices.");
+        return _data[variadic_memjump<Order>(_stride,coords...)];
     }
     
     template<std::integral... Ints> 
     T& operator()( Ints... coords ) noexcept {
-        return _data[variadic_memjump(coords...)];
+        static_assert(sizeof...(Ints)==_dims,"FixedArray: Must index with correct number of indices.");
+        return _data[variadic_memjump<Order>(_stride,coords...)];
     }
 
     // Access via range
@@ -179,6 +130,7 @@ public:
 
     // Access via square brackets
     // Treats all arrays as 1D containers.
+    // TODO have this take a slice and return a view over the array
     
     constexpr T operator[](std::size_t ii) const noexcept { return _data[ii]; }
     constexpr T& operator[](std::size_t ii) noexcept { return _data[ii]; }
@@ -195,6 +147,36 @@ public:
     constexpr const_iterator end() const noexcept { return _data.end(); }
 
     // TODO striped iteration
+
+protected:
+
+    // Helper functions
+
+    // check_expression
+    // checks if expression matches dims and shape, throws an exception if it doesn't.
+
+    template<class U>
+    void check_expression( const Expression<U>& expression) const {
+        if( expression.dims() != dims()){
+            throw std::runtime_error("FixedArray: Tried to construct/assign array of dims " + std::to_string(dims()) 
+                    + " with expression of dims " + std::to_string(expression.dims()));
+        }
+        for( std::size_t ii=0; ii<dims(); ++ii){
+            if( expression.shape(ii) != shape(ii) ){
+                std::string expression_shape("( ");
+                std::string array_shape("( ");
+                for( std::size_t ii=0; ii<dims(); ++ii){
+                    expression_shape += std::to_string(expression.shape(ii)) + ' ';
+                    array_shape += std::to_string(shape(ii)) + ' ';
+                }
+                expression_shape += ')';
+                array_shape += ')';
+                throw std::runtime_error("FixedArray: Tried to construct/assign array of shape " + array_shape 
+                        + "with expression of shape " + expression_shape);
+            }
+        }
+    }
+
 };
 
 } // namespace
