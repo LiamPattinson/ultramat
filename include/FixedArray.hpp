@@ -7,6 +7,7 @@
 
 #include "FixedArrayUtils.hpp"
 #include "Expression.hpp"
+#include "View.hpp"
 
 namespace ultra {
 
@@ -40,6 +41,9 @@ public:
     using row_major = FixedArrayImpl<T,RCOrder::row_major,Dims...>;
     using col_major = FixedArrayImpl<T,RCOrder::col_major,Dims...>;
 
+    // View of self
+    using View = ultra::View<FixedArrayImpl<T,Order,Dims...>>;
+
 protected:  
 
     static constexpr shape_type  _shape = {{Dims...}};
@@ -68,14 +72,14 @@ public:
     // Construct from an expression
     template<class U>
     FixedArrayImpl( const Expression<U>& expression) {
-        check_expression(expression);
+        check_expression(*this,expression);
         auto expr=expression.begin();
         for(auto it=begin(), it_end=end(); it != it_end; ++it, ++expr) *it = *expr;
     }
 
     template<class U>
     FixedArrayImpl& operator=( const Expression<U>& expression) {
-        check_expression(expression);
+        check_expression(*this,expression);
         auto expr=expression.begin();
         for(auto it=begin(), it_end=end(); it != it_end; ++it, ++expr) *it = *expr;
         return *this;
@@ -136,6 +140,16 @@ public:
     constexpr T& operator[](std::size_t ii) noexcept { return _data[ii]; }
 
     // ===============================================
+    // View creation
+
+    View view() { return View(*this);}
+
+    template<class... Slices> requires ( std::is_same<Slice,Slices>::value && ... )
+    View view(const Slices&... slices) {
+        return View(*this).slice(slices...);
+    }
+
+    // ===============================================
     // Iteration
 
     using iterator = data_type::iterator;
@@ -147,36 +161,6 @@ public:
     constexpr const_iterator end() const noexcept { return _data.end(); }
 
     // TODO striped iteration
-
-protected:
-
-    // Helper functions
-
-    // check_expression
-    // checks if expression matches dims and shape, throws an exception if it doesn't.
-
-    template<class U>
-    void check_expression( const Expression<U>& expression) const {
-        if( expression.dims() != dims()){
-            throw std::runtime_error("FixedArray: Tried to construct/assign array of dims " + std::to_string(dims()) 
-                    + " with expression of dims " + std::to_string(expression.dims()));
-        }
-        for( std::size_t ii=0; ii<dims(); ++ii){
-            if( expression.shape(ii) != shape(ii) ){
-                std::string expression_shape("( ");
-                std::string array_shape("( ");
-                for( std::size_t ii=0; ii<dims(); ++ii){
-                    expression_shape += std::to_string(expression.shape(ii)) + ' ';
-                    array_shape += std::to_string(shape(ii)) + ' ';
-                }
-                expression_shape += ')';
-                array_shape += ')';
-                throw std::runtime_error("FixedArray: Tried to construct/assign array of shape " + array_shape 
-                        + "with expression of shape " + expression_shape);
-            }
-        }
-    }
-
 };
 
 } // namespace

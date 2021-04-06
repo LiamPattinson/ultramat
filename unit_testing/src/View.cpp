@@ -12,9 +12,8 @@ TEST(ViewTest,FullViewConstructor){
     FixedArray<float,50,30>::row_major row_array(2.0);
     FixedArray<double,12,15,90>::col_major col_array(5.0);
 
-    // the syntax for usage 'in the field' is much cleaner than this...
-    View<FixedArray<float,50,30>::row_major> row_view(row_array);
-    View<FixedArray<double,12,15,90>::col_major> col_view(col_array);
+    auto row_view = row_array.view();
+    auto col_view = col_array.view();
 
     // Test attributes
 
@@ -78,7 +77,7 @@ TEST(ViewTest,FullViewConstructor){
 
 TEST(ViewTest,FullViewElementAccess){
     FixedArray<float,30,20,10> array(17.);
-    View<FixedArray<float,30,20,10>> view(array);
+    auto view = array.view();
 
     // Test fill
     EXPECT_TRUE(fabs(view(0,0,0) - 17.) < 1e-5);
@@ -103,7 +102,7 @@ TEST(ViewTest,FullViewElementAccess){
 
     // Repeat for a column major array
     FixedArray<float,30,20,10>::col_major col_array(17.);
-    View<FixedArray<float,30,20,10>::col_major> col_view(col_array);
+    auto col_view = col_array.view();
 
     EXPECT_TRUE(fabs(col_view(0,0,0) - 17.) < 1e-5);
     EXPECT_TRUE(fabs(col_view(8,2,1) - 17.) < 1e-5);
@@ -129,6 +128,73 @@ TEST(ViewTest,FullViewElementAccess){
     EXPECT_TRUE(fabs(col_view(std::vector{21,0,0}) - 42.42) < 1e-5);
     EXPECT_TRUE(fabs(col_view(std::vector{0,10,5}) - 3.14159) < 1e-5);
     EXPECT_TRUE(fabs(col_view(std::vector{5,5,3}) - 64.32) < 1e-5);
-
 }
 
+TEST(ViewTest,Slicing) {
+    FixedArray<float,30,20,10>::row_major row_array(17.);
+    FixedArray<float,30,20,10>::col_major col_array(5.);
+    
+    row_array(10,10,4) = 36.;
+    col_array(10,10,4) = 36.;
+
+    // Create view excluding boundary elements
+    Slice interior(1,-1);
+    auto interior_row_view = row_array.view(interior,interior,interior);
+    auto interior_col_view = col_array.view(interior,interior,interior);
+
+    EXPECT_TRUE( interior_row_view.shape(0) == 28 );
+    EXPECT_TRUE( interior_col_view.shape(0) == 28 );
+    EXPECT_TRUE( interior_row_view.shape(1) == 18 );
+    EXPECT_TRUE( interior_col_view.shape(1) == 18 );
+    EXPECT_TRUE( interior_row_view.shape(2) ==  8 );
+    EXPECT_TRUE( interior_col_view.shape(2) ==  8 );
+    EXPECT_TRUE( interior_row_view.data() == row_array.data() + 1 + 10 + 200);
+    EXPECT_TRUE( interior_col_view.data() == col_array.data() + 1 + 30 + 600);
+    EXPECT_TRUE( interior_row_view(9,9,3) == 36. );
+    EXPECT_TRUE( interior_col_view(9,9,3) == 36. );
+
+    // Create partial view excluding boundary elements in 0 and 1 dimensions, but not in 2 dimension
+    auto partial_interior_row_view = row_array.view(interior,interior);
+    auto partial_interior_col_view = col_array.view(interior,interior);
+
+    EXPECT_TRUE( partial_interior_row_view.shape(0) == 28 );
+    EXPECT_TRUE( partial_interior_col_view.shape(0) == 28 );
+    EXPECT_TRUE( partial_interior_row_view.shape(1) == 18 );
+    EXPECT_TRUE( partial_interior_col_view.shape(1) == 18 );
+    EXPECT_TRUE( partial_interior_row_view.shape(2) == 10 );
+    EXPECT_TRUE( partial_interior_col_view.shape(2) == 10 );
+    EXPECT_TRUE( partial_interior_row_view.data() == row_array.data() + 10 + 200);
+    EXPECT_TRUE( partial_interior_col_view.data() == col_array.data() + 1 + 30);
+    EXPECT_TRUE( partial_interior_row_view(9,9,4) == 36. );
+    EXPECT_TRUE( partial_interior_col_view(9,9,4) == 36. );
+
+    auto stepped_row_view = row_array.view(Slice{2,-4,2},Slice{2,-1},Slice{1,Slice::all,3});
+    auto stepped_col_view = col_array.view(Slice{2,-4,2},Slice{2,-1},Slice{1,Slice::all,3});
+
+    EXPECT_TRUE( stepped_row_view.shape(0) == 12 );
+    EXPECT_TRUE( stepped_col_view.shape(0) == 12 );
+    EXPECT_TRUE( stepped_row_view.shape(1) == 17 );
+    EXPECT_TRUE( stepped_col_view.shape(1) == 17 );
+    EXPECT_TRUE( stepped_row_view.shape(2) == 3 );
+    EXPECT_TRUE( stepped_col_view.shape(2) == 3 );
+    EXPECT_TRUE( stepped_row_view.data() == row_array.data() + 1 + 2*10 + 2*200);
+    EXPECT_TRUE( stepped_col_view.data() == col_array.data() + 2 + 2*30 + 600);
+    EXPECT_TRUE( stepped_row_view(4,8,1) == 36. );
+    EXPECT_TRUE( stepped_col_view(4,8,1) == 36. );
+
+    // Create reverse view
+    Slice reverse{Slice::all,Slice::all,-1};
+    auto reverse_row_view = row_array.view(reverse,reverse,reverse);
+    auto reverse_col_view = col_array.view(reverse,reverse,reverse);
+
+    EXPECT_TRUE( reverse_row_view.shape(0) == 30 );
+    EXPECT_TRUE( reverse_col_view.shape(0) == 30 );
+    EXPECT_TRUE( reverse_row_view.shape(1) == 20 );
+    EXPECT_TRUE( reverse_col_view.shape(1) == 20 );
+    EXPECT_TRUE( reverse_row_view.shape(2) == 10 );
+    EXPECT_TRUE( reverse_col_view.shape(2) == 10 );
+    EXPECT_TRUE( reverse_row_view.data() == row_array.data() + row_array.size() -1);
+    EXPECT_TRUE( reverse_col_view.data() == col_array.data() + col_array.size() -1);
+    EXPECT_TRUE( reverse_row_view(19,9,5) == 36. );
+    EXPECT_TRUE( reverse_col_view(19,9,5) == 36. );
+}

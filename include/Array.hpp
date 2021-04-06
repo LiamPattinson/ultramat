@@ -14,16 +14,6 @@
 
 namespace ultra {
 
-// Define slice : a tool for generating views of Arrays and related objects.
-// Is an 'aggregate'/'pod' type.
-
-struct Slice { 
-    static constexpr std::ptrdiff_t all = std::numeric_limits<std::ptrdiff_t>::max();
-    std::ptrdiff_t start;
-    std::ptrdiff_t end;
-    std::ptrdiff_t step=1;
-};
-
 // Define Array
 
 template<class T>

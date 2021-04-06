@@ -78,6 +78,17 @@ constexpr Stride::value_type variadic_memjump( const Stride& stride, Ints... coo
     return variadic_memjump_impl<(Order==RCOrder::row_major?1:0),Stride,Ints...>(stride,coords...);
 }
 
+// Define slice : a tool for generating views of Arrays and related objects.
+// Is an 'aggregate'/'pod' type, so should have a relatively intuitive interface by default.
+
+struct Slice { 
+    static constexpr std::ptrdiff_t all = std::numeric_limits<std::ptrdiff_t>::max();
+    std::ptrdiff_t start;
+    std::ptrdiff_t end;
+    std::ptrdiff_t step=1;
+};
+
+
 // iterator utils
 // Kinda like std::begin and std::end, but for other aspects of the iterator interface.
 // Implemented as functor objects to give more flexibility

@@ -19,7 +19,7 @@ public:
 
     using value_type = typename T::value_type;
     using difference_type = std::ptrdiff_t;
-    using pointer = std::conditional_t<ReadWrite==ReadWriteStatus::writeable,value_type* const, const value_type* const>;
+    using pointer = std::conditional_t<ReadWrite==ReadWriteStatus::writeable,value_type*, const value_type*>;
     using reference = std::conditional_t<ReadWrite==ReadWriteStatus::writeable,value_type&,const value_type&>;
     using shape_type = std::vector<std::size_t>;
     using stride_type = std::vector<std::ptrdiff_t>;
@@ -73,7 +73,7 @@ public:
     
     template<class U>
     View& operator=( const Expression<U>& expression) {
-        check_expression(expression);
+        check_expression(*this,expression);
         auto expr=expression.begin();
         for(auto it=begin(), it_end=end(); it != it_end; ++it, ++expr) *it = *expr;
         return *this;
@@ -142,34 +142,49 @@ public:
     iterator end();
     const_iterator begin() const;
     const_iterator end() const;
+    
+    // ===============================================
+    // Special view methods
 
-protected:
-
-    // Helper functions
-
-    // check_expression
-    // checks if expression matches dims and shape, throws an exception if it doesn't.
-
-    template<class U>
-    void check_expression( const Expression<U>& expression) const {
-        if( expression.dims() != dims()){
-            throw std::runtime_error("View: Tried to construct/assign view of dims " + std::to_string(dims()) 
-                    + " with expression of dims " + std::to_string(expression.dims()));
-        }
+    template<class... Slices> requires ( std::is_same<Slices,Slice>::value && ... )
+    View slice( const Slices&... var_slices) {
+        std::array<Slice,sizeof...(Slices)> slices = {{ var_slices... }};
+        // Create copy to work with
+        View result(*this);
+        std::size_t stride_offset = ( rc_order == RCOrder::row_major );
         for( std::size_t ii=0; ii<dims(); ++ii){
-            if( expression.shape(ii) != shape(ii) ){
-                std::string expression_shape("( ");
-                std::string array_shape("( ");
-                for( std::size_t ii=0; ii<dims(); ++ii){
-                    expression_shape += std::to_string(expression.shape(ii)) + ' ';
-                    array_shape += std::to_string(shape(ii)) + ' ';
-                }
-                expression_shape += ')';
-                array_shape += ')';
-                throw std::runtime_error("View: Tried to construct/assign view of shape " + array_shape 
-                        + "with expression of shape " + expression_shape);
+            // if not enough slices provided, assume start=all, end=all, step=1
+            Slice slice = ( ii < slices.size() ? slices[ii] : Slice{Slice::all,Slice::all,1});
+            // Account for negative start/end
+            if( slice.start < 0 ) slice.start = _shape[ii] + slice.start;
+            if( slice.end < 0 ) slice.end = _shape[ii] + slice.end;
+            // Account for 'all' specifiers
+            if( slice.start == Slice::all ) slice.start = 0;
+            if( slice.end == Slice::all ) slice.end = _shape[ii];
+            // Throw exceptions if slice is impossible
+            if( slice.start < 0 || slice.end > static_cast<std::ptrdiff_t>(_shape[ii])) throw std::runtime_error("Ultramat: Slice out of bounds.");
+            if( slice.end <= slice.start ) throw std::runtime_error("Ultramat: Slice end is less than or equal to start.");
+            if( slice.step == 0 ) throw std::runtime_error("UltraArray: Slice has zero step.");
+            // Account for the case of step size larger than shape
+            if( slice.end - slice.start < std::abs(slice.step) ) slice.step = (slice.end - slice.start) * (slice.step < 0 ? -1 : 1);
+            // Set shape and stride of result. Shape is (slice.end-slice.start)/std::abs(slice.step), but rounding up rather than down.
+            result._shape[ii] = (slice.end - slice.start + ((slice.end-slice.start)%std::abs(slice.step)))/std::abs(slice.step);
+            result._stride[ii+stride_offset] = _stride[ii+stride_offset]*slice.step;
+            // Move data to start of slice (be sure to use this stride rather than result stride)
+            if( slice.step > 0 ){
+                result._data += slice.start * _stride[ii+stride_offset];
+            } else {
+                result._data += (slice.end-1) * _stride[ii+stride_offset];
             }
         }
+        // Set remaining info and return
+        result._size = std::accumulate( result._shape.begin(), result._shape.end(), 1, std::multiplies<std::size_t>());
+        if( rc_order == RCOrder::row_major ){
+            result._stride[0] = result._stride[1] * result._shape[0];
+        } else {
+            result._stride[dims()] = result._stride[dims()-1] * result._shape[dims()-1];
+        }
+        return result;
     }
 };
 
