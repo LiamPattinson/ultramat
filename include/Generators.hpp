@@ -14,7 +14,7 @@ class GeneratorExpression : public Expression<GeneratorExpression<F>> {
     
 public:
 
-    using contains = decltype(std::declval<F>()());
+    using value_type = decltype(std::declval<F>()());
 
 private:
 

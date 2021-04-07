@@ -26,20 +26,15 @@
 
 namespace ultra {
 
-// Type declarations
+// Tag declarations
 
-template<class T> class Array;
+class DenseTag{};
 
 // Type determination
 
 template<class T>
 struct types {
-    static const bool is_array = false;
-};
-
-template<class T>
-struct types<Array<T>> {
-    static const bool is_array = true;
+    static const bool is_dense = std::is_base_of<DenseTag,T>::value;
 };
 
 // Define row/col order enum class
@@ -47,37 +42,18 @@ struct types<Array<T>> {
 enum class RCOrder { row_major, col_major };
 const RCOrder default_rc_order = RCOrder::row_major;
 
+
+// Declare Array types and preferred interface
+
+template<class T, RCOrder Order> class ArrayImpl;
+template<class T, RCOrder Order, std::size_t... Dims> class FixedArrayImpl;
+
+template<class T,std::size_t... Dims>
+using Array = std::conditional_t<sizeof...(Dims),FixedArrayImpl<T,default_rc_order,Dims...>,ArrayImpl<T,default_rc_order>>;
+
 // Define read-only enum class
 
 enum class ReadWriteStatus { writeable, read_only };
-
-// Memory helpers
- 
-// variadic_memjump
-// used with round-bracket indexing.
-// requires stride of length dims+1, with the largest stride iterating all the way to the location of end().
-// If row_major, the largest stride is stride[0]. If col_major, the largest stride is stride[dims].
-
-// Base case
-template<std::size_t N, std::ranges::range Stride, std::integral Int>
-requires std::integral<typename Stride::value_type>
-constexpr Stride::value_type variadic_memjump_impl(const Stride& stride, Int coord) noexcept {
-    return stride[N] * coord; 
-}
-
-// Recursive step
-template<std::size_t N, std::ranges::range Stride, std::integral Int, std::integral... Ints>
-requires std::integral<typename Stride::value_type>
-constexpr Stride::value_type variadic_memjump_impl( const Stride& stride, Int coord, Ints... coords) noexcept {
-    return (stride[N] * coord) + variadic_memjump_impl<N+1,Stride,Ints...>(stride,coords...);
-}
-
-template<RCOrder Order, std::ranges::range Stride, std::integral... Ints>
-requires std::integral<typename Stride::value_type>
-constexpr Stride::value_type variadic_memjump( const Stride& stride, Ints... coords) noexcept {
-    // if row major, must skip first element of stride
-    return variadic_memjump_impl<(Order==RCOrder::row_major?1:0),Stride,Ints...>(stride,coords...);
-}
 
 // Define slice : a tool for generating views of Arrays and related objects.
 // Is an 'aggregate'/'pod' type, so should have a relatively intuitive interface by default.
@@ -88,7 +64,6 @@ struct Slice {
     std::ptrdiff_t end;
     std::ptrdiff_t step=1;
 };
-
 
 // iterator utils
 // Kinda like std::begin and std::end, but for other aspects of the iterator interface.

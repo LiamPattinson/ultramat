@@ -1,19 +1,21 @@
-#ifndef __ULTRA_VIEW_HPP
-#define __ULTRA_VIEW_HPP
+#ifndef __ULTRA_DENSE_VIEW_HPP
+#define __ULTRA_DENSE_VIEW_HPP
 
-// View.hpp
+// DenseView.hpp
 //
-// A container that refers to data belonging to some other container.
+// A container that refers to data belonging to some other dense container.
 // A view does not control the lifetime of its contents. It may be
 // writeable or read-only, contiguous or non-contiguous.
 // Copies/moves in constant time.
 
-#include "Expression.hpp"
+#include "DenseBase.hpp"
 
 namespace ultra {
 
-template<class T, ReadWriteStatus ReadWrite = ReadWriteStatus::writeable>
-class View : public Expression<View<T,ReadWrite>> {
+template<class T, ReadWriteStatus ReadWrite>
+class DenseView : public Expression<DenseView<T,ReadWrite>>, public DenseBase<DenseView<T,ReadWrite>,T::rc_order> {
+
+    friend DenseBase<DenseView<T,ReadWrite>,T::rc_order>;
 
 public:
 
@@ -37,14 +39,14 @@ public:
     // ===============================================
     // Constructors
 
-    View() = delete;
-    View( const View& ) = default;
-    View( View&& ) = default;
-    View& operator=( const View& ) = default;
-    View& operator=( View&& ) = default;
+    DenseView() = delete;
+    DenseView( const DenseView& ) = default;
+    DenseView( DenseView&& ) = default;
+    DenseView& operator=( const DenseView& ) = default;
+    DenseView& operator=( DenseView&& ) = default;
 
     // Full view of a container
-    View( T& container) :
+    DenseView( T& container) :
         _size( container.size() ),
         _shape( container.dims() ),
         _stride( container.dims()+1 ),
@@ -58,7 +60,7 @@ public:
     // (cannot in general construct from an expression, as no data pointer is available)
     
     template<class U>
-    View& operator=( const Expression<U>& expression) {
+    DenseView& operator=( const Expression<U>& expression) {
         check_expression(*this,expression);
         auto expr=expression.begin();
         for(auto it=begin(), it_end=end(); it != it_end; ++it, ++expr) *it = *expr;
@@ -66,54 +68,23 @@ public:
     }
 
     // ===============================================
-    // Attributes
+    // Pull methods from base
+    // Some methods are shadowed, as the default behaviour is not appropriate
 
-    std::size_t dims() const { return _shape.size();}
     std::size_t size() const { return _size;}
-    std::size_t shape( std::size_t dim) const { return _shape[dim];}
-    std::ptrdiff_t stride( std::size_t dim) const { return _stride[dim];}
-    const shape_type&  shape() const { return _shape;}
-    const stride_type& stride() const { return _stride;}
-
-    // ===============================================
-    // Data access
-
-    // return raw pointer -- use with care!
     pointer data() const { return _data; }
-
-    // Access via ints.
-    // Warning: No compile-time checks are performed to ensure the correct version has been called.
-
-    template<std::integral... Ints> 
-    value_type operator()( Ints... coords ) const {
-        return _data[variadic_memjump<rc_order>(_stride,coords...)];
-    }
     
-    template<std::integral... Ints>
-    requires (ReadWrite == ReadWriteStatus::writeable)
-    reference operator()( Ints... coords ) {
-        return _data[variadic_memjump<rc_order>(_stride,coords...)];
-    }
-
-    // Access via anything that looks like a std::vector
-
-    template<std::ranges::range Coords> requires std::integral<typename Coords::value_type>
-    value_type operator()( const Coords& coords) const {
-        return _data[std::inner_product(coords.begin(),coords.end(),_stride.begin()+(rc_order==RCOrder::row_major),0)];
-    }
-
-    template<std::ranges::range Coords>
-    requires std::integral<typename Coords::value_type> && (ReadWrite == ReadWriteStatus::writeable)
-    reference operator()( const Coords& coords) {
-        return _data[std::inner_product(coords.begin(),coords.end(),_stride.begin()+(rc_order==RCOrder::row_major),0)];
-    }
+    using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::dims;
+    using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::shape;
+    using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::stride;
+    using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::operator();
+    using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::check_expression;
 
     // Access via square brackets
     // Treats all arrays as 1D containers.
     // TODO have this take a slice and return a new view
-
-    T operator[](std::size_t ii) const;
-    T& operator[](std::size_t ii);
+    //T operator[](std::size_t ii) const;
+    //T& operator[](std::size_t ii);
 
     // ===============================================
     // Iteration
@@ -143,10 +114,10 @@ public:
     // Special view methods
 
     template<class... Slices> requires ( std::is_same<Slices,Slice>::value && ... )
-    View slice( const Slices&... var_slices) {
+    DenseView slice( const Slices&... var_slices) {
         std::array<Slice,sizeof...(Slices)> slices = {{ var_slices... }};
         // Create copy to work with
-        View result(*this);
+        DenseView result(*this);
         std::size_t stride_offset = ( rc_order == RCOrder::row_major );
         for( std::size_t ii=0; ii<dims(); ++ii){
             // if not enough slices provided, assume start=all, end=all, step=1
@@ -188,20 +159,20 @@ public:
 
 template<class T,ReadWriteStatus ReadWrite>
 template<bool constness>
-class View<T,ReadWrite>::iterator_impl {
+class DenseView<T,ReadWrite>::iterator_impl {
     
-    friend typename View<T>::iterator_impl<!constness>;
+    friend typename DenseView<T>::iterator_impl<!constness>;
 
 public:
 
     using iterator_category = std::random_access_iterator_tag;
     using difference_type   = std::ptrdiff_t;
-    using value_type        = View<T>::value_type;
-    using shape_type        = View<T>::shape_type;
-    using stride_type       = View<T>::stride_type;
-    using pointer           = View<T>::pointer;
-    using reference         = View<T>::reference;
-    static constexpr RCOrder rc_order = View<T>::rc_order;
+    using value_type        = DenseView<T>::value_type;
+    using shape_type        = DenseView<T>::shape_type;
+    using stride_type       = DenseView<T>::stride_type;
+    using pointer           = DenseView<T>::pointer;
+    using reference         = DenseView<T>::reference;
+    static constexpr RCOrder rc_order = DenseView<T>::rc_order;
 
 private:
 
@@ -475,6 +446,7 @@ public:
         return std::strong_ordering::equal;
     }
 };
+
 
 } // namespace
 #endif

@@ -1,4 +1,4 @@
-#include "ultramat/include/Array.hpp"
+#include "ultramat/include/Dense.hpp"
 #include "ultramat/include/Arithmetic.hpp"
 #include "ultramat/include/Cumulative.hpp"
 #include <gtest/gtest.h>
@@ -12,8 +12,8 @@ using shape_vec = std::vector<std::size_t>;
 
 TEST(ArrayCumulativeTest,CumulativeSum){
     auto shape = shape_vec{5,10,20};
-    Array<float>       a(shape);
-    Array<double>      b(shape);
+    Array<float>  a(shape);
+    Array<double> b(shape);
     for( auto&& x : a) x=2.5;
     for( auto&& x : b) x=0.5;
 

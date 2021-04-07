@@ -1,4 +1,4 @@
-#include "ultramat/include/Array.hpp"
+#include "ultramat/include/Dense.hpp"
 #include "ultramat/include/Arithmetic.hpp"
 #include <gtest/gtest.h>
 
@@ -24,11 +24,6 @@ TEST(ArrayArithmeticTest,Arithmetic){
     for( auto&& x : f ) if( x != 3) f_correct=false;
     EXPECT_TRUE(f_correct);
     // Ensure the original arrays haven't been mangled
-    EXPECT_TRUE( a.is_initialised() );
-    EXPECT_TRUE( b.is_initialised() );
-    EXPECT_TRUE( c.is_initialised() );
-    EXPECT_TRUE( d.is_initialised() );
-    EXPECT_TRUE( e.is_initialised() );
     bool a_correct = true, b_correct = true, c_correct = true, d_correct = true, e_correct = true;
     for( auto&& x : a ) if( x != 1) a_correct=false;
     for( auto&& x : b ) if( x != 2) b_correct=false;

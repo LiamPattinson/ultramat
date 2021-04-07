@@ -1,13 +1,8 @@
 # TODO
 
-## Array.hpp
+## Containers
     
-    * Make View class. Should be able to reuse a lot of current Array implementation
-      details.
-        * Keep status, remove semi-contiguous, add writeable.
-    * Remove non-owning arrays, clean up internals to use standard library containers
-        * std::vector for data, shape, stride. Remove everything else.
-        * Row/col major should be a template arg. See FixedArray.
+    * Method to take a view of a view
     * reshape
         * Arrays and contiguous views only.
         * return *this.
@@ -19,8 +14,11 @@
     * transpose
         * Can use this to reinterpret row major as col major, and vice versa.
     * `+=`, `*=` etc from expressions.
+    * Vector class, including fixed variety.
+        * Must allow easy conversion to/from Arrays.
+    * Matrix class, including fixed variety.
 
-## Expressions.hpp
+## Expressions
 
     * Faster iteration strategy
         * Rather than using standard begin/end, perhaps look into striped iteration

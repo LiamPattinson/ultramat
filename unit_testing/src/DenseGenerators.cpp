@@ -1,4 +1,4 @@
-#include "ultramat/include/Array.hpp"
+#include "ultramat/include/Dense.hpp"
 #include "ultramat/include/Arithmetic.hpp"
 #include "ultramat/include/Generators.hpp"
 #include <gtest/gtest.h>

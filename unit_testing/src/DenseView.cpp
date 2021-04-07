@@ -1,16 +1,15 @@
-#include "ultramat/include/View.hpp"
-#include "ultramat/include/FixedArray.hpp"
+#include "ultramat/include/Dense.hpp"
 #include <gtest/gtest.h>
 #include <cmath>
 
 using namespace ultra;
 
-// Requires FixedArray to test.
+// Requires Array to test.
 
 TEST(ViewTest,FullViewConstructor){
 
-    FixedArray<float,50,30>::row_major row_array(2.0);
-    FixedArray<double,12,15,90>::col_major col_array(5.0);
+    Array<float,50,30>::row_major row_array(2.0);
+    Array<double,12,15,90>::col_major col_array(5.0);
 
     auto row_view = row_array.view();
     auto col_view = col_array.view();
@@ -76,7 +75,7 @@ TEST(ViewTest,FullViewConstructor){
 }
 
 TEST(ViewTest,FullViewElementAccess){
-    FixedArray<float,30,20,10> array(17.);
+    Array<float,30,20,10> array(17.);
     auto view = array.view();
 
     // Test fill
@@ -101,7 +100,7 @@ TEST(ViewTest,FullViewElementAccess){
     EXPECT_TRUE(fabs(*(view.data() + 3 + 5*10 + 5*200) - 64.32) < 1e-5);
 
     // Repeat for a column major array
-    FixedArray<float,30,20,10>::col_major col_array(17.);
+    Array<float,30,20,10>::col_major col_array(17.);
     auto col_view = col_array.view();
 
     EXPECT_TRUE(fabs(col_view(0,0,0) - 17.) < 1e-5);
@@ -131,8 +130,8 @@ TEST(ViewTest,FullViewElementAccess){
 }
 
 TEST(ViewTest,Slicing) {
-    FixedArray<float,30,20,10>::row_major row_array(17.);
-    FixedArray<float,30,20,10>::col_major col_array(5.);
+    Array<float,30,20,10>::row_major row_array(17.);
+    Array<float,30,20,10>::col_major col_array(5.);
     
     row_array(10,10,4) = 36.;
     col_array(10,10,4) = 36.;
@@ -201,8 +200,8 @@ TEST(ViewTest,Slicing) {
 
 TEST(ViewTest,Iteration){
     auto shape = std::vector{10,5,20};
-    FixedArray<double,10,5,20>::row_major row_array;
-    FixedArray<double,10,5,20>::col_major col_array;
+    Array<double,10,5,20>::row_major row_array;
+    Array<double,10,5,20>::col_major col_array;
     for( auto it=row_array.begin(), end = row_array.end(); it != end; ++it) *it = it - row_array.begin();
     for( auto it=col_array.begin(), end = col_array.end(); it != end; ++it) *it = it - col_array.begin();
     std::size_t count;

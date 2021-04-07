@@ -26,35 +26,11 @@ struct Expression {
     decltype(auto) begin() const { return static_cast<const T&>(*this).begin(); }
 };
 
-// check_expression
-// Tests whether an array-like object and an expression are compatible.
+// Generic exception for when expressions go wrong.
 
-template<class T, class U>
-void check_expression( const T& array, const Expression<U>& expression){
-    if( array.dims() != expression.dims()){
-        throw std::runtime_error("Ultramat: Tried to construct/assign array-like object of dims " + std::to_string(array.dims()) 
-                + " with expression of dims " + std::to_string(expression.dims()));
-    }
-    for( std::size_t ii=0; ii<array.dims(); ++ii){
-        if( array.shape(ii) != expression.shape(ii) ){
-            std::string expression_shape("( ");
-            std::string array_shape("( ");
-            for( std::size_t ii=0; ii<array.dims(); ++ii){
-                array_shape += std::to_string(array.shape(ii)) + ' ';
-                expression_shape += std::to_string(expression.shape(ii)) + ' ';
-            }
-            array_shape += ')';
-            expression_shape += ')';
-            throw std::runtime_error("Ultramat: Tried to construct/assign array-like object of shape " + array_shape 
-                    + "with expression of shape " + expression_shape);
-        }
-    }
-    if( array.size() != expression.size()){
-        throw std::runtime_error("Ultramat: Tried to construct/assign array-like object of size " + std::to_string(array.size()) 
-                + " with expression of size " + std::to_string(expression.size())
-                + ". This should not be possible, as they have the same dimensions and shapes, so something has gone dreadfully wrong.");
-    }
-}
+class ExpressionException : public std::runtime_error {
+    using std::runtime_error::runtime_error;
+};
 
 // eval
 // Forces evaluation of an expession to a temporary, and returns it.
@@ -63,9 +39,9 @@ void check_expression( const T& array, const Expression<U>& expression){
 
 template<class T>
 using eval_result = std::conditional_t< 
-    types<std::remove_cvref_t<T>>::is_array,
+    types<std::remove_cvref_t<T>>::is_dense,
     decltype(std::forward<T>(std::declval<T>())),
-    Array<typename std::remove_cvref_t<T>::contains>
+    Array<typename std::remove_cvref_t<T>::value_type>
 >;
 
 template<class T>
@@ -87,7 +63,7 @@ class ElementWiseExpression : public Expression<ElementWiseExpression<F,Args...>
 
 public:
 
-    using contains = decltype( std::apply( F{}, std::tuple<typename std::remove_cvref_t<Args>::contains...>()));
+    using value_type = decltype( std::apply( F{}, std::tuple<typename std::remove_cvref_t<Args>::value_type...>()));
 
 private:
     
