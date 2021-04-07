@@ -22,6 +22,7 @@
 #include <type_traits>
 #include <concepts>
 #include <ranges>
+#include <compare>
 
 namespace ultra {
 

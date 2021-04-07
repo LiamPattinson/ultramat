@@ -198,3 +198,161 @@ TEST(ViewTest,Slicing) {
     EXPECT_TRUE( reverse_row_view(19,9,5) == 36. );
     EXPECT_TRUE( reverse_col_view(19,9,5) == 36. );
 }
+
+TEST(ViewTest,Iteration){
+    auto shape = std::vector{10,5,20};
+    FixedArray<double,10,5,20>::row_major row_array;
+    FixedArray<double,10,5,20>::col_major col_array;
+    for( auto it=row_array.begin(), end = row_array.end(); it != end; ++it) *it = it - row_array.begin();
+    for( auto it=col_array.begin(), end = col_array.end(); it != end; ++it) *it = it - col_array.begin();
+    std::size_t count;
+
+    // Full view
+    auto full_row_view = row_array.view();
+    auto full_col_view = col_array.view();
+    bool full_row_view_correct = true, full_col_view_correct = true;
+    count=0;
+    for( auto&& x : full_row_view) full_row_view_correct &= (x == count++);
+    EXPECT_TRUE(full_row_view_correct);
+    count=0;
+    for( auto&& x : full_col_view) full_col_view_correct &= (x == count++);
+    EXPECT_TRUE(full_col_view_correct);
+
+    // Interior view
+    Slice interior(1,-1);
+    auto interior_row_view = row_array.view(interior,interior,interior);
+    auto interior_col_view = col_array.view(interior,interior,interior);
+    bool interior_row_view_correct = true, interior_col_view_correct = true;
+    {
+        auto it=interior_row_view.begin();
+        auto end=interior_row_view.end();
+        for( std::size_t ii=1; ii<9; ++ii){
+            for( std::size_t jj=1; jj<4; ++jj){
+                for( std::size_t kk=1; kk<19; ++kk){
+                    interior_row_view_correct &= ( *it == ii*100 + jj*20 + kk );
+                    interior_row_view_correct &= ( it != end );
+                    ++it;
+                }
+            }
+        }
+    }
+    EXPECT_TRUE(interior_row_view_correct);
+    {
+        auto it=interior_col_view.begin();
+        auto end=interior_col_view.end();
+        for( std::size_t kk=1; kk<19; ++kk){
+            for( std::size_t jj=1; jj<4; ++jj){
+                for( std::size_t ii=1; ii<9; ++ii){
+                    interior_col_view_correct &= ( *it == ii + jj*10 + kk*50 );
+                    interior_col_view_correct &= ( it != end );
+                    ++it;
+                }
+            }
+        }
+    }
+    EXPECT_TRUE(interior_col_view_correct);
+
+    // Stepped view
+    Slice stepped(1,-1,3);
+    auto stepped_row_view = row_array.view(stepped,stepped,stepped);
+    auto stepped_col_view = col_array.view(stepped,stepped,stepped);
+    bool stepped_row_view_correct = true, stepped_col_view_correct = true;
+    {
+        auto it=stepped_row_view.begin();
+        auto end=stepped_row_view.end();
+        for( std::size_t ii=1; ii<9; ii+=3){
+            for( std::size_t jj=1; jj<4; jj+=3){
+                for( std::size_t kk=1; kk<19; kk+=3){
+                    stepped_row_view_correct &= ( *it == ii*100 + jj*20 + kk );
+                    stepped_row_view_correct &= ( it != end );
+                    ++it;
+                }
+            }
+        }
+    }
+    EXPECT_TRUE(stepped_row_view_correct);
+    {
+        auto it=stepped_col_view.begin();
+        auto end=stepped_col_view.end();
+        for( std::size_t kk=1; kk<19; kk+=3){
+            for( std::size_t jj=1; jj<4; jj+=3){
+                for( std::size_t ii=1; ii<9; ii+=3){
+                    stepped_col_view_correct &= ( *it == ii + jj*10 + kk*50 );
+                    stepped_col_view_correct &= ( it != end );
+                    ++it;
+                }
+            }
+        }
+    }
+    EXPECT_TRUE(stepped_col_view_correct);
+
+    // reverse view
+    Slice reverse(Slice::all,Slice::all,-1);
+    auto reverse_row_view = row_array.view(reverse,reverse,reverse);
+    auto reverse_col_view = col_array.view(reverse,reverse,reverse);
+    bool reverse_row_view_correct = true, reverse_col_view_correct = true;
+    {
+        auto it=reverse_row_view.begin();
+        auto end=reverse_row_view.end();
+        for( std::ptrdiff_t ii=9; ii>=0; --ii){
+            for( std::ptrdiff_t jj=4; jj>=0; --jj){
+                for( std::ptrdiff_t kk=19; kk>=0; --kk){
+                    reverse_row_view_correct &= ( *it == ii*100 + jj*20 + kk );
+                    reverse_row_view_correct &= ( it != end );
+                    ++it;
+                }
+            }
+        }
+    }
+    EXPECT_TRUE(reverse_row_view_correct);
+    {
+        auto it=reverse_col_view.begin();
+        auto end=reverse_col_view.end();
+        for( std::ptrdiff_t kk=19; kk>=0; --kk){
+            for( std::ptrdiff_t jj=4; jj>=0; --jj){
+                for( std::ptrdiff_t ii=9; ii>=0; --ii){
+                    reverse_col_view_correct &= ( *it == ii + jj*10 + kk*50 );
+                    reverse_col_view_correct &= ( it != end );
+                    ++it;
+                }
+            }
+        }
+    }
+    EXPECT_TRUE(reverse_col_view_correct);
+
+    // partially reverse view
+    Slice reverse2(Slice::all,Slice::all,-2);
+    auto partial_reverse_row_view = row_array.view(stepped,reverse2,stepped);
+    auto partial_reverse_col_view = col_array.view(stepped,reverse2,stepped);
+    bool partial_reverse_row_view_correct = true, partial_reverse_col_view_correct = true;
+    {
+        auto it=partial_reverse_row_view.begin();
+        auto end=partial_reverse_row_view.end();
+        for( std::size_t ii=1; ii<9; ii+=3){
+            for( std::ptrdiff_t jj=4; jj>=0; jj-=2){
+                for( std::size_t kk=1; kk<19; kk+=3){
+                    partial_reverse_row_view_correct &= ( *it == ii*100 + jj*20 + kk );
+                    partial_reverse_row_view_correct &= ( it != end );
+                    ++it;
+                }
+            }
+        }
+    }
+    EXPECT_TRUE(partial_reverse_row_view_correct);
+    {
+        auto it=partial_reverse_col_view.begin();
+        auto end=partial_reverse_col_view.end();
+        for( std::size_t kk=1; kk<19; kk+=3){
+            for( std::ptrdiff_t jj=4; jj>=0; jj-=2){
+                for( std::size_t ii=1; ii<9; ii+=3){
+                    partial_reverse_col_view_correct &= ( *it == ii + jj*10 + kk*50 );
+                    partial_reverse_col_view_correct &= ( it != end );
+                    ++it;
+                }
+            }
+        }
+    }
+    EXPECT_TRUE(partial_reverse_col_view_correct);
+
+    // TODO test reverse iteration, random access iteration
+}

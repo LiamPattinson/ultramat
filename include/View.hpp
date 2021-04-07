@@ -54,20 +54,6 @@ public:
         std::ranges::copy(container.stride(),_stride.begin());
     }
 
-    // Manual view creation
-    // Recommended interface for reshape/transpose/slices
-    template<std::ranges::range Shape, std::ranges::range Stride>
-    requires std::unsigned_integral<typename Shape::value_type> && std::integral<typename Stride::value_type>
-    View( value_type* data, const Shape& shape, const Stride& stride, char status) :
-        _size(std::accumulate(shape.begin(),shape.end(),1,std::multiplies<std::size_t>{})),
-        _shape(shape.size()),
-        _stride(stride.size()),
-        _data(data)
-    {
-        std::ranges::copy(shape,_shape.begin());
-        std::ranges::copy(stride,_stride.begin());
-    }
-
     // Assign from Expression
     // (cannot in general construct from an expression, as no data pointer is available)
     
@@ -132,16 +118,26 @@ public:
     // ===============================================
     // Iteration
 
-    template<bool constness>
-    class iterator_impl;
+    template<bool constness> class iterator_impl;
     
     using iterator = iterator_impl<false>;
     using const_iterator = iterator_impl<true>;
     
-    iterator begin();
-    iterator end();
-    const_iterator begin() const;
-    const_iterator end() const;
+    iterator begin() {
+        return iterator(data(),_shape,_stride);
+    }
+    
+    const_iterator begin() const {
+        return const_iterator(data(),_shape,_stride);
+    }
+    
+    iterator end() {
+        return iterator(data() + _stride[rc_order==RCOrder::col_major? dims() : 0],_shape,_stride,true);
+    }
+    
+    const_iterator end() const {
+        return const_iterator(data() + _stride[rc_order==RCOrder::col_major? dims() : 0],_shape,_stride,true);
+    }
     
     // ===============================================
     // Special view methods
@@ -190,10 +186,9 @@ public:
 
 // Define view iterator
 
-/* TODO. So far copied from Array with minor edits.
-template<class T>
+template<class T,ReadWriteStatus ReadWrite>
 template<bool constness>
-class View<T>::iterator_impl {
+class View<T,ReadWrite>::iterator_impl {
     
     friend typename View<T>::iterator_impl<!constness>;
 
@@ -202,66 +197,284 @@ public:
     using iterator_category = std::random_access_iterator_tag;
     using difference_type   = std::ptrdiff_t;
     using value_type        = View<T>::value_type;
+    using shape_type        = View<T>::shape_type;
+    using stride_type       = View<T>::stride_type;
     using pointer           = View<T>::pointer;
     using reference         = View<T>::reference;
     static constexpr RCOrder rc_order = View<T>::rc_order;
 
 private:
 
-    pointer         _ptr;
-    std::size_t     _dims;
-    std::size_t*    _shape;
-    std::ptrdiff_t* _stride;
-    std::ptrdiff_t* _pos;
-    bool            _col_major;
+    pointer            _ptr;
+    const shape_type&  _shape;
+    const stride_type& _stride;
+    stride_type        _pos;
 
 public:
 
     // ===============================================
     // Constructors
  
-    iterator_impl( pointer ptr, , bool end);
-    iterator_impl( const iterator_impl<constness>& other);
-    iterator_impl( iterator_impl<constness>&& other);
-    iterator_impl& operator=( const iterator_impl<constness>& other);
-    iterator_impl& operator=( iterator_impl<constness>&& other);
+    iterator_impl() = delete;
+    iterator_impl( const iterator_impl<constness>& other) = default;
+    iterator_impl( iterator_impl<constness>&& other) = default;
+    iterator_impl& operator=( const iterator_impl<constness>& other) = default;
+    iterator_impl& operator=( iterator_impl<constness>&& other) = default;
+
+    iterator_impl( pointer ptr, const shape_type& shape, const stride_type& stride, bool end = false) :
+        _ptr(ptr),
+        _shape(shape),
+        _stride(stride),
+        _pos(stride.size(),0)
+    {
+        _pos[rc_order==RCOrder::row_major ? stride.size() : 0] = end;
+    }
+
+    // Construct with explicit pos. Used to convert between iterator types, not recommended otherwise
+    iterator_impl( pointer ptr, const shape_type& shape, const stride_type& stride, const stride_type& pos) :
+        _ptr(ptr),
+        _shape(shape),
+        _stride(stride),
+        _pos(pos)
+    {}
 
     // ===============================================
     // Conversion from non-const to const
 
-    template<bool C=!constness, std::enable_if_t<C,bool> = true>
-    operator iterator_impl<C>() const;
+    operator iterator_impl<!constness>() const requires (!constness) {
+        return iterator_impl<!constness>(_ptr,_shape,_stride,_pos);
+    }
 
     // ===============================================
     // Standard iterator interface
 
     // Dereference
-    reference operator*();
+    reference operator*() const { return *_ptr; }
     
     // Increment/decrement
-    iterator_impl<constness>& operator++();
-    iterator_impl<constness> operator++(int) const;
+    iterator_impl<constness>& operator++() requires ( rc_order == RCOrder::col_major ) {
+        std::size_t idx = 0;
+        _ptr += _stride[idx];
+        ++_pos[idx];
+        while( idx != _shape.size() && _pos[idx] == static_cast<std::ptrdiff_t>(_shape[idx])){
+            // Go back to start of current dimension
+            _ptr -= _stride[idx] * _shape[idx];
+            _pos[idx]=0;
+            // Increment one in next dimension
+            _ptr += _stride[idx+1];
+            ++_pos[idx+1];
+            // Repeat for remaining dimensions
+            ++idx;
+        }
+        return *this;
+    }
 
-    iterator_impl<constness>& operator--();
-    iterator_impl<constness> operator--(int) const;
+    iterator_impl<constness>& operator++() requires ( rc_order == RCOrder::row_major ) {
+        std::size_t idx = _shape.size();
+        _ptr += _stride[idx];
+        ++_pos[idx];
+        while( idx != 0 && _pos[idx] == static_cast<std::ptrdiff_t>(_shape[idx-1])){
+            // Go back to start of current dimension
+            _ptr -= _stride[idx] * _shape[idx-1];
+            _pos[idx]=0;
+            // Increment one in next dimension
+            _ptr += _stride[idx-1];
+            ++_pos[idx-1];
+            // Repeat for remaining dimensions
+            --idx;
+        }
+        return *this;
+    }
+    
+    iterator_impl<constness>& operator--() requires ( rc_order == RCOrder::col_major ) {
+        std::size_t idx = 0;
+        _ptr -= _stride[idx];
+        --_pos[idx];
+        while( idx != _shape.size() && _pos[idx] == -1){
+            // Go to end of current dimension
+            _ptr += _stride[idx] * _shape[idx];
+            _pos[idx] = _shape[idx]-1;
+            // Decrement one in next dimension
+            _ptr -= _stride[idx+1];
+            --_pos[idx+1];
+            // Repeat for remaining dimensions
+            ++idx;
+        }
+        return *this; 
+    }
+
+    iterator_impl<constness>& operator--() requires ( rc_order == RCOrder::row_major ) {
+        std::size_t idx = _shape.size();
+        _ptr -= _stride[idx];
+        --_pos[idx];
+        while( idx != 0 && _pos[idx] == -1 ){
+            // Go to end of current dimension
+            _ptr += _stride[idx] * _shape[idx-1];
+            _pos[idx] = _shape[idx-1]-1;
+            // Decrement one in next dimension
+            _ptr -= _stride[idx-1];
+            --_pos[idx-1];
+            // Repeat for remaining dimensions
+            --idx;
+        }
+        return *this;
+    }
+
+    iterator_impl<constness> operator++(int) const {
+        return ++iterator_impl<constness>(*this);
+    }
+    
+    iterator_impl<constness> operator--(int) const {
+        return --iterator_impl<constness>(*this);
+    }
 
     // Random-access
-    iterator_impl<constness>& operator+=( difference_type diff);
-    iterator_impl<constness>& operator-=( difference_type diff);
-    iterator_impl<constness> operator+( difference_type diff) const;
-    iterator_impl<constness> operator-( difference_type diff) const;
+    iterator_impl<constness>& operator+=( difference_type diff) requires ( rc_order == RCOrder::col_major ) {
+        // If diff is less than 0, call the in-place subtract method instead
+        if( diff < 0){
+            return (*this -= (-diff));
+        } else {
+            std::size_t idx = 0;
+            while( diff != 0 && idx != _shape.size() ) {
+                // Go back to start of current dimension, add the difference onto diff
+                _ptr -= _pos[idx] * _stride[idx];
+                diff += _pos[idx];
+                _pos[idx] = 0;
+                _ptr += (diff % _shape[idx]) * _stride[idx];
+                _pos[idx] += (diff % _shape[idx]);
+                diff /= _shape[idx];
+                // Repeat for remaining dimensions or until diff == 0
+                ++idx;
+            }
+            return *this;
+        }
+    }
+
+    iterator_impl<constness>& operator+=( difference_type diff) requires ( rc_order == RCOrder::row_major ) {
+        // If diff is less than 0, call the in-place subtract method instead
+        if( diff < 0){
+            return (*this -= (-diff));
+        } else {
+            std::size_t idx = _shape.size();
+            while( diff != 0 && idx != 0 ) {
+                // Go back to start of current dimension, add the difference onto diff
+                _ptr -= _pos[idx] * _stride[idx];
+                diff += _pos[idx];
+                _pos[idx] = 0;
+                // Go forward diff % shape, then divide diff by shape
+                _ptr += (diff % _shape[idx-1]) * _stride[idx];
+                _pos[idx] += (diff % _shape[idx-1]);
+                diff /= _shape[idx-1];
+                // Repeat for remaining dimensions or until diff == 0
+                --idx;
+            }
+            return *this;
+        }
+    }
+
+    iterator_impl<constness>& operator-=( difference_type diff) requires (rc_order == RCOrder::col_major ) {
+        // If diff is less than 0, call the in-place add method instead
+        if( diff < 0){
+            return (*this += (-diff));
+        } else {
+            std::size_t idx = 0;
+            while( diff != 0 && idx != _shape.size() ) {
+                // Go to end of current dimension, add the difference onto diff
+                _ptr += (_shape[idx]-_pos[idx]) * _stride[idx];
+                diff += (_shape[idx]-_pos[idx]);
+                _pos[idx] = _shape[idx];
+                // Go back diff % shape, then divide diff by shape
+                _ptr -= (diff % _shape[idx]) * _stride[idx];
+                _pos[idx] -= (diff % _shape[idx]);
+                diff /= _shape[idx];
+                // Repeat for remaining dimensions or until diff == 0
+                ++idx;
+            }
+            return *this;
+        }
+    }
+
+    iterator_impl<constness>& operator-=( difference_type diff) requires (rc_order == RCOrder::row_major ) {
+        // If diff is less than 0, call the in-place add method instead
+        if( diff < 0){
+            return (*this += (-diff));
+        } else {
+            std::size_t idx = _shape.size();
+            while( diff != 0 && idx != 0 ) {
+                // Go to end of current dimension, add the difference onto diff
+                _ptr += (_shape[idx-1]-_pos[idx]) * _stride[idx];
+                diff += (_shape[idx-1]-_pos[idx]);
+                _pos[idx] = _shape[idx-1];
+                // Go back diff % shape, then divide diff by shape
+                _ptr -= (diff % _shape[idx-1]) * _stride[idx];
+                _pos[idx] -= (diff % _shape[idx-1]);
+                diff /= _shape[idx-1];
+                // Repeat for remaining dimensions or until diff == 0
+                --idx;
+            }
+            return *this;
+        }
+    }
+
+    
+    iterator_impl<constness> operator+( difference_type diff) const {
+       iterator_impl<constness> result(*this);
+       result += diff;
+       return result;
+    }
+
+    iterator_impl<constness> operator-( difference_type diff) const {
+       iterator_impl<constness> result(*this);
+       result -= diff;
+       return result;
+    }
 
     // Distance
-    template<bool constness_r> difference_type operator-( const iterator_impl<constness_r>& it_r) const;
+    template<bool constness_r>
+    std::ptrdiff_t operator-( const iterator_impl<constness_r>& it_r) const {
+        // Assumes both pointers are looking at the same thing. If not, the results are undefined.
+        std::ptrdiff_t distance = 0;
+        std::size_t shape_cum_prod = 1;
+        if( rc_order == RCOrder::col_major ){
+            for( std::size_t ii = 0; ii != _shape.size(); ++ii){
+                distance += shape_cum_prod*(_pos[ii] - it_r._pos[ii]);
+                shape_cum_prod *= _shape[ii];
+            }
+            distance += shape_cum_prod*(_pos[_shape.size()] - it_r._pos[_shape.size()]);
+        } else {
+            for( std::size_t ii = _shape.size(); ii != 0; --ii){
+                distance += shape_cum_prod*(_pos[ii] - it_r._pos[ii]);
+                shape_cum_prod *= _shape[ii-1];
+            }
+            distance += shape_cum_prod*(_pos[0] - it_r._pos[0]);
+        }
+        return distance;
+    }
 
     // Boolean comparisons
-    template<bool constness_r> bool operator==( const iterator_impl<constness_r>& it_r) const;
-    template<bool constness_r> bool operator!=( const iterator_impl<constness_r>& it_r) const;
-    template<bool constness_r> bool operator>=( const iterator_impl<constness_r>& it_r) const;
-    template<bool constness_r> bool operator<=( const iterator_impl<constness_r>& it_r) const;
-    template<bool constness_r> bool operator<( const iterator_impl<constness_r>& it_r) const;
-    template<bool constness_r> bool operator>( const iterator_impl<constness_r>& it_r) const;
+    template<bool constness_r>
+    bool operator==( const iterator_impl<constness_r>& it_r) const {
+        return _ptr == it_r._ptr;
+    }
+
+    template<bool constness_r>
+    auto operator<=>( const iterator_impl<constness_r>& it_r) const requires ( rc_order == RCOrder::row_major ) {
+        for( std::size_t ii=0; ii<_pos.size(); ++ii ){
+            if( _pos[ii] == it_r._pos[ii] ) continue;
+            return ( _pos[ii] < it_r._pos[ii] ? std::strong_ordering::less : std::strong_ordering::greater );
+        }
+        return std::strong_ordering::equal;
+    }
+
+    template<bool constness_r>
+    auto operator<=>( const iterator_impl<constness_r>& it_r) const requires ( rc_order == RCOrder::col_major ) {
+        for( int ii=_pos.size()-1; ii>=0; --ii ){
+            if( _pos[ii] == it_r._pos[ii] ) continue;
+            return ( _pos[ii] < it_r._pos[ii] ? std::strong_ordering::less : std::strong_ordering::greater );
+        }
+        return std::strong_ordering::equal;
+    }
 };
-*/
+
 } // namespace
 #endif
