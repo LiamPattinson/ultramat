@@ -167,6 +167,22 @@ TEST(ViewTest,Slicing) {
     EXPECT_TRUE( partial_interior_row_view(9,9,4) == 36. );
     EXPECT_TRUE( partial_interior_col_view(9,9,4) == 36. );
 
+    // Create view of a view
+    auto double_interior_row_view = interior_row_view.view(interior,interior,interior);
+    auto double_interior_col_view = interior_col_view.view(interior,interior,interior);
+
+    EXPECT_TRUE( double_interior_row_view.shape(0) == 26 );
+    EXPECT_TRUE( double_interior_col_view.shape(0) == 26 );
+    EXPECT_TRUE( double_interior_row_view.shape(1) == 16 );
+    EXPECT_TRUE( double_interior_col_view.shape(1) == 16 );
+    EXPECT_TRUE( double_interior_row_view.shape(2) ==  6 );
+    EXPECT_TRUE( double_interior_col_view.shape(2) ==  6 );
+    EXPECT_TRUE( double_interior_row_view.data() == row_array.data() + 2 + 20 + 400);
+    EXPECT_TRUE( double_interior_col_view.data() == col_array.data() + 2 + 60 + 1200);
+    EXPECT_TRUE( double_interior_row_view(8,8,2) == 36. );
+    EXPECT_TRUE( double_interior_col_view(8,8,2) == 36. );
+
+    // create view with step greater than 1
     auto stepped_row_view = row_array.view(Slice{2,-4,2},Slice{2,-1},Slice{1,Slice::all,3});
     auto stepped_col_view = col_array.view(Slice{2,-4,2},Slice{2,-1},Slice{1,Slice::all,3});
 

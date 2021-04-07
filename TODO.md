@@ -2,7 +2,6 @@
 
 ## Containers
     
-    * Method to take a view of a view
     * reshape
         * Arrays and contiguous views only.
         * return *this.

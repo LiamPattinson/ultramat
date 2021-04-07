@@ -71,8 +71,8 @@ public:
     // Pull methods from base
     // Some methods are shadowed, as the default behaviour is not appropriate
 
-    std::size_t size() const { return _size;}
-    pointer data() const { return _data; }
+    std::size_t size() const noexcept { return _size;}
+    pointer data() const noexcept { return _data; }
     
     using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::dims;
     using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::shape;
@@ -85,6 +85,19 @@ public:
     // TODO have this take a slice and return a new view
     //T operator[](std::size_t ii) const;
     //T& operator[](std::size_t ii);
+
+    // ===============================================
+    // View within a View
+    // (inception noises)
+    
+    DenseView view() const noexcept {
+        return *this;
+    }
+
+    template<class... Slices> requires ( std::is_same<Slices,Slice>::value && ... )
+    DenseView view( const Slices&... slices) const {
+        return slice(slices...);
+    }
 
     // ===============================================
     // Iteration
@@ -114,7 +127,7 @@ public:
     // Special view methods
 
     template<class... Slices> requires ( std::is_same<Slices,Slice>::value && ... )
-    DenseView slice( const Slices&... var_slices) {
+    DenseView slice( const Slices&... var_slices) const {
         std::array<Slice,sizeof...(Slices)> slices = {{ var_slices... }};
         // Create copy to work with
         DenseView result(*this);
