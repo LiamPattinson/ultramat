@@ -371,3 +371,131 @@ TEST(ViewTest,Iteration){
 
     // TODO test reverse iteration, random access iteration
 }
+
+TEST(ViewTest,Reshape){
+    using shape = std::vector<std::size_t>;
+    Array<double>::row_major array(shape{8,4,2});
+    auto view1 = array.view().reshape(8,8);
+    auto view2 = array.view().reshape(std::vector{2,4,4,2});
+    
+    EXPECT_TRUE( array.dims() == 3 );
+    EXPECT_TRUE( array.size() == 64 );
+    EXPECT_TRUE( array.shape(0) == 8 );
+    EXPECT_TRUE( array.shape(1) == 4 );
+    EXPECT_TRUE( array.shape(2) == 2 );
+    EXPECT_TRUE( array.stride(0) == 64 );
+    EXPECT_TRUE( array.stride(1) == 8 );
+    EXPECT_TRUE( array.stride(2) == 2 );
+    EXPECT_TRUE( array.stride(3) == 1 );
+
+    EXPECT_TRUE( view1.dims() == 2 );
+    EXPECT_TRUE( view1.size() == 64 );
+    EXPECT_TRUE( view1.shape(0) == 8 );
+    EXPECT_TRUE( view1.shape(1) == 8 );
+    EXPECT_TRUE( view1.stride(0) == 64 );
+    EXPECT_TRUE( view1.stride(1) == 8 );
+    EXPECT_TRUE( view1.stride(2) == 1 );
+
+    EXPECT_TRUE( view2.dims() == 4 );
+    EXPECT_TRUE( view2.size() == 64 );
+    EXPECT_TRUE( view2.shape(0) == 2 );
+    EXPECT_TRUE( view2.shape(1) == 4 );
+    EXPECT_TRUE( view2.shape(2) == 4 );
+    EXPECT_TRUE( view2.shape(3) == 2 );
+    EXPECT_TRUE( view2.stride(0) == 64 );
+    EXPECT_TRUE( view2.stride(1) == 32 );
+    EXPECT_TRUE( view2.stride(2) == 8 );
+    EXPECT_TRUE( view2.stride(3) == 2 );
+    EXPECT_TRUE( view2.stride(4) == 1 );
+
+    array(6,3,1) = 15;
+    EXPECT_TRUE( view1(6,7) == 15 );
+    EXPECT_TRUE( view2(1,2,3,1) == 15 );
+
+    view1(3,5) = 37;
+    EXPECT_TRUE( array(3,2,1) == 37 );
+    EXPECT_TRUE( view2(0,3,2,1) == 37 );
+
+    view2(0,3,0,1) = 42;
+    EXPECT_TRUE( array(3,0,1) == 42 );
+    EXPECT_TRUE( view1(3,1) == 42 );
+
+    double count=0;
+    for( auto&& x : array) x = count++;
+    auto array_it = array.begin();
+    auto end = array.end();
+    auto view1_it = view1.begin();
+    auto view2_it = view2.begin();
+    bool iteration_correct=true;
+    for(;array_it != end; ++array_it, ++view1_it, ++view2_it){
+        iteration_correct &= (*array_it == *view1_it);
+        iteration_correct &= (*array_it == *view2_it);
+    }
+    EXPECT_TRUE(iteration_correct);
+    EXPECT_TRUE( view1_it == view1.end() );
+    EXPECT_TRUE( view2_it == view2.end() );
+
+
+    // Repeat for col major
+    Array<double>::row_major col_array(shape{8,4,2});
+    auto col_view1 = col_array.view().reshape(8,8);
+    auto col_view2 = col_array.view().reshape(std::vector{2,4,4,2});
+    
+    EXPECT_TRUE( col_array.dims() == 3 );
+    EXPECT_TRUE( col_array.size() == 64 );
+    EXPECT_TRUE( col_array.shape(0) == 8 );
+    EXPECT_TRUE( col_array.shape(1) == 4 );
+    EXPECT_TRUE( col_array.shape(2) == 2 );
+    EXPECT_TRUE( col_array.stride(0) == 64 );
+    EXPECT_TRUE( col_array.stride(1) == 8 );
+    EXPECT_TRUE( col_array.stride(2) == 2 );
+    EXPECT_TRUE( col_array.stride(3) == 1 );
+
+    EXPECT_TRUE( col_view1.dims() == 2 );
+    EXPECT_TRUE( col_view1.size() == 64 );
+    EXPECT_TRUE( col_view1.shape(0) == 8 );
+    EXPECT_TRUE( col_view1.shape(1) == 8 );
+    EXPECT_TRUE( col_view1.stride(0) == 64 );
+    EXPECT_TRUE( col_view1.stride(1) == 8 );
+    EXPECT_TRUE( col_view1.stride(2) == 1 );
+
+    EXPECT_TRUE( col_view2.dims() == 4 );
+    EXPECT_TRUE( col_view2.size() == 64 );
+    EXPECT_TRUE( col_view2.shape(0) == 2 );
+    EXPECT_TRUE( col_view2.shape(1) == 4 );
+    EXPECT_TRUE( col_view2.shape(2) == 4 );
+    EXPECT_TRUE( col_view2.shape(3) == 2 );
+    EXPECT_TRUE( col_view2.stride(0) == 64 );
+    EXPECT_TRUE( col_view2.stride(1) == 32 );
+    EXPECT_TRUE( col_view2.stride(2) == 8 );
+    EXPECT_TRUE( col_view2.stride(3) == 2 );
+    EXPECT_TRUE( col_view2.stride(4) == 1 );
+
+    col_array(6,3,1) = 15;
+    EXPECT_TRUE( col_view1(6,7) == 15 );
+    EXPECT_TRUE( col_view2(1,2,3,1) == 15 );
+
+    col_view1(3,5) = 37;
+    EXPECT_TRUE( col_array(3,2,1) == 37 );
+    EXPECT_TRUE( col_view2(0,3,2,1) == 37 );
+
+    col_view2(0,3,0,1) = 42;
+    EXPECT_TRUE( col_array(3,0,1) == 42 );
+    EXPECT_TRUE( col_view1(3,1) == 42 );
+
+    count=0;
+    for( auto&& x : col_array) x = count++;
+    auto col_array_it = col_array.begin();
+    auto col_end = col_array.end();
+    auto col_view1_it = col_view1.begin();
+    auto col_view2_it = col_view2.begin();
+    bool col_iteration_correct=true;
+    for(;col_array_it != col_end; ++col_array_it, ++col_view1_it, ++col_view2_it){
+        iteration_correct &= (*col_array_it == *col_view1_it);
+        iteration_correct &= (*col_array_it == *col_view2_it);
+    }
+    EXPECT_TRUE(col_iteration_correct);
+    EXPECT_TRUE( col_view1_it == col_view1.end() );
+    EXPECT_TRUE( col_view2_it == col_view2.end() );
+
+}

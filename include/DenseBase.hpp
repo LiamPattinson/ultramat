@@ -33,6 +33,13 @@ class DenseBase : public DenseTag {
     constexpr auto* data() noexcept { return static_cast<T&>(*this)._data.data(); }
     constexpr const auto* data() const noexcept { return static_cast<const T&>(*this)._data.data(); }
 
+    // Fill
+    
+    template<class U>
+    constexpr void fill( const U& u) {
+        std::ranges::fill(static_cast<T&>(*this),u);
+    }
+
     // Access via unsigned ints.
     // Warning: no check that the correct number of ints has been provided.
     
@@ -77,6 +84,31 @@ class DenseBase : public DenseTag {
     template<class... Slices> requires ( std::is_same<Slice,Slices>::value && ... )
     DenseView<T> view(const Slices&... slices) {
         return DenseView<T>(static_cast<T&>(*this)).slice(slices...);
+    }
+
+    // ===============================================
+    // Reshaping
+
+    template<std::ranges::range Shape>
+    requires std::integral<typename Shape::value_type>
+    T& reshape( const Shape& shape ){
+        // Ensure this is contiguous
+        if( !static_cast<T&>(*this).is_contiguous() ) throw std::runtime_error("Ultramat: Cannot reshape a non-contiguous array");
+        // Ensure that the new shape has the correct size.
+        auto size = std::accumulate(shape.begin(),shape.end(),1,std::multiplies<typename Shape::value_type>{});
+        if( size != static_cast<T&>(*this).size() ) throw std::runtime_error("Ultramat: Cannot reshape, result would have incorrect size");
+        // Set new shape
+        static_cast<T&>(*this)._shape.resize(shape.size());
+        std::ranges::copy( shape, static_cast<T&>(*this)._shape.begin());
+        // reset stride and return
+        static_cast<T&>(*this)._stride.resize(shape.size()+1);
+        set_stride();
+        return static_cast<T&>(*this); 
+    }
+
+    template<std::integral... Ints>
+    T& reshape( Ints... shape){
+        return reshape(std::array<std::size_t,sizeof...(Ints)>{{shape...}});
     }
 
     // ===============================================
@@ -139,6 +171,11 @@ class DenseBase : public DenseTag {
             static_cast<T&>(*this)._stride[ii+1] = static_cast<T&>(*this)._stride[ii] * static_cast<T&>(*this)._shape[ii];
         }
     }
+
+    // is_contiguous
+    // Determine if a container is contiguous. As this is guaranteed for everything except a DenseView, this function
+    // is trivial. DenseView shadows it with a much more interesting function.
+    constexpr bool is_contiguous() const noexcept { return true;}
 
     // variadic_memjump
     // used with round-bracket indexing.

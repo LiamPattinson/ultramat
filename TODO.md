@@ -2,9 +2,6 @@
 
 ## Containers
     
-    * reshape
-        * Arrays and contiguous views only.
-        * return *this.
     * broadcasting
         * Return non-writeable view with some strides set to zero
         * May run into issues where broadcast iterators never reach 'end'.
@@ -27,3 +24,4 @@
     * New expression types
         * ReductionExpression. Can be used for sum, prod, max, etc.
         * DimWiseExpression. Reduction in one dimension only.
+    * Take views, reshapes, etc from expressions.

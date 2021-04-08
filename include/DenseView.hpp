@@ -71,14 +71,36 @@ public:
     // Pull methods from base
     // Some methods are shadowed, as the default behaviour is not appropriate
 
-    std::size_t size() const noexcept { return _size;}
-    pointer data() const noexcept { return _data; }
-    
     using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::dims;
     using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::shape;
     using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::stride;
+    using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::fill;
     using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::operator();
+    using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::reshape;
     using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::check_expression;
+
+    std::size_t size() const noexcept { return _size;}
+    pointer data() const noexcept { return _data; }
+
+    bool is_contiguous() const noexcept requires (rc_order==RCOrder::row_major) {
+        ptrdiff_t stride = 1;
+        if( stride != _stride[dims()]) return false;
+        for( std::size_t ii=dims(); ii != 0; --ii){
+            stride *= _shape[ii-1];
+            if( stride != _stride[ii-1]) return false;
+        }
+        return true;
+    }
+
+    bool is_contiguous() const noexcept requires (rc_order==RCOrder::col_major) {
+        ptrdiff_t stride = 1;
+        if( stride != _stride[0]) return false;
+        for( std::size_t ii=0; ii != dims(); ++ii){
+            stride *= _shape[ii];
+            if( stride != _stride[ii+1]) return false;
+        }
+        return true;
+    }
 
     // Access via square brackets
     // Treats all arrays as 1D containers.
@@ -211,7 +233,7 @@ public:
         _stride(stride),
         _pos(stride.size(),0)
     {
-        _pos[rc_order==RCOrder::row_major ? stride.size() : 0] = end;
+        _pos[rc_order==RCOrder::row_major ? stride.size()-1 : 0] = end;
     }
 
     // Construct with explicit pos. Used to convert between iterator types, not recommended otherwise
