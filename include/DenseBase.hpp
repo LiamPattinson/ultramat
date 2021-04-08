@@ -19,25 +19,30 @@ class DenseBase : public DenseTag {
 
     protected:
 
+    // Helper functions
+
+    constexpr T& derived() noexcept { return static_cast<T&>(*this); }
+    constexpr const T& derived() const noexcept { return static_cast<const T&>(*this); }
+
     // Attributes
 
-    constexpr auto dims() const noexcept { return static_cast<const T&>(*this)._shape.size(); }
-    constexpr auto size() const noexcept { return static_cast<const T&>(*this)._data.size(); }
-    constexpr auto shape( std::size_t dim) const noexcept { return static_cast<const T&>(*this)._shape[dim]; }
-    constexpr auto stride( std::size_t dim) const noexcept { return static_cast<const T&>(*this)._stride[dim]; }
-    constexpr const auto& shape() const noexcept { return static_cast<const T&>(*this)._shape; }
-    constexpr const auto& stride() const noexcept { return static_cast<const T&>(*this)._stride; }
+    constexpr auto dims() const noexcept { return derived()._shape.size(); }
+    constexpr auto size() const noexcept { return derived()._data.size(); }
+    constexpr auto shape( std::size_t dim) const noexcept { return derived()._shape[dim]; }
+    constexpr auto stride( std::size_t dim) const noexcept { return derived()._stride[dim]; }
+    constexpr const auto& shape() const noexcept { return derived()._shape; }
+    constexpr const auto& stride() const noexcept { return derived()._stride; }
 
     // Data access
 
-    constexpr auto* data() noexcept { return static_cast<T&>(*this)._data.data(); }
-    constexpr const auto* data() const noexcept { return static_cast<const T&>(*this)._data.data(); }
+    constexpr auto* data() noexcept { return derived()._data.data(); }
+    constexpr const auto* data() const noexcept { return derived()._data.data(); }
 
     // Fill
     
     template<class U>
     constexpr void fill( const U& u) {
-        std::ranges::fill(static_cast<T&>(*this),u);
+        std::ranges::fill(derived(),u);
     }
 
     // Access via unsigned ints.
@@ -45,27 +50,27 @@ class DenseBase : public DenseTag {
     
     template<std::integral... Ints> 
     auto operator()( Ints... coords ) const noexcept {
-        return static_cast<const T&>(*this)._data[variadic_memjump(coords...)];
+        return derived()._data[variadic_memjump(coords...)];
     }
     
     template<std::integral... Ints> 
     auto& operator()( Ints... coords ) noexcept {
-        return static_cast<T&>(*this)._data[variadic_memjump(coords...)];
+        return derived()._data[variadic_memjump(coords...)];
     }
 
     // Access via range
     
     template<std::ranges::range Coords> requires std::integral<typename Coords::value_type>
     auto operator()( const Coords& coords) const {
-        return static_cast<const T&>(*this)._data[
-            std::inner_product(coords.begin(),coords.end(),static_cast<const T&>(*this)._stride.begin()+(Order==RCOrder::row_major),0)
+        return derived()._data[
+            std::inner_product(coords.begin(),coords.end(),derived()._stride.begin()+(Order==RCOrder::row_major),0)
         ];
     }
 
     template<std::ranges::range Coords> requires std::integral<typename Coords::value_type>
     auto& operator()( const Coords& coords) {
-        return static_cast<T&>(*this)._data[
-            std::inner_product(coords.begin(),coords.end(),static_cast<const T&>(*this)._stride.begin()+(Order==RCOrder::row_major),0)
+        return derived()._data[
+            std::inner_product(coords.begin(),coords.end(),derived()._stride.begin()+(Order==RCOrder::row_major),0)
         ];
     }
 
@@ -73,17 +78,17 @@ class DenseBase : public DenseTag {
     // Treats all arrays as 1D containers.
     // TODO have this take a slice and return a view over the array
     
-    constexpr auto operator[](std::size_t ii) const noexcept { return static_cast<const T&>(*this)._data[ii]; }
-    constexpr auto& operator[](std::size_t ii) noexcept { return static_cast<T&>(*this)._data[ii]; }
+    constexpr auto operator[](std::size_t ii) const noexcept { return derived()._data[ii]; }
+    constexpr auto& operator[](std::size_t ii) noexcept { return derived()._data[ii]; }
 
     // ===============================================
     // View creation
 
-    DenseView<T> view() { return DenseView<T>(static_cast<T&>(*this));}
+    DenseView<T> view() { return DenseView<T>(derived());}
 
     template<class... Slices> requires ( std::is_same<Slice,Slices>::value && ... )
     DenseView<T> view(const Slices&... slices) {
-        return DenseView<T>(static_cast<T&>(*this)).slice(slices...);
+        return DenseView<T>(derived()).slice(slices...);
     }
 
     // ===============================================
@@ -93,17 +98,17 @@ class DenseBase : public DenseTag {
     requires std::integral<typename Shape::value_type>
     T& reshape( const Shape& shape ){
         // Ensure this is contiguous
-        if( !static_cast<T&>(*this).is_contiguous() ) throw std::runtime_error("Ultramat: Cannot reshape a non-contiguous array");
+        if( !derived().is_contiguous() ) throw std::runtime_error("Ultramat: Cannot reshape a non-contiguous array");
         // Ensure that the new shape has the correct size.
         auto size = std::accumulate(shape.begin(),shape.end(),1,std::multiplies<typename Shape::value_type>{});
-        if( size != static_cast<T&>(*this).size() ) throw std::runtime_error("Ultramat: Cannot reshape, result would have incorrect size");
+        if( size != derived().size() ) throw std::runtime_error("Ultramat: Cannot reshape, result would have incorrect size");
         // Set new shape
-        static_cast<T&>(*this)._shape.resize(shape.size());
-        std::ranges::copy( shape, static_cast<T&>(*this)._shape.begin());
+        derived()._shape.resize(shape.size());
+        std::ranges::copy( shape, derived()._shape.begin());
         // reset stride and return
-        static_cast<T&>(*this)._stride.resize(shape.size()+1);
+        derived()._stride.resize(shape.size()+1);
         set_stride();
-        return static_cast<T&>(*this); 
+        return derived(); 
     }
 
     template<std::integral... Ints>
@@ -114,12 +119,12 @@ class DenseBase : public DenseTag {
     // ===============================================
     // Iteration
 
-    constexpr auto begin() noexcept { return static_cast<T&>(*this)._data.begin(); }
-    constexpr auto begin() const noexcept { return static_cast<const T&>(*this)._data.cbegin(); }
-    constexpr auto cbegin() const noexcept { return static_cast<const T&>(*this)._data.cbegin(); }
-    constexpr auto end() noexcept { return static_cast<T&>(*this)._data.end(); }
-    constexpr auto end() const noexcept { return static_cast<const T&>(*this)._data.cend(); }
-    constexpr auto cend() const noexcept { return static_cast<const T&>(*this)._data.cend(); }
+    constexpr auto begin() noexcept { return derived()._data.begin(); }
+    constexpr auto begin() const noexcept { return derived()._data.cbegin(); }
+    constexpr auto cbegin() const noexcept { return derived()._data.cbegin(); }
+    constexpr auto end() noexcept { return derived()._data.end(); }
+    constexpr auto end() const noexcept { return derived()._data.cend(); }
+    constexpr auto cend() const noexcept { return derived()._data.cend(); }
 
     // ===============================================
     // Utils
@@ -159,16 +164,16 @@ class DenseBase : public DenseTag {
     // Use shape to populate stride via a cumulative product, starting with 1.
 
     void set_stride() noexcept requires (Order == RCOrder::row_major) {
-        static_cast<T&>(*this)._stride[dims()] = 1;
+        derived()._stride[dims()] = 1;
         for( std::size_t ii=dims(); ii!=0; --ii){
-            static_cast<T&>(*this)._stride[ii-1] = static_cast<T&>(*this)._stride[ii] * static_cast<T&>(*this)._shape[ii-1];            
+            derived()._stride[ii-1] = derived()._stride[ii] * derived()._shape[ii-1];            
         }
     }
 
     void set_stride() noexcept requires (Order == RCOrder::col_major) {
-        static_cast<T&>(*this)._stride[0] = 1;
+        derived()._stride[0] = 1;
         for( std::size_t ii=0; ii!=dims(); ++ii){
-            static_cast<T&>(*this)._stride[ii+1] = static_cast<T&>(*this)._stride[ii] * static_cast<T&>(*this)._shape[ii];
+            derived()._stride[ii+1] = derived()._stride[ii] * derived()._shape[ii];
         }
     }
 
@@ -185,13 +190,13 @@ class DenseBase : public DenseTag {
     // Base case
     template<std::size_t N, std::integral Int>
     constexpr decltype(auto) variadic_memjump_impl( Int coord) const noexcept {
-        return static_cast<const T&>(*this)._stride[N] * coord; 
+        return derived()._stride[N] * coord; 
     }
 
     // Recursive step
     template<std::size_t N, std::integral Int, std::integral... Ints>
     constexpr decltype(auto) variadic_memjump_impl( Int coord, Ints... coords) const noexcept {
-        return (static_cast<const T&>(*this)._stride[N] * coord) + variadic_memjump_impl<N+1,Ints...>(coords...);
+        return (derived()._stride[N] * coord) + variadic_memjump_impl<N+1,Ints...>(coords...);
     }
 
     template<std::integral... Ints>
