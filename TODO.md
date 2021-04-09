@@ -2,8 +2,7 @@
 
 ## Containers
     
-    * transpose
-        * Can use this to reinterpret row major as col major, and vice versa.
+    * 'as_row_major' and 'as_col_major'
     * `+=`, `*=` etc from expressions.
     * Vector class, including fixed variety.
         * Must allow easy conversion to/from Arrays.
@@ -19,4 +18,4 @@
     * New expression types
         * ReductionExpression. Can be used for sum, prod, max, etc.
         * DimWiseExpression. Reduction in one dimension only.
-    * Take views, reshapes, etc from expressions.
+    * Take views, reshapes, permutations, transposes from expressions.

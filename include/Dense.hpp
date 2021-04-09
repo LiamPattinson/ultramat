@@ -128,6 +128,9 @@ public:
     using DenseBase<ArrayImpl<T,Order>,Order>::view;
     using DenseBase<ArrayImpl<T,Order>,Order>::reshape;
     using DenseBase<ArrayImpl<T,Order>,Order>::broadcast;
+    using DenseBase<ArrayImpl<T,Order>,Order>::permute;
+    using DenseBase<ArrayImpl<T,Order>,Order>::transpose;
+    using DenseBase<ArrayImpl<T,Order>,Order>::t;
     using DenseBase<ArrayImpl<T,Order>,Order>::begin;
     using DenseBase<ArrayImpl<T,Order>,Order>::end;
     using DenseBase<ArrayImpl<T,Order>,Order>::operator();
@@ -211,6 +214,9 @@ public:
     using DenseBase<FixedArrayImpl<T,Order,Dims...>,Order>::fill;
     using DenseBase<FixedArrayImpl<T,Order,Dims...>,Order>::view;
     using DenseBase<FixedArrayImpl<T,Order,Dims...>,Order>::broadcast;
+    using DenseBase<FixedArrayImpl<T,Order,Dims...>,Order>::permute;
+    using DenseBase<FixedArrayImpl<T,Order,Dims...>,Order>::transpose;
+    using DenseBase<FixedArrayImpl<T,Order,Dims...>,Order>::t;
     using DenseBase<FixedArrayImpl<T,Order,Dims...>,Order>::begin;
     using DenseBase<FixedArrayImpl<T,Order,Dims...>,Order>::end;
     using DenseBase<FixedArrayImpl<T,Order,Dims...>,Order>::operator();

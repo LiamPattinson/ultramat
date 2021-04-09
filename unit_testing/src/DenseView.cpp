@@ -582,3 +582,75 @@ TEST(ViewTest,Broadcasting){
     }
     EXPECT_TRUE(field_dy_correct);
 }
+
+TEST(ViewTest,Permuting){
+    using shape = std::vector<std::size_t>;
+    Array<std::size_t>::row_major row_array(shape{5,6,7,8});
+    Array<std::size_t>::col_major col_array(shape{5,6,7,8});
+    auto row_view = row_array.permute(2,1,0,3);
+    auto col_view = col_array.permute(2,1,0,3);
+    std::size_t count;
+    count=0; for( auto && x : row_view ) x = count++;
+    count=0; for( auto && x : col_view ) x = count++;
+
+    bool row_major_permute_correct = true;
+    count = 0;
+    for(std::size_t kk=0; kk<7; ++kk){
+        for(std::size_t jj=0; jj<6; ++jj){
+            for(std::size_t ii=0; ii<5; ++ii){
+                for(std::size_t ll=0; ll<8; ++ll){
+                    row_major_permute_correct &= (row_array(ii,jj,kk,ll) == count++);
+                }
+            }
+        }
+    }
+    EXPECT_TRUE(row_major_permute_correct);
+
+    bool col_major_permute_correct = true;
+    count = 0;
+    for(std::size_t ll=0; ll<8; ++ll){
+        for(std::size_t ii=0; ii<5; ++ii){
+            for(std::size_t jj=0; jj<6; ++jj){
+                for(std::size_t kk=0; kk<7; ++kk){
+                    col_major_permute_correct &= (col_array(ii,jj,kk,ll) == count++);
+                }
+            }
+        }
+    }
+    EXPECT_TRUE(col_major_permute_correct);
+
+    Array<double>::row_major row_matrix(shape{3,4});
+    Array<double>::col_major col_matrix(shape{3,4});
+    auto row_matrix_t = row_matrix.transpose();
+    auto col_matrix_t = col_matrix.t();
+    count=0; for( auto && x : row_matrix_t ) x = count++;
+    count=0; for( auto && x : col_matrix_t ) x = count++;
+
+    bool row_major_transpose_correct = true;
+    count = 0;
+    for(std::size_t jj=0; jj<4; ++jj){
+        for(std::size_t ii=0; ii<3; ++ii){
+            row_major_transpose_correct &= (row_matrix(ii,jj) == count++);
+        }
+    }
+    EXPECT_TRUE(row_major_transpose_correct);
+
+    bool col_major_transpose_correct = true;
+    count = 0;
+    for(std::size_t ii=0; ii<3; ++ii){
+        for(std::size_t jj=0; jj<4; ++jj){
+            col_major_transpose_correct &= (col_matrix(ii,jj) == count++);
+        }
+    }
+    EXPECT_TRUE(col_major_transpose_correct);
+
+    // check that double transpose does what you'd expect
+    auto double_transpose = row_matrix.transpose().transpose();
+    bool double_transpose_correct = true;
+    for(std::size_t ii=0; ii<3; ++ii){
+        for(std::size_t jj=0; jj<4; ++jj){
+            double_transpose_correct &= (row_matrix(ii,jj) == double_transpose(ii,jj));
+        }
+    }
+    EXPECT_TRUE(double_transpose_correct);
+}

@@ -100,18 +100,27 @@ class DenseBase : public DenseTag {
         return DenseView<T,ReadWriteStatus::read_only>(derived()).slice(slices);
     }
 
+    template<bool constness>
     struct SquBrktSlicer {
-        T& _ref;
+        using reference = std::conditional_t<constness,const T&,T&>;
+        reference _ref;
         std::vector<Slice> _slices;
         SquBrktSlicer() = delete;
-        SquBrktSlicer( T& ref, const Slice& slice) : _ref(ref), _slices{slice} {}
+        SquBrktSlicer( reference ref, const Slice& slice) : _ref(ref), _slices{slice} {}
         SquBrktSlicer& operator[](const Slice& slice){ _slices.push_back(slice); return *this;}
         SquBrktSlicer& operator[](std::size_t ii){ _slices.push_back(ii==Slice::all ? Slice{Slice::all,Slice::all} : Slice{ii,ii+1}); return *this;}
         auto operator()() { return _ref.view(_slices);}
+        auto operator()() const { return _ref.view(_slices);}
     };
 
-    SquBrktSlicer operator[](const Slice& slice) { return SquBrktSlicer(derived(),slice);}
-    SquBrktSlicer operator[](std::size_t ii) { return SquBrktSlicer(derived(),ii==Slice::all ? Slice{Slice::all,Slice::all} : Slice{ii,ii+1});}
+    SquBrktSlicer<false> operator[](const Slice& slice) { return SquBrktSlicer<false>(derived(),slice);}
+    SquBrktSlicer<false> operator[](std::size_t ii) {
+        return SquBrktSlicer<false>(derived(),ii==Slice::all ? Slice{Slice::all,Slice::all} : Slice{ii,ii+1});
+    }
+    SquBrktSlicer<true> operator[](const Slice& slice) const { return SquBrktSlicer<true>(derived(),slice);}
+    SquBrktSlicer<true> operator[](std::size_t ii) const {
+        return SquBrktSlicer<true>(derived(),ii==Slice::all ? Slice{Slice::all,Slice::all} : Slice{ii,ii+1});
+    }
 
     // ===============================================
     // Reshaping
@@ -151,6 +160,42 @@ class DenseBase : public DenseTag {
     auto broadcast( const Denses&... denses) const {
         return derived().view().broadcast(denses...);
     }
+
+    // ===============================================
+    // Permuting/Transposing
+
+    template<std::ranges::range Perm> requires std::integral<typename Perm::value_type>
+    auto permute( const Perm& permutations) {
+        return derived().view().permute(permutations);
+    }
+
+    template<std::ranges::range Perm> requires std::integral<typename Perm::value_type>
+    auto permute( const Perm& permutations) const {
+        return derived().view().permute(permutations);
+    }
+
+    template<std::integral... Perm>
+    auto permute( Perm... permutations) {
+        return derived().view().permute(permutations...);
+    }
+
+    template<std::integral... Perm>
+    auto permute( Perm... permutations) const {
+        return derived().view().permute(permutations...);
+    }
+
+    auto transpose() {
+        if( derived().dims() != 2 ) throw std::runtime_error("Ultramat: transpose() requires dims() == 2. Perhaps you wanted permute()?");
+        return permute(1,0);
+    }
+
+    auto transpose() const {
+        if( derived().dims() != 2 ) throw std::runtime_error("Ultramat: transpose() requires dims() == 2. Perhaps you wanted permute()?");
+        return permute(1,0);
+    }
+
+    auto t() { return transpose(); }
+    auto t() const { return transpose(); }
 
     // ===============================================
     // Iteration

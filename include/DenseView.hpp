@@ -166,7 +166,7 @@ public:
     // Special view methods:
     // - Slicing
     // - Broadcasting
-    // - Transposing
+    // - Permuting/Transposing
 
     template<std::ranges::range Slices> requires ( std::is_same<typename Slices::value_type,Slice>::value )
     DenseView slice( const Slices& slices ) const {
@@ -274,6 +274,40 @@ public:
     DenseView<T,ReadWriteStatus::read_only> broadcast( const Denses&... denses) const {
         return broadcast(denses.shape()...);
     }
+
+    template<std::ranges::range Perm> requires std::integral<typename Perm::value_type>
+    DenseView permute( const Perm& permutations) const {
+        static const std::string permute_err = "Ultramat: Permute should be given ints in range [0,dims()) without repeats";
+        // Require length of pemutations to be same as dims(), and should contain all of the ints in the range [0,dims()) without repeats.
+        if( permutations.size() != dims() ) throw std::runtime_error("Ultramat: Permute given wrong number of dimensions");
+        std::vector<bool> dims_included(dims(),false);
+        for( auto&& x : permutations ){
+            if( x < 0 || x >dims() ) throw std::runtime_error(permute_err);
+            dims_included[x] = true;
+        }
+        if(!std::ranges::all_of(dims_included,[](bool b){return b;})){
+            throw std::runtime_error(permute_err);
+        }
+        // Create copy and apply permutations accordingly. Greatest stride should not be affected.
+        auto copy(*this);
+        for( std::size_t ii=0; ii<dims(); ++ii){
+            copy._shape[ii] = _shape[permutations[ii]];
+            copy._stride[ii + (rc_order==RCOrder::row_major)] = _stride[permutations[ii] + (rc_order==RCOrder::row_major)];
+        }
+        return copy;
+    }
+
+    template<std::integral... Perm>
+    DenseView permute( Perm... permutations) const {
+        return permute(std::array<std::size_t,sizeof...(Perm)>{permutations...});
+    }
+
+    DenseView transpose() const {
+        if( dims() != 2 ) throw std::runtime_error("Ultramat: transpose() requires dims() == 2. Perhaps you wanted permute()?");
+        return permute(1,0);
+    }
+
+    DenseView t() const { return transpose(); }
 };
 
 // Define view iterator
