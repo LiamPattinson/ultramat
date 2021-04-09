@@ -74,22 +74,44 @@ class DenseBase : public DenseTag {
         ];
     }
 
-    // Access via square brackets
-    // Treats all arrays as 1D containers.
-    // TODO have this take a slice and return a view over the array
-    
-    constexpr auto operator[](std::size_t ii) const noexcept { return derived()._data[ii]; }
-    constexpr auto& operator[](std::size_t ii) noexcept { return derived()._data[ii]; }
-
     // ===============================================
     // View creation
 
     DenseView<T> view() { return DenseView<T>(derived());}
+    DenseView<T,ReadWriteStatus::read_only> view() const { return DenseView<T,ReadWriteStatus::read_only>(derived());}
 
     template<class... Slices> requires ( std::is_same<Slice,Slices>::value && ... )
     DenseView<T> view(const Slices&... slices) {
         return DenseView<T>(derived()).slice(slices...);
     }
+
+    template<class... Slices> requires ( std::is_same<Slice,Slices>::value && ... )
+    DenseView<T,ReadWriteStatus::read_only> view(const Slices&... slices) const {
+        return DenseView<T,ReadWriteStatus::read_only>(derived()).slice(slices...);
+    }
+
+    template<std::ranges::range Slices> requires ( std::is_same<typename Slices::value_type,Slice>::value )
+    DenseView<T> view(const Slices& slices) {
+        return DenseView<T>(derived()).slice(slices);
+    }
+
+    template<std::ranges::range Slices> requires ( std::is_same<typename Slices::value_type,Slice>::value )
+    DenseView<T,ReadWriteStatus::read_only> view(const Slices& slices) const {
+        return DenseView<T,ReadWriteStatus::read_only>(derived()).slice(slices);
+    }
+
+    struct SquBrktSlicer {
+        T& _ref;
+        std::vector<Slice> _slices;
+        SquBrktSlicer() = delete;
+        SquBrktSlicer( T& ref, const Slice& slice) : _ref(ref), _slices{slice} {}
+        SquBrktSlicer& operator[](const Slice& slice){ _slices.push_back(slice); return *this;}
+        SquBrktSlicer& operator[](std::size_t ii){ _slices.push_back(ii==Slice::all ? Slice{Slice::all,Slice::all} : Slice{ii,ii+1}); return *this;}
+        auto operator()() { return _ref.view(_slices);}
+    };
+
+    SquBrktSlicer operator[](const Slice& slice) { return SquBrktSlicer(derived(),slice);}
+    SquBrktSlicer operator[](std::size_t ii) { return SquBrktSlicer(derived(),ii==Slice::all ? Slice{Slice::all,Slice::all} : Slice{ii,ii+1});}
 
     // ===============================================
     // Reshaping
@@ -114,6 +136,14 @@ class DenseBase : public DenseTag {
     template<std::integral... Ints>
     T& reshape( Ints... shape){
         return reshape(std::array<std::size_t,sizeof...(Ints)>{{shape...}});
+    }
+
+    // ===============================================
+    // Broadcasting
+
+    template<std::ranges::range Shape> requires std::integral<typename Shape::value_type> 
+    auto broadcast( const Shape bcast_shape) const {
+        return derived().view().broadcast(bcast_shape);
     }
 
     // ===============================================

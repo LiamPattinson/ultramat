@@ -17,6 +17,9 @@ class DenseView : public Expression<DenseView<T,ReadWrite>>, public DenseBase<De
 
     friend DenseBase<DenseView<T,ReadWrite>,T::rc_order>;
 
+    static constexpr ReadWriteStatus OtherRW = (ReadWrite == ReadWriteStatus::read_only ? ReadWriteStatus::writeable : ReadWriteStatus::read_only);
+    friend DenseView<T,OtherRW>;
+
 public:
 
     using value_type = typename T::value_type;
@@ -45,8 +48,27 @@ public:
     DenseView& operator=( const DenseView& ) = default;
     DenseView& operator=( DenseView&& ) = default;
 
+    // Copy from other read/write type
+    template<ReadWriteStatus RW>
+    DenseView( const DenseView<T,RW>& other ) :
+        _size(other._size),
+        _shape(other._shape),
+        _stride(other._stride),
+        _data(other._data)
+    {}
+
     // Full view of a container
     DenseView( T& container) :
+        _size( container.size() ),
+        _shape( container.dims() ),
+        _stride( container.dims()+1 ),
+        _data( container.data() )
+    {
+        std::ranges::copy(container.shape(),_shape.begin());
+        std::ranges::copy(container.stride(),_stride.begin());
+    }
+
+    DenseView( const T& container) :
         _size( container.size() ),
         _shape( container.dims() ),
         _stride( container.dims()+1 ),
@@ -76,6 +98,7 @@ public:
     using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::stride;
     using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::fill;
     using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::operator();
+    using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::operator[];
     using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::reshape;
     using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::check_expression;
 
@@ -101,12 +124,6 @@ public:
         }
         return true;
     }
-
-    // Access via square brackets
-    // Treats all arrays as 1D containers.
-    // TODO have this take a slice and return a new view
-    //T operator[](std::size_t ii) const;
-    //T& operator[](std::size_t ii);
 
     // ===============================================
     // View within a View
@@ -146,11 +163,13 @@ public:
     }
     
     // ===============================================
-    // Special view methods
+    // Special view methods:
+    // - Slicing
+    // - Broadcasting
+    // - Transposing
 
-    template<class... Slices> requires ( std::is_same<Slices,Slice>::value && ... )
-    DenseView slice( const Slices&... var_slices) const {
-        std::array<Slice,sizeof...(Slices)> slices = {{ var_slices... }};
+    template<std::ranges::range Slices> requires ( std::is_same<typename Slices::value_type,Slice>::value )
+    DenseView slice( const Slices& slices ) const {
         // Create copy to work with
         DenseView result(*this);
         std::size_t stride_offset = ( rc_order == RCOrder::row_major );
@@ -188,7 +207,66 @@ public:
         }
         return result;
     }
+
+    template<class... Slices> requires ( std::is_same<Slices,Slice>::value && ... )
+    DenseView slice( const Slices&... var_slices) const {
+        return slice(std::array<Slice,sizeof...(Slices)>{ var_slices... });
+    }
+
+    template<std::ranges::range Shape> requires std::integral<typename Shape::value_type> 
+    DenseView<T,ReadWriteStatus::read_only> broadcast( const Shape bcast_shape) const {
+        static const std::string err = "Ultramat: Cannot broadcast to given shape";
+        // Check bcast_shape is valid
+        for(std::size_t ii=0; ii<dims(); ++ii){
+            // Account for broadcasting down
+            if( ii > bcast_shape.size() ){
+                if( _shape[ii] > 1 ){
+                    throw std::runtime_error(err);
+                } else {
+                    continue;
+                }
+            }
+            // Check that shapes agree, or that this view has shape 1
+            if( _shape[ii] != bcast_shape[ii] && _shape[ii] != 1 ) throw std::runtime_error(err);
+        }
+        // Create copy to work with
+        DenseView<T,ReadWriteStatus::read_only> bcast_view(*this);
+        bcast_view._shape = bcast_shape;
+        bcast_view._size = std::accumulate( bcast_shape.begin(), bcast_shape.end(), 1, std::multiplies<typename Shape::value_type>{});
+        bcast_view._stride.resize(bcast_shape.size()+1);
+        // Broadcasting stride rules:
+        // - If _shape[ii] == 1 and bcast_shape[ii] > 1, stride=0
+        // - If ii > dims(), stride=0
+        // - If _shape[ii] == bcast_shape[ii], stride[ii] = _stride[ii]
+        if( rc_order == RCOrder::col_major ){
+            for( std::size_t ii=0; ii<bcast_shape.size(); ++ii){
+                bcast_view._stride[ii] = ( (_shape[ii]==1 && bcast_shape[ii]>1) || ii>dims() ? 0 : _stride[ii]); 
+            }
+            bcast_view._stride[ bcast_shape.size() ] = bcast_view._size;
+        } else {
+            for( std::size_t ii=bcast_shape.size(); ii!=0; --ii){
+                bcast_view._stride[ii] = ( (_shape[ii-1]==1 && bcast_shape[ii-1]>1) || ii>dims() ? 0 : _stride[ii]); 
+            }
+            bcast_view._stride[0] = bcast_view._size;
+        }
+        return bcast_view;
+    }
 };
+
+template<std::ranges::range... Shapes> requires ( std::integral<typename Shapes::value_type> && ... )
+std::vector<std::size_t> get_broadcast_shape( const Shapes&... shapes) {
+    std::size_t max_dims = std::max({shapes.size()...});
+    std::vector<std::size_t> bcast_shape(max_dims,1);
+    for( std::size_t ii=0; ii<max_dims; ++ii){
+        bcast_shape[ii] = std::max({ (ii < shapes.size() ? shapes[ii] : 0) ...});
+        // throw exception if any of the shapes included have a dimension which is neither bcast_shape[ii] nor 1.
+        auto errors = std::array<bool,sizeof...(Shapes)>{
+            ( ii < shapes.size() ? ( shapes[ii] == 1 || shapes[ii] == bcast_shape[ii] ? false : true) : false)...
+        };
+        if( std::ranges::any_of(errors,[](bool b){return b;}) ) throw std::runtime_error("Ultramat: Cannot broadcast shapes");   
+    }
+    return bcast_shape;
+}
 
 // Define view iterator
 
@@ -196,25 +274,25 @@ template<class T,ReadWriteStatus ReadWrite>
 template<bool constness>
 class DenseView<T,ReadWrite>::iterator_impl {
     
-    friend typename DenseView<T>::iterator_impl<!constness>;
+    friend typename DenseView<T,ReadWrite>::iterator_impl<!constness>;
 
 public:
 
     using iterator_category = std::random_access_iterator_tag;
     using difference_type   = std::ptrdiff_t;
-    using value_type        = DenseView<T>::value_type;
-    using shape_type        = DenseView<T>::shape_type;
-    using stride_type       = DenseView<T>::stride_type;
-    using pointer           = DenseView<T>::pointer;
-    using reference         = DenseView<T>::reference;
-    static constexpr RCOrder rc_order = DenseView<T>::rc_order;
+    using value_type        = DenseView<T,ReadWrite>::value_type;
+    using shape_type        = DenseView<T,ReadWrite>::shape_type;
+    using stride_type       = DenseView<T,ReadWrite>::stride_type;
+    using pointer           = DenseView<T,ReadWrite>::pointer;
+    using reference         = DenseView<T,ReadWrite>::reference;
+    static constexpr RCOrder rc_order = DenseView<T,ReadWrite>::rc_order;
 
 private:
 
-    pointer            _ptr;
-    const shape_type&  _shape;
-    const stride_type& _stride;
-    stride_type        _pos;
+    pointer     _ptr;
+    shape_type  _shape;
+    stride_type _stride;
+    stride_type _pos;
 
 public:
 

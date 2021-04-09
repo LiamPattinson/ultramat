@@ -1,4 +1,5 @@
 #include "ultramat/include/Dense.hpp"
+#include "ultramat/include/Arithmetic.hpp"
 #include <gtest/gtest.h>
 #include <cmath>
 
@@ -498,4 +499,67 @@ TEST(ViewTest,Reshape){
     EXPECT_TRUE( col_view1_it == col_view1.end() );
     EXPECT_TRUE( col_view2_it == col_view2.end() );
 
+}
+
+TEST(ViewTest,Broadcasting){
+    using shape = std::vector<std::size_t>;
+
+    // test get_broadcast_shape
+    shape shape_1{1};
+    shape shape_2{3};
+    shape shape_3{1,2};
+    shape shape_4{3,2,5};
+    shape shape_5{1,1,1,7};
+    auto bcast_shape = get_broadcast_shape(shape_1,shape_2,shape_3,shape_4,shape_5);
+    EXPECT_TRUE( bcast_shape.size()==4 );
+    EXPECT_TRUE( bcast_shape[0] == 3);
+    EXPECT_TRUE( bcast_shape[1] == 2);
+    EXPECT_TRUE( bcast_shape[2] == 5);
+    EXPECT_TRUE( bcast_shape[3] == 7);
+    try {
+        auto bcast_fail = get_broadcast_shape(shape{3,3},shape{2,3});
+        EXPECT_TRUE(false);
+    } catch( const std::runtime_error& ){
+        // This is expected...
+    }
+
+    // Test with arithmetic expressions
+    // Create scalar field
+    Array<double> field(shape{40,40});
+    std::size_t count=0; for(auto&& x : field){ x = count; count+=2;}
+    // Create grid spacings: constant in x direction, increasing in y direction
+    Array<double> dx(shape{1},2);
+    Array<double> dy(shape{1,39});
+    count = 1; for( auto&& x : dy) x = count++;
+    // Create finite differences
+    // (this will be much less cumbersome when automatic broadcasting is implemented with expressions...)
+    bool field_dx_correct=true;
+    auto dx_bcast = dx.broadcast(shape{39,40});
+    EXPECT_TRUE( dx_bcast.dims() == 2 );
+    EXPECT_TRUE( dx_bcast.size() == 39*40 );
+    EXPECT_TRUE( dx_bcast.shape(0) == 39 );
+    EXPECT_TRUE( dx_bcast.shape(1) == 40 );
+    EXPECT_TRUE( dx_bcast.stride(0) == 39*40 );
+    EXPECT_TRUE( dx_bcast.stride(1) == 0 );
+    EXPECT_TRUE( dx_bcast.stride(2) == 0 );
+    Array<double> field_dx = (field[Slice(1,Slice::all)]() - field[Slice(0,-1)]())/dx_bcast;
+    for( auto&& x : field_dx ) field_dx_correct &= (x==40);
+    EXPECT_TRUE(field_dx_correct);
+
+    bool field_dy_correct=true;
+    auto dy_bcast = dy.broadcast(shape{40,39});
+    EXPECT_TRUE( dy_bcast.dims() == 2 );
+    EXPECT_TRUE( dy_bcast.size() == 40*39 );
+    EXPECT_TRUE( dy_bcast.shape(0) == 40 );
+    EXPECT_TRUE( dy_bcast.shape(1) == 39 );
+    EXPECT_TRUE( dy_bcast.stride(0) == 40*39 );
+    EXPECT_TRUE( dy_bcast.stride(1) == 0 );
+    EXPECT_TRUE( dy_bcast.stride(2) == 1 );
+    Array<double> field_dy = (field[Slice::all][Slice(1,Slice::all)]() - field[Slice::all][Slice(0,-1)]())/dy_bcast;
+    for(std::size_t ii=0; ii<40; ++ii){
+        for(std::size_t jj=0; jj<39; ++jj){
+            field_dy_correct &= ( field_dy(ii,jj) == (field(ii,jj+1)-field(ii,jj))/(jj+1));
+        }
+    }
+    EXPECT_TRUE(field_dy_correct);
 }

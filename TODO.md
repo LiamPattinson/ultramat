@@ -2,11 +2,6 @@
 
 ## Containers
     
-    * broadcasting
-        * Return non-writeable view with some strides set to zero
-        * May run into issues where broadcast iterators never reach 'end'.
-          Shouldn't be a problem using Expressions, as only the destination
-          array worries about end, and you never write to a broadcast.
     * transpose
         * Can use this to reinterpret row major as col major, and vice versa.
     * `+=`, `*=` etc from expressions.
