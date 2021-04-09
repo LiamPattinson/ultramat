@@ -504,20 +504,39 @@ TEST(ViewTest,Reshape){
 TEST(ViewTest,Broadcasting){
     using shape = std::vector<std::size_t>;
 
-    // test get_broadcast_shape
     shape shape_1{1};
     shape shape_2{3};
     shape shape_3{1,2};
     shape shape_4{3,2,5};
     shape shape_5{1,1,1,7};
-    auto bcast_shape = get_broadcast_shape(shape_1,shape_2,shape_3,shape_4,shape_5);
-    EXPECT_TRUE( bcast_shape.size()==4 );
-    EXPECT_TRUE( bcast_shape[0] == 3);
-    EXPECT_TRUE( bcast_shape[1] == 2);
-    EXPECT_TRUE( bcast_shape[2] == 5);
-    EXPECT_TRUE( bcast_shape[3] == 7);
+    Array<int> array_1(shape_1);
+    Array<int> array_2(shape_2);
+    Array<int> array_3(shape_3);
+    Array<int> array_4(shape_4);
+    Array<int> array_5(shape_5);
+    auto bcast_1 = array_1.broadcast(shape_1,shape_2,shape_3,shape_4,shape_5);
+    auto bcast_2 = array_5.broadcast(array_1,array_2,array_3,array_4);
+    auto bcast_3 = array_3.broadcast(array_1,array_2,array_4,array_5);
+    EXPECT_TRUE( bcast_1.size() == 3*2*5*7 );
+    EXPECT_TRUE( bcast_1.dims() == 4);
+    EXPECT_TRUE( bcast_1.shape(0) == 3);
+    EXPECT_TRUE( bcast_1.shape(1) == 2);
+    EXPECT_TRUE( bcast_1.shape(2) == 5);
+    EXPECT_TRUE( bcast_1.shape(3) == 7);
+    EXPECT_TRUE( bcast_2.size() == 3*2*5*7 );
+    EXPECT_TRUE( bcast_2.dims() == 4);
+    EXPECT_TRUE( bcast_2.shape(0) == 3);
+    EXPECT_TRUE( bcast_2.shape(1) == 2);
+    EXPECT_TRUE( bcast_2.shape(2) == 5);
+    EXPECT_TRUE( bcast_2.shape(3) == 7);
+    EXPECT_TRUE( bcast_3.size() == 3*2*5*7 );
+    EXPECT_TRUE( bcast_3.dims() == 4);
+    EXPECT_TRUE( bcast_3.shape(0) == 3);
+    EXPECT_TRUE( bcast_3.shape(1) == 2);
+    EXPECT_TRUE( bcast_3.shape(2) == 5);
+    EXPECT_TRUE( bcast_3.shape(3) == 7);
     try {
-        auto bcast_fail = get_broadcast_shape(shape{3,3},shape{2,3});
+        auto bcast_fail = array_2.broadcast(shape{3,3},shape{2,3});
         EXPECT_TRUE(false);
     } catch( const std::runtime_error& ){
         // This is expected...

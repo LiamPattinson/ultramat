@@ -213,9 +213,27 @@ public:
         return slice(std::array<Slice,sizeof...(Slices)>{ var_slices... });
     }
 
-    template<std::ranges::range Shape> requires std::integral<typename Shape::value_type> 
-    DenseView<T,ReadWriteStatus::read_only> broadcast( const Shape bcast_shape) const {
+
+    template<std::ranges::range... Shapes> requires ( std::integral<typename Shapes::value_type> && ... )
+    static std::vector<std::size_t> get_broadcast_shape( const Shapes&... shapes) {
+        std::size_t max_dims = std::max({shapes.size()...});
+        std::vector<std::size_t> bcast_shape(max_dims,1);
+        for( std::size_t ii=0; ii<max_dims; ++ii){
+            bcast_shape[ii] = std::max({ (ii < shapes.size() ? shapes[ii] : 0) ...});
+            // throw exception if any of the shapes included have a dimension which is neither bcast_shape[ii] nor 1.
+            auto errors = std::array<bool,sizeof...(Shapes)>{
+                ( ii < shapes.size() ? ( shapes[ii] == 1 || shapes[ii] == bcast_shape[ii] ? false : true) : false)...
+            };
+            if( std::ranges::any_of(errors,[](bool b){return b;}) ) throw std::runtime_error("Ultramat: Cannot broadcast shapes");   
+        }
+        return bcast_shape;
+    }
+
+    template<std::ranges::range... Shapes>
+    requires (( !std::is_base_of<DenseTag,Shapes>::value && std::integral<typename Shapes::value_type>) && ... )
+    DenseView<T,ReadWriteStatus::read_only> broadcast( const Shapes&... shapes) const {
         static const std::string err = "Ultramat: Cannot broadcast to given shape";
+        auto bcast_shape = get_broadcast_shape(_shape,shapes...);
         // Check bcast_shape is valid
         for(std::size_t ii=0; ii<dims(); ++ii){
             // Account for broadcasting down
@@ -232,7 +250,7 @@ public:
         // Create copy to work with
         DenseView<T,ReadWriteStatus::read_only> bcast_view(*this);
         bcast_view._shape = bcast_shape;
-        bcast_view._size = std::accumulate( bcast_shape.begin(), bcast_shape.end(), 1, std::multiplies<typename Shape::value_type>{});
+        bcast_view._size = std::accumulate( bcast_shape.begin(), bcast_shape.end(), 1, std::multiplies<std::size_t>{});
         bcast_view._stride.resize(bcast_shape.size()+1);
         // Broadcasting stride rules:
         // - If _shape[ii] == 1 and bcast_shape[ii] > 1, stride=0
@@ -251,22 +269,12 @@ public:
         }
         return bcast_view;
     }
-};
 
-template<std::ranges::range... Shapes> requires ( std::integral<typename Shapes::value_type> && ... )
-std::vector<std::size_t> get_broadcast_shape( const Shapes&... shapes) {
-    std::size_t max_dims = std::max({shapes.size()...});
-    std::vector<std::size_t> bcast_shape(max_dims,1);
-    for( std::size_t ii=0; ii<max_dims; ++ii){
-        bcast_shape[ii] = std::max({ (ii < shapes.size() ? shapes[ii] : 0) ...});
-        // throw exception if any of the shapes included have a dimension which is neither bcast_shape[ii] nor 1.
-        auto errors = std::array<bool,sizeof...(Shapes)>{
-            ( ii < shapes.size() ? ( shapes[ii] == 1 || shapes[ii] == bcast_shape[ii] ? false : true) : false)...
-        };
-        if( std::ranges::any_of(errors,[](bool b){return b;}) ) throw std::runtime_error("Ultramat: Cannot broadcast shapes");   
+    template<class... Denses> requires ( std::is_base_of<DenseTag,Denses>::value && ... )
+    DenseView<T,ReadWriteStatus::read_only> broadcast( const Denses&... denses) const {
+        return broadcast(denses.shape()...);
     }
-    return bcast_shape;
-}
+};
 
 // Define view iterator
 

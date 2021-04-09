@@ -141,9 +141,15 @@ class DenseBase : public DenseTag {
     // ===============================================
     // Broadcasting
 
-    template<std::ranges::range Shape> requires std::integral<typename Shape::value_type> 
-    auto broadcast( const Shape bcast_shape) const {
-        return derived().view().broadcast(bcast_shape);
+    template<std::ranges::range... Shapes>
+    requires (( !std::is_base_of<DenseTag,Shapes>::value &&  std::integral<typename Shapes::value_type>) && ... )
+    auto broadcast( const Shapes&... shapes) const {
+        return derived().view().broadcast(shapes...);
+    }
+
+    template<class... Denses> requires ( std::is_base_of<DenseTag,Denses>::value && ... )
+    auto broadcast( const Denses&... denses) const {
+        return derived().view().broadcast(denses...);
     }
 
     // ===============================================
