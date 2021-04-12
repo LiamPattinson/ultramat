@@ -2,18 +2,26 @@
 
 ## Containers
     
+    * Stripe object
+        * Abstraction of striped iteration into an object.
+        * Can stripe over any dimensions.
+        * Useful for DimWiseExpressions
     * Vector class, including fixed variety.
         * Must allow easy conversion to/from Arrays.
     * Matrix class, including fixed variety.
 
 ## Expressions
 
-    * Faster iteration strategy
-        * Rather than using standard begin/end, perhaps look into striped iteration
-          as a general standard. stripe_iterator can be implemented in place of
-          fast_iterator, with the difference being that stripe_iterator can have
-          a stride other than 1, including negatives.
+    * Rework to 'DenseExpression' (mostly a naming change)
+    * Methods to broadcast scalars.
+        * scalar_as_dense function that returns fixed-size Array<T,1>;
+        * May just require a _lot_ of function overloading.
     * New expression types
         * ReductionExpression. Can be used for sum, prod, max, etc.
         * DimWiseExpression. Reduction in one dimension only.
     * Take views, reshapes, permutations, transposes from expressions.
+        * implement as ReinterpretExpression. Perform eval, then apply function.
+    * Faster iteration strategy
+        * Rather than using standard begin/end, perhaps look into striped iteration
+          as a general standard.
+        * Use 'stripe' objects to simplify interface.
