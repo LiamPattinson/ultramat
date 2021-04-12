@@ -2,7 +2,6 @@
 
 ## Containers
     
-    * 'as_row_major' and 'as_col_major'
     * `+=`, `*=` etc from expressions.
     * Vector class, including fixed variety.
         * Must allow easy conversion to/from Arrays.
