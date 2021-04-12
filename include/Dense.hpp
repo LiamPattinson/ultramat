@@ -135,6 +135,10 @@ public:
     using DenseBase<ArrayImpl<T,Order>,Order>::end;
     using DenseBase<ArrayImpl<T,Order>,Order>::operator();
     using DenseBase<ArrayImpl<T,Order>,Order>::operator[];
+    using DenseBase<ArrayImpl<T,Order>,Order>::operator+=;
+    using DenseBase<ArrayImpl<T,Order>,Order>::operator-=;
+    using DenseBase<ArrayImpl<T,Order>,Order>::operator*=;
+    using DenseBase<ArrayImpl<T,Order>,Order>::operator/=;
     using DenseBase<ArrayImpl<T,Order>,Order>::check_expression;
     using DenseBase<ArrayImpl<T,Order>,Order>::set_stride;
 };
@@ -155,6 +159,8 @@ public:
     using shape_type = std::array<std::size_t,_dims>;
     using stride_type = std::array<std::size_t,_dims+1>;
     using data_type = std::array<T,_size>;
+    using iterator = data_type::iterator;
+    using const_iterator = data_type::const_iterator;
 
     // For convenience, specify row/col major via FixedArray<T,Dims...>::row/col_major
     using row_major = FixedArrayImpl<T,RCOrder::row_major,Dims...>;
@@ -221,6 +227,10 @@ public:
     using DenseBase<FixedArrayImpl<T,Order,Dims...>,Order>::end;
     using DenseBase<FixedArrayImpl<T,Order,Dims...>,Order>::operator();
     using DenseBase<FixedArrayImpl<T,Order,Dims...>,Order>::operator[];
+    using DenseBase<FixedArrayImpl<T,Order,Dims...>,Order>::operator+=;
+    using DenseBase<FixedArrayImpl<T,Order,Dims...>,Order>::operator-=;
+    using DenseBase<FixedArrayImpl<T,Order,Dims...>,Order>::operator*=;
+    using DenseBase<FixedArrayImpl<T,Order,Dims...>,Order>::operator/=;
     using DenseBase<FixedArrayImpl<T,Order,Dims...>,Order>::check_expression;
 };
 

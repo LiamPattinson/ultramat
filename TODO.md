@@ -2,7 +2,6 @@
 
 ## Containers
     
-    * `+=`, `*=` etc from expressions.
     * Vector class, including fixed variety.
         * Must allow easy conversion to/from Arrays.
     * Matrix class, including fixed variety.

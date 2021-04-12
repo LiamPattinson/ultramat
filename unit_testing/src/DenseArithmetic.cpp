@@ -36,3 +36,34 @@ TEST(ArrayArithmeticTest,Arithmetic){
     EXPECT_TRUE( d_correct );
     EXPECT_TRUE( e_correct );
 }
+
+TEST(ArrayArithmeticTest,InPlaceArithmetic){
+    auto shape = shape_vec{5,10,20};
+    Array<double> a(shape);
+    Array<double> b(shape);
+    Array<float,5,10,20> c;
+    int count;
+    count=1; for(auto&& x : a ) x = count++;
+    count=1; for(auto&& x : b ) x = count++;
+    for(auto&& x : c ) x = 2;
+
+    bool correct_1=true;
+    a += b*c;
+    count=1;
+    for(auto&& x : a) correct_1 &= (x == 3*count++);
+    EXPECT_TRUE(correct_1);
+    
+    bool correct_2=true;
+    a *= c;
+    count=1;
+    for(auto&& x : a) correct_2 &= (x == 6*count++);
+    EXPECT_TRUE(correct_2);
+
+    bool correct_3=true;
+    a /= (b+b+b)*c;
+    for(auto&& x : a){
+        correct_3 &= (x == 1);
+    }
+    EXPECT_TRUE(correct_3);
+
+}

@@ -75,6 +75,43 @@ class DenseBase : public DenseTag {
     }
 
     // ===============================================
+    // In-place operators
+
+    template<class U>
+    auto operator+=( const Expression<U>& expression ){
+        check_expression(expression);
+        auto expr=expression.begin();
+        for(auto it=derived().begin(), end=derived().end(); it != end; ++it, ++expr) *it += *expr;
+        return derived();
+    }
+
+    template<class U>
+    auto operator-=( const Expression<U>& expression ){
+        check_expression(expression);
+        auto expr=expression.begin();
+        for(auto it=derived().begin(), end=derived().end(); it != end; ++it, ++expr) *it -= *expr;
+        return derived();
+    }
+
+    template<class U>
+    auto operator*=( const Expression<U>& expression ){
+        check_expression(expression);
+        auto expr=expression.begin();
+        for(auto it=derived().begin(), end=derived().end(); it != end; ++it, ++expr) *it *= *expr;
+        return derived();
+    }
+    
+    template<class U>
+    auto operator/=( const Expression<U>& expression ){
+        check_expression(expression);
+        auto expr=expression.begin();
+        for(auto it=derived().begin(), end=derived().end(); it != end; ++it, ++expr) *it /= *expr;
+        return derived();
+    }
+
+
+
+    // ===============================================
     // View creation
 
     DenseView<T> view() { return DenseView<T>(derived());}
