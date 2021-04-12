@@ -99,6 +99,13 @@ public:
     using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::fill;
     using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::operator();
     using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::operator[];
+    using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::operator+=;
+    using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::operator-=;
+    using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::operator*=;
+    using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::operator/=;
+    using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::num_stripes;
+    using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::jump_to_stripe;
+    using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::stripe_stride;
     using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::reshape;
     using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::check_expression;
 
@@ -161,6 +168,30 @@ public:
     const_iterator end() const {
         return const_iterator(data() + _stride[rc_order==RCOrder::col_major? dims() : 0],_shape,_stride,true);
     }
+
+    // ===============================================
+    // Striped Iteration
+
+    auto begin_stripe( std::size_t stripe, std::size_t dim) {
+         return _data + jump_to_stripe(stride,dim);   
+    }
+
+    auto begin_stripe( std::size_t stripe, std::size_t dim) const {
+         return _data + jump_to_stripe(stride,dim);   
+    }
+
+    auto end_stripe( std::size_t stripe, std::size_t dim) {
+         return _data + jump_to_stripe(stride,dim) + _shape[dim] * _stride[dim+(rc_order==RCOrder::row_major)];
+    }
+
+    auto end_stripe( std::size_t stripe, std::size_t dim) const {
+         return _data + jump_to_stripe(stride,dim) + _shape[dim] * _stride[dim+(rc_order==RCOrder::row_major)];
+    }
+
+    auto begin_stripe( std::size_t stripe) { return begin_stripe(stripe,(dims()-1)*(rc_order == RCOrder::row_major)); }
+    auto begin_stripe( std::size_t stripe) const { return begin_stripe(stripe,(dims()-1)*(rc_order == RCOrder::row_major)); }
+    auto end_stripe( std::size_t stripe) { return end_stripe(stripe,(dims()-1)*(rc_order == RCOrder::row_major)); }
+    auto end_stripe( std::size_t stripe) const { return end_stripe(stripe,(dims()-1)*(rc_order == RCOrder::row_major)); }
     
     // ===============================================
     // Special view methods:

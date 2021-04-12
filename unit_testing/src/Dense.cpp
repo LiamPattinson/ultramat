@@ -381,3 +381,101 @@ TEST(FixedArrayTest,Iteration){
     }
     EXPECT_TRUE(col_major_correct);
 }
+
+TEST(FixedArrayTest,StripedIteration){
+    Array<int,10,5,20>::row_major row_array(0);
+    Array<int,10,5,20>::col_major col_array(0);
+    int count;
+    std::size_t num_stripes;
+
+    bool row_major_correct = true, col_major_correct=true;
+    
+
+    // Fill both row major and col major using stripes
+    count = 0;
+    num_stripes = row_array.num_stripes();
+    EXPECT_TRUE( num_stripes == 10*5 );
+    for( std::size_t stripe=0; stripe<num_stripes; ++stripe){
+        for( auto it=row_array.begin_stripe(stripe), end=row_array.end_stripe(stripe); it != end; it+=row_array.stripe_stride()){
+            *it += count++;
+        }
+    }
+
+    count = 0;
+    num_stripes = col_array.num_stripes();
+    EXPECT_TRUE( num_stripes == 5*20 );
+    for( std::size_t stripe=0; stripe<num_stripes; ++stripe){
+        for( auto it=col_array.begin_stripe(stripe), end=col_array.end_stripe(stripe); it != end; it+=col_array.stripe_stride()){
+            *it += count++;
+        }
+    }
+    
+
+    // check correctness
+    for( int ii=0; ii<10; ++ii){
+        for( int jj=0; jj<5; ++jj){
+            for( int kk=0; kk<20; ++kk){
+                if( row_array(ii,jj,kk) != (20*5)*ii + 20*jj + kk){
+                   row_major_correct = false;
+                }
+            }
+        }
+    }
+    EXPECT_TRUE(row_major_correct);
+
+    for( int kk=0; kk<20; ++kk){
+        for( int jj=0; jj<5; ++jj){
+            for( int ii=0; ii<10; ++ii){
+                if( col_array(ii,jj,kk) != (10*5)*kk + 10*jj + ii){
+                   col_major_correct = false;
+                }
+            }
+        }
+    }
+    EXPECT_TRUE(col_major_correct);
+
+    // Repeat using different dimension of stripes
+    bool row_dim_1_correct=true, col_dim_2_correct=true;
+
+    count = 0;
+    num_stripes = row_array.num_stripes(1);
+    EXPECT_TRUE(num_stripes == 10*20);
+    for( std::size_t stripe=0; stripe<num_stripes; ++stripe){
+        for( auto it=row_array.begin_stripe(stripe,1), end=row_array.end_stripe(stripe,1); it != end; it+=row_array.stripe_stride(1)){
+            *it = count++;
+        }
+    }
+
+    count = 0;
+    num_stripes = col_array.num_stripes(2);
+    EXPECT_TRUE(num_stripes == 5*10);
+    for( std::size_t stripe=0; stripe<num_stripes; ++stripe){
+        for( auto it=col_array.begin_stripe(stripe,2), end=col_array.end_stripe(stripe,2); it != end; it+=col_array.stripe_stride(2)){
+            *it = count++;
+        }
+    }
+    
+
+    // check correctness
+    for( int ii=0; ii<10; ++ii){
+        for( int kk=0; kk<20; ++kk){
+            for( int jj=0; jj<5; ++jj){
+                if( row_array(ii,jj,kk) != (20*5)*ii + 5*kk + jj){
+                   row_dim_1_correct = false;
+                }
+            }
+        }
+    }
+    EXPECT_TRUE(row_dim_1_correct);
+
+    for( int jj=0; jj<5; ++jj){
+        for( int ii=0; ii<10; ++ii){
+            for( int kk=0; kk<20; ++kk){
+                if( col_array(ii,jj,kk) != (10*20)*jj + 20*ii + kk){
+                   col_dim_2_correct = false;
+                }
+            }
+        }
+    }
+    EXPECT_TRUE(col_dim_2_correct);
+}

@@ -2,10 +2,8 @@
 
 ## Containers
     
-    * Stripe object
-        * Abstraction of striped iteration into an object.
-        * Can stripe over any dimensions.
-        * Useful for DimWiseExpressions
+    * Striping
+        * encapsulate into object of some sort?
     * Vector class, including fixed variety.
         * Must allow easy conversion to/from Arrays.
     * Matrix class, including fixed variety.
@@ -24,4 +22,3 @@
     * Faster iteration strategy
         * Rather than using standard begin/end, perhaps look into striped iteration
           as a general standard.
-        * Use 'stripe' objects to simplify interface.

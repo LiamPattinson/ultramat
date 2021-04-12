@@ -24,6 +24,7 @@ class DenseBase : public DenseTag {
     constexpr T& derived() noexcept { return static_cast<T&>(*this); }
     constexpr const T& derived() const noexcept { return static_cast<const T&>(*this); }
 
+    // ===============================================
     // Attributes
 
     constexpr auto dims() const noexcept { return derived()._shape.size(); }
@@ -33,6 +34,7 @@ class DenseBase : public DenseTag {
     constexpr const auto& shape() const noexcept { return derived()._shape; }
     constexpr const auto& stride() const noexcept { return derived()._stride; }
 
+    // ===============================================
     // Data access
 
     constexpr auto* data() noexcept { return derived()._data.data(); }
@@ -108,8 +110,6 @@ class DenseBase : public DenseTag {
         for(auto it=derived().begin(), end=derived().end(); it != end; ++it, ++expr) *it /= *expr;
         return derived();
     }
-
-
 
     // ===============================================
     // View creation
@@ -243,6 +243,61 @@ class DenseBase : public DenseTag {
     constexpr auto end() noexcept { return derived()._data.end(); }
     constexpr auto end() const noexcept { return derived()._data.cend(); }
     constexpr auto cend() const noexcept { return derived()._data.cend(); }
+
+    // ===============================================
+    // Striped Iteration
+    
+    std::size_t num_stripes( std::size_t dim) const {
+        return std::accumulate(derived()._shape.begin(),derived()._shape.end(),1,std::multiplies<std::size_t>{}) / derived()._shape[dim];
+    }
+
+    std::size_t num_stripes() const { return num_stripes((derived().dims()-1)*(Order == RCOrder::row_major)); }
+
+    std::ptrdiff_t jump_to_stripe( std::size_t stripe, std::size_t dim) const requires (Order == RCOrder::row_major) {
+        std::ptrdiff_t result=0;
+        for(std::size_t ii=derived().dims(); ii!=0; --ii){
+            if( ii-1 == dim ) continue;
+            if( !stripe ) break;
+            result += ( stripe % derived()._shape[ii-1]) * derived()._stride[ii];
+            stripe /= derived()._shape[ii-1];
+        }
+        return result;
+    }
+
+    std::ptrdiff_t jump_to_stripe( std::size_t stripe, std::size_t dim) const requires (Order == RCOrder::col_major) {
+        std::ptrdiff_t result=0;
+        for(std::size_t ii=0; ii!=derived().dims(); ++ii){
+            if( ii == dim ) continue;
+            if( !stripe ) break;
+            result += ( stripe % derived()._shape[ii]) * derived()._stride[ii];
+            stripe /= derived()._shape[ii];
+        }
+        return result;
+    }
+
+    std::ptrdiff_t stripe_stride( std::size_t dim) const { return derived()._stride[dim+(Order==RCOrder::row_major)];}
+    std::ptrdiff_t stripe_stride() const { return stripe_stride((derived().dims()-1)*(Order==RCOrder::row_major));}
+
+    auto begin_stripe( std::size_t stripe, std::size_t dim) {
+         return derived()._data.begin() + jump_to_stripe(stripe,dim);
+    }
+
+    auto begin_stripe( std::size_t stripe, std::size_t dim) const {
+         return derived()._data.begin() + jump_to_stripe(stripe,dim);   
+    }
+
+    auto end_stripe( std::size_t stripe, std::size_t dim) {
+         return derived()._data.begin() + jump_to_stripe(stripe,dim) + derived()._shape[dim] * derived()._stride[dim+(Order==RCOrder::row_major)];
+    }
+
+    auto end_stripe( std::size_t stripe, std::size_t dim) const {
+         return derived()._data.begin() + jump_to_stripe(stripe,dim) + derived()._shape[dim] * derived()._stride[dim+(Order==RCOrder::row_major)];
+    }
+
+    auto begin_stripe( std::size_t stripe) { return begin_stripe(stripe,(derived().dims()-1)*(Order == RCOrder::row_major)); }
+    auto begin_stripe( std::size_t stripe) const { return begin_stripe(stripe,(derived().dims()-1)*(Order == RCOrder::row_major)); }
+    auto end_stripe( std::size_t stripe) { return end_stripe(stripe,(derived().dims()-1)*(Order == RCOrder::row_major)); }
+    auto end_stripe( std::size_t stripe) const { return end_stripe(stripe,(derived().dims()-1)*(Order == RCOrder::row_major)); }
 
     // ===============================================
     // Utils
