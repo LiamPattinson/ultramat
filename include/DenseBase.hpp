@@ -9,9 +9,10 @@
 
 namespace ultra {
 
-// Declare DenseView class
+// Declare DenseView class and StripeGenerator
 
 template<class T, ReadWriteStatus ReadWrite=ReadWriteStatus::writeable> class DenseView;
+template<class T, ReadWriteStatus ReadWrite=ReadWriteStatus::writeable> class StripeGenerator;
 
 // CRTP Base Class
 template<class T,RCOrder Order>
@@ -298,6 +299,11 @@ class DenseBase : public DenseTag {
     auto begin_stripe( std::size_t stripe) const { return begin_stripe(stripe,(derived().dims()-1)*(Order == RCOrder::row_major)); }
     auto end_stripe( std::size_t stripe) { return end_stripe(stripe,(derived().dims()-1)*(Order == RCOrder::row_major)); }
     auto end_stripe( std::size_t stripe) const { return end_stripe(stripe,(derived().dims()-1)*(Order == RCOrder::row_major)); }
+
+    auto stripes( std::size_t dim ) { return StripeGenerator<T>(derived(),dim); }
+    auto stripes( std::size_t dim ) const { return StripeGenerator<T,ReadWriteStatus::read_only>(derived(),dim); }
+    auto stripes() { return StripeGenerator<T>(derived()); }
+    auto stripes() const { return StripeGenerator<T,ReadWriteStatus::read_only>(derived()); }
 
     // ===============================================
     // Utils

@@ -97,16 +97,14 @@ public:
     using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::shape;
     using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::stride;
     using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::fill;
+    using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::stripes;
+    using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::reshape;
     using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::operator();
     using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::operator[];
     using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::operator+=;
     using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::operator-=;
     using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::operator*=;
     using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::operator/=;
-    using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::num_stripes;
-    using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::jump_to_stripe;
-    using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::stripe_stride;
-    using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::reshape;
     using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::check_expression;
 
     std::size_t size() const noexcept { return _size;}
@@ -633,6 +631,220 @@ public:
     }
 };
 
+// Define StripeGenerator
+
+template<class T, ReadWriteStatus ReadWrite>
+class StripeGenerator {
+
+    static constexpr ReadWriteStatus OtherRW = (ReadWrite == ReadWriteStatus::read_only ? ReadWriteStatus::writeable : ReadWriteStatus::read_only);
+    friend StripeGenerator<T,OtherRW>;
+
+public:
+
+    using value_type = typename T::value_type;
+    using difference_type = std::ptrdiff_t;
+    using pointer = std::conditional_t<ReadWrite==ReadWriteStatus::writeable,value_type*, const value_type*>;
+    using reference = std::conditional_t<ReadWrite==ReadWriteStatus::writeable,value_type&,const value_type&>;
+    using shape_type = typename T::shape_type;
+    using stride_type = typename T::stride_type;
+    static constexpr RCOrder rc_order = T::rc_order;
+
+protected:
+
+    shape_type   _shape;
+    stride_type  _stride;
+    pointer      _data;
+    std::size_t  _dim;
+    std::size_t  _stride_dim;
+    std::size_t  _stripe;
+    std::size_t  _num_stripes;
+
+public:
+
+    // ===============================================
+    // Constructors
+
+    StripeGenerator() = delete;
+    StripeGenerator( const StripeGenerator& ) = default;
+    StripeGenerator( StripeGenerator&& ) = default;
+    StripeGenerator& operator=( const StripeGenerator& ) = default;
+    StripeGenerator& operator=( StripeGenerator&& ) = default;
+
+    // Copy from other read/write type
+    template<ReadWriteStatus RW>
+    StripeGenerator( const StripeGenerator<T,RW>& other ) :
+        _shape(other._shape),
+        _stride(other._stride),
+        _data(other._data),
+        _dim(other._dim),
+        _stride_dim(other._stride_dim),
+        _stripe(other._stripe),
+        _num_stripes(other._num_stripes)
+    {}
+
+    StripeGenerator( T& container, std::size_t dim) :
+        _shape( container.shape() ),
+        _stride( container.stride() ),
+        _data( container.data() ),
+        _dim(dim),
+        _stride_dim(dim+(rc_order==RCOrder::row_major)),
+        _stripe(0),
+        _num_stripes(std::accumulate(_shape.begin(),_shape.end(),1,std::multiplies<std::size_t>{}) / _shape[_dim])
+    {}
+
+    StripeGenerator( const T& container, std::size_t dim) :
+        _shape( container.shape() ),
+        _stride( container.stride() ),
+        _data( container.data() ),
+        _dim(dim),
+        _stride_dim(dim+(rc_order==RCOrder::row_major)),
+        _stripe(0),
+        _num_stripes(std::accumulate(_shape.begin(),_shape.end(),1,std::multiplies<std::size_t>{}) / _shape[_dim])
+    {}
+
+    StripeGenerator( T& container) : StripeGenerator(container,(rc_order==RCOrder::row_major ? container.dims()-1 : 0)) {}
+    StripeGenerator( const T& container) : StripeGenerator(container,(rc_order==RCOrder::row_major ? container.dims()-1 : 0)) {}
+
+    // ===============================================
+    // Define stripe
+
+    class Stripe {
+
+        friend StripeGenerator<T,OtherRW>::Stripe;
+        
+        pointer        _ptr;
+        std::ptrdiff_t _stride;
+
+        public:
+
+        Stripe() = delete;
+        Stripe( const Stripe& ) = default;
+        Stripe( Stripe&& ) = default;
+        Stripe& operator=( const Stripe& ) = default;
+        Stripe& operator=( Stripe&& ) = default;
+
+        Stripe( pointer ptr, std::ptrdiff_t stride) : _ptr(ptr), _stride(stride) {}
+
+        operator StripeGenerator<T,OtherRW>::Stripe() const requires (ReadWrite == ReadWriteStatus::writeable) {
+            return StripeGenerator<T,OtherRW>::Stripe(_ptr,_stride);
+        }
+
+        // ===============================================
+        // Standard iterator interface
+
+        // Dereference
+        reference operator*() const { return *_ptr; }
+        
+        // Increment/decrement
+        Stripe& operator++() {
+            _ptr += _stride;
+            return *this;
+        }
+
+        Stripe& operator--(){
+            _ptr -= _stride;
+            return *this;
+        }
+
+        Stripe operator++(int) const {
+            return ++Stripe(*this);
+        }
+    
+        Stripe operator--(int) const {
+            return --Stripe(*this);
+        }
+
+        // Random-access
+        Stripe& operator+=( difference_type diff){
+            _ptr += diff*_stride;
+            return *this;
+        }
+
+        Stripe& operator-=( difference_type diff){
+            _ptr -= diff*_stride;
+            return *this;
+        }
+        
+        Stripe operator+( difference_type diff) const {
+           Stripe result(*this);
+           result += diff;
+           return result;
+        }
+
+        Stripe operator-( difference_type diff) const {
+           Stripe result(*this);
+           result -= diff;
+           return result;
+        }
+
+        // Distance
+        std::ptrdiff_t operator-( const Stripe& stripe_r) const {
+            // Assumes both pointers are looking at the same thing. If not, the results are undefined.
+            return (_ptr - stripe_r._ptr)/_stride;
+        }
+
+        // Boolean comparisons
+        bool operator==( const Stripe& stripe_r) const {
+            return _ptr == stripe_r._ptr;
+        }
+
+        auto operator<=>( const Stripe& stripe_r) const {
+            return (*this - stripe_r) <=> 0;
+        }
+
+    };
+
+    // Basic pair-of-stripes struct
+    struct Stripes {
+        Stripe begin;
+        Stripe end;
+    };
+
+    // ===============================================
+    // Iteration
+    
+    std::size_t stripe() const noexcept { return _stripe; }
+    std::size_t num_stripes() const noexcept { return _num_stripes; }
+    operator bool() const noexcept { return _stripe < _num_stripes; }
+
+    std::ptrdiff_t jump_to_stripe() const requires (rc_order == RCOrder::row_major) {
+        std::ptrdiff_t result=0;
+        std::size_t stripe = _stripe;
+        for(std::size_t ii=_shape.size(); ii!=0; --ii){
+            if( ii-1 == _dim ) continue;
+            if( !stripe ) break;
+            result += ( stripe % _shape[ii-1]) * _stride[ii];
+            stripe /= _shape[ii-1];
+        }
+        return result;
+    }
+
+    std::ptrdiff_t jump_to_stripe() const requires (rc_order == RCOrder::col_major) {
+        std::ptrdiff_t result=0;
+        std::size_t stripe = _stripe;
+        for(std::size_t ii=0; ii!=_shape.size(); ++ii){
+            if( ii == _dim ) continue;
+            if( !stripe ) break;
+            result += ( stripe % _shape[ii]) * _stride[ii];
+            stripe /= _shape[ii];
+        }
+        return result;
+    }
+
+    auto begin(){ return Stripe( _data + jump_to_stripe(), _stride[_stride_dim]); }
+    auto begin() const { return Stripe( _data + jump_to_stripe(), _stride[_stride_dim]); }
+    auto end(){ return Stripe( _data + jump_to_stripe() + _shape[_dim] * _stride[_stride_dim], _stride[_stride_dim]); }
+    auto end() const { return Stripe( _data + jump_to_stripe() + _shape[_dim] * _stride[_stride_dim], _stride[_stride_dim]); }
+
+    Stripes operator*() {
+        return Stripes{ .begin = begin(), .end = end() };
+    }
+
+    StripeGenerator& operator++() {
+        ++_stripe;
+        return *this;
+    }   
+};
 
 } // namespace
 #endif

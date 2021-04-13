@@ -383,33 +383,22 @@ TEST(FixedArrayTest,Iteration){
 }
 
 TEST(FixedArrayTest,StripedIteration){
-    Array<int,10,5,20>::row_major row_array(0);
-    Array<int,10,5,20>::col_major col_array(0);
+    Array<int,10,5,20>::row_major row_array;
+    Array<int,10,5,20>::col_major col_array;
     int count;
-    std::size_t num_stripes;
 
     bool row_major_correct = true, col_major_correct=true;
-    
 
     // Fill both row major and col major using stripes
     count = 0;
-    num_stripes = row_array.num_stripes();
-    EXPECT_TRUE( num_stripes == 10*5 );
-    for( std::size_t stripe=0; stripe<num_stripes; ++stripe){
-        for( auto it=row_array.begin_stripe(stripe), end=row_array.end_stripe(stripe); it != end; it+=row_array.stripe_stride()){
-            *it += count++;
-        }
+    for( auto stripe = row_array.stripes(); stripe; ++stripe){
+        for( auto&& x : stripe) x = count++;
     }
 
     count = 0;
-    num_stripes = col_array.num_stripes();
-    EXPECT_TRUE( num_stripes == 5*20 );
-    for( std::size_t stripe=0; stripe<num_stripes; ++stripe){
-        for( auto it=col_array.begin_stripe(stripe), end=col_array.end_stripe(stripe); it != end; it+=col_array.stripe_stride()){
-            *it += count++;
-        }
+    for( auto stripe = col_array.stripes(); stripe; ++stripe){
+        for( auto&& x : stripe) x = count++;
     }
-    
 
     // check correctness
     for( int ii=0; ii<10; ++ii){
@@ -438,23 +427,14 @@ TEST(FixedArrayTest,StripedIteration){
     bool row_dim_1_correct=true, col_dim_2_correct=true;
 
     count = 0;
-    num_stripes = row_array.num_stripes(1);
-    EXPECT_TRUE(num_stripes == 10*20);
-    for( std::size_t stripe=0; stripe<num_stripes; ++stripe){
-        for( auto it=row_array.begin_stripe(stripe,1), end=row_array.end_stripe(stripe,1); it != end; it+=row_array.stripe_stride(1)){
-            *it = count++;
-        }
+    for( auto stripe = row_array.stripes(1); stripe; ++stripe){
+        for( auto&& x : stripe) x = count++;
     }
 
     count = 0;
-    num_stripes = col_array.num_stripes(2);
-    EXPECT_TRUE(num_stripes == 5*10);
-    for( std::size_t stripe=0; stripe<num_stripes; ++stripe){
-        for( auto it=col_array.begin_stripe(stripe,2), end=col_array.end_stripe(stripe,2); it != end; it+=col_array.stripe_stride(2)){
-            *it = count++;
-        }
+    for( auto stripe = col_array.stripes(2); stripe; ++stripe){
+        for( auto&& x : stripe) x = count++;
     }
-    
 
     // check correctness
     for( int ii=0; ii<10; ++ii){

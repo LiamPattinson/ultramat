@@ -2,8 +2,6 @@
 
 ## Containers
     
-    * Striping
-        * encapsulate into object of some sort?
     * Vector class, including fixed variety.
         * Must allow easy conversion to/from Arrays.
     * Matrix class, including fixed variety.
