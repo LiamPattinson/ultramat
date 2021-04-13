@@ -670,18 +670,6 @@ public:
     StripeGenerator& operator=( const StripeGenerator& ) = default;
     StripeGenerator& operator=( StripeGenerator&& ) = default;
 
-    // Copy from other read/write type
-    template<ReadWriteStatus RW>
-    StripeGenerator( const StripeGenerator<T,RW>& other ) :
-        _shape(other._shape),
-        _stride(other._stride),
-        _data(other._data),
-        _dim(other._dim),
-        _stride_dim(other._stride_dim),
-        _stripe(other._stripe),
-        _num_stripes(other._num_stripes)
-    {}
-
     StripeGenerator( T& container, std::size_t dim) :
         _shape( container.shape() ),
         _stride( container.stride() ),
@@ -702,110 +690,13 @@ public:
         _num_stripes(std::accumulate(_shape.begin(),_shape.end(),1,std::multiplies<std::size_t>{}) / _shape[_dim])
     {}
 
-    StripeGenerator( T& container) : StripeGenerator(container,(rc_order==RCOrder::row_major ? container.dims()-1 : 0)) {}
-    StripeGenerator( const T& container) : StripeGenerator(container,(rc_order==RCOrder::row_major ? container.dims()-1 : 0)) {}
-
-    // ===============================================
-    // Define stripe
-
-    class Stripe {
-
-        friend StripeGenerator<T,OtherRW>::Stripe;
-        
-        pointer        _ptr;
-        std::ptrdiff_t _stride;
-
-        public:
-
-        Stripe() = delete;
-        Stripe( const Stripe& ) = default;
-        Stripe( Stripe&& ) = default;
-        Stripe& operator=( const Stripe& ) = default;
-        Stripe& operator=( Stripe&& ) = default;
-
-        Stripe( pointer ptr, std::ptrdiff_t stride) : _ptr(ptr), _stride(stride) {}
-
-        operator StripeGenerator<T,OtherRW>::Stripe() const requires (ReadWrite == ReadWriteStatus::writeable) {
-            return StripeGenerator<T,OtherRW>::Stripe(_ptr,_stride);
-        }
-
-        // ===============================================
-        // Standard iterator interface
-
-        // Dereference
-        reference operator*() const { return *_ptr; }
-        
-        // Increment/decrement
-        Stripe& operator++() {
-            _ptr += _stride;
-            return *this;
-        }
-
-        Stripe& operator--(){
-            _ptr -= _stride;
-            return *this;
-        }
-
-        Stripe operator++(int) const {
-            return ++Stripe(*this);
-        }
-    
-        Stripe operator--(int) const {
-            return --Stripe(*this);
-        }
-
-        // Random-access
-        Stripe& operator+=( difference_type diff){
-            _ptr += diff*_stride;
-            return *this;
-        }
-
-        Stripe& operator-=( difference_type diff){
-            _ptr -= diff*_stride;
-            return *this;
-        }
-        
-        Stripe operator+( difference_type diff) const {
-           Stripe result(*this);
-           result += diff;
-           return result;
-        }
-
-        Stripe operator-( difference_type diff) const {
-           Stripe result(*this);
-           result -= diff;
-           return result;
-        }
-
-        // Distance
-        std::ptrdiff_t operator-( const Stripe& stripe_r) const {
-            // Assumes both pointers are looking at the same thing. If not, the results are undefined.
-            return (_ptr - stripe_r._ptr)/_stride;
-        }
-
-        // Boolean comparisons
-        bool operator==( const Stripe& stripe_r) const {
-            return _ptr == stripe_r._ptr;
-        }
-
-        auto operator<=>( const Stripe& stripe_r) const {
-            return (*this - stripe_r) <=> 0;
-        }
-
-    };
-
-    // Basic pair-of-stripes struct
-    struct Stripes {
-        Stripe begin;
-        Stripe end;
-    };
-
     // ===============================================
     // Iteration
     
     std::size_t stripe() const noexcept { return _stripe; }
     std::size_t num_stripes() const noexcept { return _num_stripes; }
-    operator bool() const noexcept { return _stripe < _num_stripes; }
+
+    class StripeIterator;
 
     std::ptrdiff_t jump_to_stripe() const requires (rc_order == RCOrder::row_major) {
         std::ptrdiff_t result=0;
@@ -831,20 +722,132 @@ public:
         return result;
     }
 
-    auto begin(){ return Stripe( _data + jump_to_stripe(), _stride[_stride_dim]); }
-    auto begin() const { return Stripe( _data + jump_to_stripe(), _stride[_stride_dim]); }
-    auto end(){ return Stripe( _data + jump_to_stripe() + _shape[_dim] * _stride[_stride_dim], _stride[_stride_dim]); }
-    auto end() const { return Stripe( _data + jump_to_stripe() + _shape[_dim] * _stride[_stride_dim], _stride[_stride_dim]); }
+    auto begin(){ return StripeIterator( _data + jump_to_stripe(), _stride[_stride_dim]); }
+    auto begin() const { return StripeIterator( _data + jump_to_stripe(), _stride[_stride_dim]); }
+    auto end(){ return StripeIterator( _data + jump_to_stripe() + _shape[_dim] * _stride[_stride_dim], _stride[_stride_dim]); }
+    auto end() const { return StripeIterator( _data + jump_to_stripe() + _shape[_dim] * _stride[_stride_dim], _stride[_stride_dim]); }
 
-    Stripes operator*() {
-        return Stripes{ .begin = begin(), .end = end() };
+    StripeGenerator& operator*() {
+        return *this;
     }
 
     StripeGenerator& operator++() {
         ++_stripe;
         return *this;
     }   
+
+    bool operator==( std::size_t stripe) const {
+        return _stripe == stripe;
+    }
 };
+
+template<class T, ReadWriteStatus ReadWrite>
+class StripeGeneratorImpl {
+
+    // simply forwards details to StripeGenerator
+    // begin returns StripeGenerator
+    // end returns num_stripes
+
+    using reference = std::conditional_t<ReadWrite==ReadWriteStatus::writeable,T&,const T&>;
+    static constexpr RCOrder rc_order = T::rc_order;
+
+    reference   _t;
+    std::size_t _dim;
+    
+    public:
+
+    StripeGeneratorImpl( T& container, std::size_t dim) : _t(container), _dim(dim) {}
+    StripeGeneratorImpl( const T& container, std::size_t dim) : _t(container), _dim(dim) {}
+    StripeGeneratorImpl( T& container) : StripeGeneratorImpl(container,(rc_order==RCOrder::row_major ? container.dims()-1 : 0)) {}
+    StripeGeneratorImpl( const T& container) : StripeGeneratorImpl(container,(rc_order==RCOrder::row_major ? container.dims()-1 : 0)) {}
+
+    auto begin() { return StripeGenerator<T,ReadWrite>(_t,_dim);}
+    auto begin() const { return StripeGenerator<T,ReadWrite>(_t,_dim);}
+    auto end() { return StripeGenerator<T,ReadWrite>(_t,_dim).num_stripes();}
+    auto end() const { return StripeGenerator<T,ReadWrite>(_t,_dim).num_stripes();}
+};
+
+template<class T, ReadWriteStatus ReadWrite>
+class StripeGenerator<T,ReadWrite>::StripeIterator {
+
+    pointer        _ptr;
+    std::ptrdiff_t _stride;
+
+    public:
+
+    StripeIterator() = delete;
+    StripeIterator( const StripeIterator& ) = default;
+    StripeIterator( StripeIterator&& ) = default;
+    StripeIterator& operator=( const StripeIterator& ) = default;
+    StripeIterator& operator=( StripeIterator&& ) = default;
+
+    StripeIterator( pointer ptr, std::ptrdiff_t stride) : _ptr(ptr), _stride(stride) {}
+
+    // ===============================================
+    // Standard iterator interface
+
+    // Dereference
+    reference operator*() const { return *_ptr; }
+    
+    // Increment/decrement
+    StripeIterator& operator++() {
+        _ptr += _stride;
+        return *this;
+    }
+
+    StripeIterator& operator--(){
+        _ptr -= _stride;
+        return *this;
+    }
+
+    StripeIterator operator++(int) const {
+        return ++StripeIterator(*this);
+    }
+
+    StripeIterator operator--(int) const {
+        return --StripeIterator(*this);
+    }
+
+    // Random-access
+    StripeIterator& operator+=( difference_type diff){
+        _ptr += diff*_stride;
+        return *this;
+    }
+
+    StripeIterator& operator-=( difference_type diff){
+        _ptr -= diff*_stride;
+        return *this;
+    }
+    
+    StripeIterator operator+( difference_type diff) const {
+       StripeIterator result(*this);
+       result += diff;
+       return result;
+    }
+
+    StripeIterator operator-( difference_type diff) const {
+       StripeIterator result(*this);
+       result -= diff;
+       return result;
+    }
+
+    // Distance
+    std::ptrdiff_t operator-( const StripeIterator& stripe_r) const {
+        // Assumes both pointers are looking at the same thing. If not, the results are undefined.
+        return (_ptr - stripe_r._ptr)/_stride;
+    }
+
+    // Boolean comparisons
+    bool operator==( const StripeIterator& stripe_r) const {
+        return _ptr == stripe_r._ptr;
+    }
+
+    auto operator<=>( const StripeIterator& stripe_r) const {
+        return (*this - stripe_r) <=> 0;
+    }
+
+};
+
 
 } // namespace
 #endif

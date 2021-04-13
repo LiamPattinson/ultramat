@@ -13,6 +13,7 @@ namespace ultra {
 
 template<class T, ReadWriteStatus ReadWrite=ReadWriteStatus::writeable> class DenseView;
 template<class T, ReadWriteStatus ReadWrite=ReadWriteStatus::writeable> class StripeGenerator;
+template<class T, ReadWriteStatus ReadWrite=ReadWriteStatus::writeable> class StripeGeneratorImpl;
 
 // CRTP Base Class
 template<class T,RCOrder Order>
@@ -300,10 +301,10 @@ class DenseBase : public DenseTag {
     auto end_stripe( std::size_t stripe) { return end_stripe(stripe,(derived().dims()-1)*(Order == RCOrder::row_major)); }
     auto end_stripe( std::size_t stripe) const { return end_stripe(stripe,(derived().dims()-1)*(Order == RCOrder::row_major)); }
 
-    auto stripes( std::size_t dim ) { return StripeGenerator<T>(derived(),dim); }
-    auto stripes( std::size_t dim ) const { return StripeGenerator<T,ReadWriteStatus::read_only>(derived(),dim); }
-    auto stripes() { return StripeGenerator<T>(derived()); }
-    auto stripes() const { return StripeGenerator<T,ReadWriteStatus::read_only>(derived()); }
+    auto stripes( std::size_t dim ) { return StripeGeneratorImpl<T>(derived(),dim); }
+    auto stripes( std::size_t dim ) const { return StripeGeneratorImpl<T,ReadWriteStatus::read_only>(derived(),dim); }
+    auto stripes() { return StripeGeneratorImpl<T>(derived()); }
+    auto stripes() const { return StripeGeneratorImpl<T,ReadWriteStatus::read_only>(derived()); }
 
     // ===============================================
     // Utils

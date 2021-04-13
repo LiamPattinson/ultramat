@@ -391,12 +391,12 @@ TEST(FixedArrayTest,StripedIteration){
 
     // Fill both row major and col major using stripes
     count = 0;
-    for( auto stripe = row_array.stripes(); stripe; ++stripe){
+    for( auto&& stripe : row_array.stripes()){
         for( auto&& x : stripe) x = count++;
     }
 
     count = 0;
-    for( auto stripe = col_array.stripes(); stripe; ++stripe){
+    for( auto&& stripe : col_array.stripes()){
         for( auto&& x : stripe) x = count++;
     }
 
@@ -427,12 +427,12 @@ TEST(FixedArrayTest,StripedIteration){
     bool row_dim_1_correct=true, col_dim_2_correct=true;
 
     count = 0;
-    for( auto stripe = row_array.stripes(1); stripe; ++stripe){
+    for( auto&& stripe : row_array.stripes(1)){
         for( auto&& x : stripe) x = count++;
     }
 
     count = 0;
-    for( auto stripe = col_array.stripes(2); stripe; ++stripe){
+    for( auto&& stripe : col_array.stripes(2)){
         for( auto&& x : stripe) x = count++;
     }
 
