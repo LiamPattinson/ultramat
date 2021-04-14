@@ -28,109 +28,109 @@ template<class L,class R> using MinusExpression      = ElementWiseExpression<Min
 template<class L,class R> using MultipliesExpression = ElementWiseExpression<Multiplies,L,R>;
 template<class L,class R> using DividesExpression    = ElementWiseExpression<Divides,L,R>;
 
-} // namespace
-
 // Operator overloads
 
 // Negation 
 
 template<class T>
-decltype(auto) operator-( const ultra::Expression<T>& t){
-    return ultra::NegateExpression(static_cast<const T&>(t));
+decltype(auto) operator-( const Expression<T>& t){
+    return NegateExpression(static_cast<const T&>(t));
 }
 
 
 template<class T>
-decltype(auto) operator-( ultra::Expression<T>&& t){
-    return ultra::NegateExpression(static_cast<T&&>(t));
+decltype(auto) operator-( Expression<T>&& t){
+    return NegateExpression(static_cast<T&&>(t));
 }
 
 // Addition
 
 template<class L, class R>
-decltype(auto) operator+( const ultra::Expression<L>& l, const ultra::Expression<R>& r){
-    return ultra::PlusExpression(static_cast<const L&>(l),static_cast<const R&>(r));
+decltype(auto) operator+( const Expression<L>& l, const Expression<R>& r){
+    return PlusExpression(static_cast<const L&>(l),static_cast<const R&>(r));
 }
 
 template<class L, class R>
-decltype(auto) operator+( const ultra::Expression<L>& l, ultra::Expression<R>&& r){
-    return ultra::PlusExpression(static_cast<const L&>(l),static_cast<R&&>(r));
+decltype(auto) operator+( const Expression<L>& l, Expression<R>&& r){
+    return PlusExpression(static_cast<const L&>(l),static_cast<R&&>(r));
 }
 
 template<class L, class R>
-decltype(auto) operator+( ultra::Expression<L>&& l, const ultra::Expression<R>& r){
-    return ultra::PlusExpression(static_cast<L&&>(l),static_cast<const R&>(r));
+decltype(auto) operator+( Expression<L>&& l, const Expression<R>& r){
+    return PlusExpression(static_cast<L&&>(l),static_cast<const R&>(r));
 }
 
 template<class L, class R>
-decltype(auto) operator+( ultra::Expression<L>&& l, ultra::Expression<R>&& r){
-    return ultra::PlusExpression(static_cast<L&&>(l),static_cast<R&&>(r));
+decltype(auto) operator+( Expression<L>&& l, Expression<R>&& r){
+    return PlusExpression(static_cast<L&&>(l),static_cast<R&&>(r));
 }
 
 // Subtraction
 
 template<class L, class R>
-decltype(auto) operator-( const ultra::Expression<L>& l, const ultra::Expression<R>& r){
-    return ultra::MinusExpression(static_cast<const L&>(l),static_cast<const R&>(r));
+decltype(auto) operator-( const Expression<L>& l, const Expression<R>& r){
+    return MinusExpression(static_cast<const L&>(l),static_cast<const R&>(r));
 }
 
 template<class L, class R>
-decltype(auto) operator-( ultra::Expression<L>&& l, const ultra::Expression<R>& r){
-    return ultra::MinusExpression(static_cast<L&&>(l),static_cast<const R&>(r));
+decltype(auto) operator-( Expression<L>&& l, const Expression<R>& r){
+    return MinusExpression(static_cast<L&&>(l),static_cast<const R&>(r));
 }
 
 template<class L, class R>
-decltype(auto) operator-( const ultra::Expression<L>& l, ultra::Expression<R>&& r){
-    return ultra::MinusExpression(static_cast<const L&>(l),static_cast<R&&>(r));
+decltype(auto) operator-( const Expression<L>& l, Expression<R>&& r){
+    return MinusExpression(static_cast<const L&>(l),static_cast<R&&>(r));
 }
 
 template<class L, class R>
-decltype(auto) operator-( ultra::Expression<L>&& l, ultra::Expression<R>&& r){
-    return ultra::MinusExpression(static_cast<L&&>(l),static_cast<R&&>(r));
+decltype(auto) operator-( Expression<L>&& l, Expression<R>&& r){
+    return MinusExpression(static_cast<L&&>(l),static_cast<R&&>(r));
 }
 
 // Multiplication
 
 template<class L, class R>
-decltype(auto) operator*( const ultra::Expression<L>& l, const ultra::Expression<R>& r){
-    return ultra::MultipliesExpression(static_cast<const L&>(l),static_cast<const R&>(r));
+decltype(auto) operator*( const Expression<L>& l, const Expression<R>& r){
+    return MultipliesExpression(static_cast<const L&>(l),static_cast<const R&>(r));
 }
 
 template<class L, class R>
-decltype(auto) operator*( ultra::Expression<L>&& l, const ultra::Expression<R>& r){
-    return ultra::MultipliesExpression(static_cast<L&&>(l),static_cast<const R&>(r));
+decltype(auto) operator*( Expression<L>&& l, const Expression<R>& r){
+    return MultipliesExpression(static_cast<L&&>(l),static_cast<const R&>(r));
 }
 
 template<class L, class R>
-decltype(auto) operator*( const ultra::Expression<L>& l, ultra::Expression<R>&& r){
-    return ultra::MultipliesExpression(static_cast<const L&>(l),static_cast<R&&>(r));
+decltype(auto) operator*( const Expression<L>& l, Expression<R>&& r){
+    return MultipliesExpression(static_cast<const L&>(l),static_cast<R&&>(r));
 }
 
 template<class L, class R>
-decltype(auto) operator*( ultra::Expression<L>&& l, ultra::Expression<R>&& r){
-    return ultra::MultipliesExpression(static_cast<L&&>(l),static_cast<R&&>(r));
+decltype(auto) operator*( Expression<L>&& l, Expression<R>&& r){
+    return MultipliesExpression(static_cast<L&&>(l),static_cast<R&&>(r));
 }
 
 // Division
 
 template<class L, class R>
-decltype(auto) operator/( const ultra::Expression<L>& l, const ultra::Expression<R>& r){
-    return ultra::DividesExpression(static_cast<const L&>(l),static_cast<const R&>(r));
+decltype(auto) operator/( const Expression<L>& l, const Expression<R>& r){
+    return DividesExpression(static_cast<const L&>(l),static_cast<const R&>(r));
 }
 
 template<class L, class R>
-decltype(auto) operator/( ultra::Expression<L>&& l, const ultra::Expression<R>& r){
-    return ultra::DividesExpression(static_cast<L&&>(l),static_cast<const R&>(r));
+decltype(auto) operator/( Expression<L>&& l, const Expression<R>& r){
+    return DividesExpression(static_cast<L&&>(l),static_cast<const R&>(r));
 }
 
 template<class L, class R>
-decltype(auto) operator/( const ultra::Expression<L>& l, ultra::Expression<R>&& r){
-    return ultra::DividesExpression(static_cast<const L&>(l),static_cast<R&&>(r));
+decltype(auto) operator/( const Expression<L>& l, Expression<R>&& r){
+    return DividesExpression(static_cast<const L&>(l),static_cast<R&&>(r));
 }
 
 template<class L, class R>
-decltype(auto) operator/( ultra::Expression<L>&& l, ultra::Expression<R>&& r){
-    return ultra::DividesExpression(static_cast<L&&>(l),static_cast<R&&>(r));
+decltype(auto) operator/( Expression<L>&& l, Expression<R>&& r){
+    return DividesExpression(static_cast<L&&>(l),static_cast<R&&>(r));
 }
+
+} // namespace
 
 #endif

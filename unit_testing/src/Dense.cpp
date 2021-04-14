@@ -383,8 +383,9 @@ TEST(FixedArrayTest,Iteration){
 }
 
 TEST(FixedArrayTest,StripedIteration){
+    using shape = std::vector<std::size_t>;
     Array<int,10,5,20>::row_major row_array;
-    Array<int,10,5,20>::col_major col_array;
+    Array<int>::col_major col_array(shape{10,5,20});
     int count;
 
     bool row_major_correct = true, col_major_correct=true;
