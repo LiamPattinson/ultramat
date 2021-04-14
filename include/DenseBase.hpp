@@ -11,9 +11,9 @@ namespace ultra {
 
 // Declare DenseView class and StripeGenerator
 
-template<class T, ReadWriteStatus ReadWrite=ReadWriteStatus::writeable> class DenseView;
-template<class T, ReadWriteStatus ReadWrite=ReadWriteStatus::writeable> class StripeGenerator;
-template<class T, ReadWriteStatus ReadWrite=ReadWriteStatus::writeable> class StripeGeneratorImpl;
+template<class T, ReadWrite rw=ReadWrite::writeable> class DenseView;
+template<class T, ReadWrite rw=ReadWrite::writeable> class StripeGenerator;
+template<class T, ReadWrite rw=ReadWrite::writeable> class StripeGeneratorImpl;
 
 // CRTP Base Class
 template<class T,RCOrder Order>
@@ -117,7 +117,7 @@ class DenseBase : public DenseTag {
     // View creation
 
     DenseView<T> view() { return DenseView<T>(derived());}
-    DenseView<T,ReadWriteStatus::read_only> view() const { return DenseView<T,ReadWriteStatus::read_only>(derived());}
+    DenseView<T,ReadWrite::read_only> view() const { return DenseView<T,ReadWrite::read_only>(derived());}
 
     template<class... Slices> requires ( std::is_same<Slice,Slices>::value && ... )
     DenseView<T> view(const Slices&... slices) {
@@ -125,8 +125,8 @@ class DenseBase : public DenseTag {
     }
 
     template<class... Slices> requires ( std::is_same<Slice,Slices>::value && ... )
-    DenseView<T,ReadWriteStatus::read_only> view(const Slices&... slices) const {
-        return DenseView<T,ReadWriteStatus::read_only>(derived()).slice(slices...);
+    DenseView<T,ReadWrite::read_only> view(const Slices&... slices) const {
+        return DenseView<T,ReadWrite::read_only>(derived()).slice(slices...);
     }
 
     template<std::ranges::range Slices> requires ( std::is_same<typename Slices::value_type,Slice>::value )
@@ -135,8 +135,8 @@ class DenseBase : public DenseTag {
     }
 
     template<std::ranges::range Slices> requires ( std::is_same<typename Slices::value_type,Slice>::value )
-    DenseView<T,ReadWriteStatus::read_only> view(const Slices& slices) const {
-        return DenseView<T,ReadWriteStatus::read_only>(derived()).slice(slices);
+    DenseView<T,ReadWrite::read_only> view(const Slices& slices) const {
+        return DenseView<T,ReadWrite::read_only>(derived()).slice(slices);
     }
 
     template<bool constness>
@@ -302,9 +302,9 @@ class DenseBase : public DenseTag {
     auto end_stripe( std::size_t stripe) const { return end_stripe(stripe,(derived().dims()-1)*(Order == RCOrder::row_major)); }
 
     auto stripes( std::size_t dim ) { return StripeGeneratorImpl<T>(derived(),dim); }
-    auto stripes( std::size_t dim ) const { return StripeGeneratorImpl<T,ReadWriteStatus::read_only>(derived(),dim); }
+    auto stripes( std::size_t dim ) const { return StripeGeneratorImpl<T,ReadWrite::read_only>(derived(),dim); }
     auto stripes() { return StripeGeneratorImpl<T>(derived()); }
-    auto stripes() const { return StripeGeneratorImpl<T,ReadWriteStatus::read_only>(derived()); }
+    auto stripes() const { return StripeGeneratorImpl<T,ReadWrite::read_only>(derived()); }
 
     // ===============================================
     // Utils

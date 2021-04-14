@@ -12,20 +12,20 @@
 
 namespace ultra {
 
-template<class T, ReadWriteStatus ReadWrite>
-class DenseView : public Expression<DenseView<T,ReadWrite>>, public DenseBase<DenseView<T,ReadWrite>,T::rc_order> {
+template<class T, ReadWrite rw>
+class DenseView : public Expression<DenseView<T,rw>>, public DenseBase<DenseView<T,rw>,T::rc_order> {
 
-    friend DenseBase<DenseView<T,ReadWrite>,T::rc_order>;
+    friend DenseBase<DenseView<T,rw>,T::rc_order>;
 
-    static constexpr ReadWriteStatus OtherRW = (ReadWrite == ReadWriteStatus::read_only ? ReadWriteStatus::writeable : ReadWriteStatus::read_only);
-    friend DenseView<T,OtherRW>;
+    static constexpr ReadWrite other_rw = (rw == ReadWrite::read_only ? ReadWrite::writeable : ReadWrite::read_only);
+    friend DenseView<T,other_rw>;
 
 public:
 
     using value_type = typename T::value_type;
     using difference_type = std::ptrdiff_t;
-    using pointer = std::conditional_t<ReadWrite==ReadWriteStatus::writeable,value_type*, const value_type*>;
-    using reference = std::conditional_t<ReadWrite==ReadWriteStatus::writeable,value_type&,const value_type&>;
+    using pointer = std::conditional_t<rw==ReadWrite::writeable,value_type*, const value_type*>;
+    using reference = std::conditional_t<rw==ReadWrite::writeable,value_type&,const value_type&>;
     using shape_type = std::vector<std::size_t>;
     using stride_type = std::vector<std::ptrdiff_t>;
     static constexpr RCOrder rc_order = T::rc_order;
@@ -49,8 +49,7 @@ public:
     DenseView& operator=( DenseView&& ) = default;
 
     // Copy from other read/write type
-    template<ReadWriteStatus RW>
-    DenseView( const DenseView<T,RW>& other ) :
+    DenseView( const DenseView<T,other_rw>& other ) :
         _size(other._size),
         _shape(other._shape),
         _stride(other._stride),
@@ -93,19 +92,19 @@ public:
     // Pull methods from base
     // Some methods are shadowed, as the default behaviour is not appropriate
 
-    using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::dims;
-    using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::shape;
-    using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::stride;
-    using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::fill;
-    using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::stripes;
-    using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::reshape;
-    using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::operator();
-    using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::operator[];
-    using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::operator+=;
-    using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::operator-=;
-    using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::operator*=;
-    using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::operator/=;
-    using DenseBase<DenseView<T,ReadWrite>,T::rc_order>::check_expression;
+    using DenseBase<DenseView<T,rw>,T::rc_order>::dims;
+    using DenseBase<DenseView<T,rw>,T::rc_order>::shape;
+    using DenseBase<DenseView<T,rw>,T::rc_order>::stride;
+    using DenseBase<DenseView<T,rw>,T::rc_order>::fill;
+    using DenseBase<DenseView<T,rw>,T::rc_order>::stripes;
+    using DenseBase<DenseView<T,rw>,T::rc_order>::reshape;
+    using DenseBase<DenseView<T,rw>,T::rc_order>::operator();
+    using DenseBase<DenseView<T,rw>,T::rc_order>::operator[];
+    using DenseBase<DenseView<T,rw>,T::rc_order>::operator+=;
+    using DenseBase<DenseView<T,rw>,T::rc_order>::operator-=;
+    using DenseBase<DenseView<T,rw>,T::rc_order>::operator*=;
+    using DenseBase<DenseView<T,rw>,T::rc_order>::operator/=;
+    using DenseBase<DenseView<T,rw>,T::rc_order>::check_expression;
 
     std::size_t size() const noexcept { return _size;}
     pointer data() const noexcept { return _data; }
@@ -260,7 +259,7 @@ public:
 
     template<std::ranges::range... Shapes>
     requires (( !std::is_base_of<DenseTag,Shapes>::value && std::integral<typename Shapes::value_type>) && ... )
-    DenseView<T,ReadWriteStatus::read_only> broadcast( const Shapes&... shapes) const {
+    DenseView<T,ReadWrite::read_only> broadcast( const Shapes&... shapes) const {
         static const std::string err = "Ultramat: Cannot broadcast to given shape";
         auto bcast_shape = get_broadcast_shape(_shape,shapes...);
         // Check bcast_shape is valid
@@ -277,7 +276,7 @@ public:
             if( _shape[ii] != bcast_shape[ii] && _shape[ii] != 1 ) throw std::runtime_error(err);
         }
         // Create copy to work with
-        DenseView<T,ReadWriteStatus::read_only> bcast_view(*this);
+        DenseView<T,ReadWrite::read_only> bcast_view(*this);
         bcast_view._shape = bcast_shape;
         bcast_view._size = std::accumulate( bcast_shape.begin(), bcast_shape.end(), 1, std::multiplies<std::size_t>{});
         bcast_view._stride.resize(bcast_shape.size()+1);
@@ -300,7 +299,7 @@ public:
     }
 
     template<class... Denses> requires ( std::is_base_of<DenseTag,Denses>::value && ... )
-    DenseView<T,ReadWriteStatus::read_only> broadcast( const Denses&... denses) const {
+    DenseView<T,ReadWrite::read_only> broadcast( const Denses&... denses) const {
         return broadcast(denses.shape()...);
     }
 
@@ -341,22 +340,22 @@ public:
 
 // Define view iterator
 
-template<class T,ReadWriteStatus ReadWrite>
+template<class T,ReadWrite rw>
 template<bool constness>
-class DenseView<T,ReadWrite>::iterator_impl {
+class DenseView<T,rw>::iterator_impl {
     
-    friend typename DenseView<T,ReadWrite>::iterator_impl<!constness>;
+    friend typename DenseView<T,rw>::iterator_impl<!constness>;
 
 public:
 
     using iterator_category = std::random_access_iterator_tag;
     using difference_type   = std::ptrdiff_t;
-    using value_type        = DenseView<T,ReadWrite>::value_type;
-    using shape_type        = DenseView<T,ReadWrite>::shape_type;
-    using stride_type       = DenseView<T,ReadWrite>::stride_type;
-    using pointer           = DenseView<T,ReadWrite>::pointer;
-    using reference         = DenseView<T,ReadWrite>::reference;
-    static constexpr RCOrder rc_order = DenseView<T,ReadWrite>::rc_order;
+    using value_type        = DenseView<T,rw>::value_type;
+    using shape_type        = DenseView<T,rw>::shape_type;
+    using stride_type       = DenseView<T,rw>::stride_type;
+    using pointer           = DenseView<T,rw>::pointer;
+    using reference         = DenseView<T,rw>::reference;
+    static constexpr RCOrder rc_order = DenseView<T,rw>::rc_order;
 
 private:
 
@@ -633,18 +632,18 @@ public:
 
 // Define StripeGenerator
 
-template<class T, ReadWriteStatus ReadWrite>
+template<class T, ReadWrite rw>
 class StripeGenerator {
 
-    static constexpr ReadWriteStatus OtherRW = (ReadWrite == ReadWriteStatus::read_only ? ReadWriteStatus::writeable : ReadWriteStatus::read_only);
-    friend StripeGenerator<T,OtherRW>;
+    static constexpr ReadWrite other_rw = (rw == ReadWrite::read_only ? ReadWrite::writeable : ReadWrite::read_only);
+    friend StripeGenerator<T,other_rw>;
 
 public:
 
     using value_type = typename T::value_type;
     using difference_type = std::ptrdiff_t;
-    using pointer = std::conditional_t<ReadWrite==ReadWriteStatus::writeable,value_type*, const value_type*>;
-    using reference = std::conditional_t<ReadWrite==ReadWriteStatus::writeable,value_type&,const value_type&>;
+    using pointer = std::conditional_t<rw==ReadWrite::writeable,value_type*, const value_type*>;
+    using reference = std::conditional_t<rw==ReadWrite::writeable,value_type&,const value_type&>;
     using shape_type = typename T::shape_type;
     using stride_type = typename T::stride_type;
     static constexpr RCOrder rc_order = T::rc_order;
@@ -741,14 +740,14 @@ public:
     }
 };
 
-template<class T, ReadWriteStatus ReadWrite>
+template<class T, ReadWrite rw>
 class StripeGeneratorImpl {
 
     // simply forwards details to StripeGenerator
     // begin returns StripeGenerator
     // end returns num_stripes
 
-    using reference = std::conditional_t<ReadWrite==ReadWriteStatus::writeable,T&,const T&>;
+    using reference = std::conditional_t<rw==ReadWrite::writeable,T&,const T&>;
     static constexpr RCOrder rc_order = T::rc_order;
 
     reference   _t;
@@ -761,14 +760,14 @@ class StripeGeneratorImpl {
     StripeGeneratorImpl( T& container) : StripeGeneratorImpl(container,(rc_order==RCOrder::row_major ? container.dims()-1 : 0)) {}
     StripeGeneratorImpl( const T& container) : StripeGeneratorImpl(container,(rc_order==RCOrder::row_major ? container.dims()-1 : 0)) {}
 
-    auto begin() { return StripeGenerator<T,ReadWrite>(_t,_dim);}
-    auto begin() const { return StripeGenerator<T,ReadWrite>(_t,_dim);}
-    auto end() { return StripeGenerator<T,ReadWrite>(_t,_dim).num_stripes();}
-    auto end() const { return StripeGenerator<T,ReadWrite>(_t,_dim).num_stripes();}
+    auto begin() { return StripeGenerator<T,rw>(_t,_dim);}
+    auto begin() const { return StripeGenerator<T,rw>(_t,_dim);}
+    auto end() { return StripeGenerator<T,rw>(_t,_dim).num_stripes();}
+    auto end() const { return StripeGenerator<T,rw>(_t,_dim).num_stripes();}
 };
 
-template<class T, ReadWriteStatus ReadWrite>
-class StripeGenerator<T,ReadWrite>::StripeIterator {
+template<class T, ReadWrite rw>
+class StripeGenerator<T,rw>::StripeIterator {
 
     pointer        _ptr;
     std::ptrdiff_t _stride;

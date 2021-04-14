@@ -53,7 +53,7 @@ using Array = std::conditional_t<sizeof...(Dims),FixedArrayImpl<T,default_rc_ord
 
 // Define read-only enum class
 
-enum class ReadWriteStatus { writeable, read_only };
+enum class ReadWrite { writeable, read_only };
 
 // Define slice : a tool for generating views of Arrays and related objects.
 // Is an 'aggregate'/'pod' type, so should have a relatively intuitive interface by default.
