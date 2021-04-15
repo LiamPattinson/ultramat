@@ -65,13 +65,28 @@ struct Slice {
     std::ptrdiff_t step=1;
 };
 
-// iterator utils
-// Kinda like std::begin and std::end, but for other aspects of the iterator interface.
+// Expressions utils
+
+// Iteration and striping utilities
 // Implemented as functor objects to give more flexibility
 
-struct Begin { template<class T> decltype(auto) operator()( T&& t) { return t.begin(); } };
-struct Deref { template<class T> decltype(auto) operator()( T&& t) { return *t; } };
-struct PrefixInc { template<class T> decltype(auto) operator()( T&& t) { return ++t; } };
+struct Begin {
+    template<class T> decltype(auto) operator()( T&& t) { return t.begin(); }
+};
+
+struct Deref {
+    template<class T> decltype(auto) operator()( T&& t) { return *t; }
+};
+
+struct PrefixInc {
+    template<class T> decltype(auto) operator()( T&& t) { return ++t; }
+};
+
+struct GetStripe {
+    std::size_t _stripe, _dim;
+    template<class T>
+    decltype(auto) operator()( T&& t) { return t.get_stripe(_stripe,_dim); }
+};
 
 // apply_to_each
 // std::apply(f,tuple) calls a function f with args given by the tuple.

@@ -13,7 +13,7 @@ namespace ultra {
 // Definitions
 
 template<class T, RCOrder Order>
-class ArrayImpl : public Expression<ArrayImpl<T,Order>>, public DenseBase<ArrayImpl<T,Order>,Order> {
+class ArrayImpl : public DenseExpression<ArrayImpl<T,Order>>, public DenseBase<ArrayImpl<T,Order>,Order> {
 
     friend DenseBase<ArrayImpl<T,Order>,Order>;
 
@@ -87,20 +87,20 @@ public:
 
 
     // Construct from an expression
+
     template<class U>
-    ArrayImpl( const Expression<U>& expression) :
+    ArrayImpl( const DenseExpression<U>& expression) :
         _shape(expression.dims()),
         _stride(expression.dims()+1),
         _data(expression.size())
     {
         for( std::size_t ii = 0; ii < dims(); ++ii) _shape[ii] = expression.shape(ii);
         set_stride();
-        auto expr=expression.begin();
-        for(auto it=begin(), it_end=end(); it != it_end; ++it, ++expr) *it = *expr;
+        equal_expression(expression);
     }
 
     template<class U>
-    ArrayImpl& operator=( const Expression<U>& expression) {
+    ArrayImpl& operator=( const DenseExpression<U>& expression) {
         // check expression shape matches self. If not, resize and reshape in place
         try {
             check_expression(expression);
@@ -111,9 +111,7 @@ public:
             for( std::size_t ii = 0; ii < dims(); ++ii) _shape[ii] = expression.shape(ii);
             set_stride();
         }
-        auto expr=expression.begin();
-        for(auto it=begin(), it_end=end(); it != it_end; ++it, ++expr) *it = *expr;
-        return *this;
+        return equal_expression(expression);
     }
 
     // ===============================================
@@ -134,18 +132,21 @@ public:
     using DenseBase<ArrayImpl<T,Order>,Order>::begin;
     using DenseBase<ArrayImpl<T,Order>,Order>::end;
     using DenseBase<ArrayImpl<T,Order>,Order>::stripes;
+    using DenseBase<ArrayImpl<T,Order>,Order>::num_stripes;
+    using DenseBase<ArrayImpl<T,Order>,Order>::get_stripe;
     using DenseBase<ArrayImpl<T,Order>,Order>::operator();
     using DenseBase<ArrayImpl<T,Order>,Order>::operator[];
     using DenseBase<ArrayImpl<T,Order>,Order>::operator+=;
     using DenseBase<ArrayImpl<T,Order>,Order>::operator-=;
     using DenseBase<ArrayImpl<T,Order>,Order>::operator*=;
     using DenseBase<ArrayImpl<T,Order>,Order>::operator/=;
+    using DenseBase<ArrayImpl<T,Order>,Order>::equal_expression;
     using DenseBase<ArrayImpl<T,Order>,Order>::check_expression;
     using DenseBase<ArrayImpl<T,Order>,Order>::set_stride;
 };
 
 template<class T, RCOrder Order, std::size_t... Dims>
-class FixedArrayImpl : public Expression<FixedArrayImpl<T,Order,Dims...>> , public DenseBase<FixedArrayImpl<T,Order,Dims...>,Order> {
+class FixedArrayImpl : public DenseExpression<FixedArrayImpl<T,Order,Dims...>>, public DenseBase<FixedArrayImpl<T,Order,Dims...>,Order> {
 
     friend DenseBase<FixedArrayImpl<T,Order,Dims...>,Order>;
 
@@ -190,26 +191,14 @@ public:
     // With fill
     FixedArrayImpl( const T& fill) { _data.fill(fill); }
 
+    template<class U>
+    FixedArrayImpl( const DenseExpression<U>& expression) { operator=(expression);}
+    
+
     // Swap
     constexpr void swap( FixedArrayImpl& other) noexcept { _data.swap(other._data); }
 
     constexpr friend void swap( FixedArrayImpl& a,FixedArrayImpl& b) noexcept { a.swap(b); }
-
-    // Construct from an expression
-    template<class U>
-    FixedArrayImpl( const Expression<U>& expression) {
-        check_expression(expression);
-        auto expr=expression.begin();
-        for(auto it=begin(), it_end=end(); it != it_end; ++it, ++expr) *it = *expr;
-    }
-
-    template<class U>
-    FixedArrayImpl& operator=( const Expression<U>& expression) {
-        check_expression(expression);
-        auto expr=expression.begin();
-        for(auto it=begin(), it_end=end(); it != it_end; ++it, ++expr) *it = *expr;
-        return *this;
-    }
 
     // Pull in methods from CRTP base
 
@@ -227,8 +216,11 @@ public:
     using DenseBase<FixedArrayImpl<T,Order,Dims...>,Order>::begin;
     using DenseBase<FixedArrayImpl<T,Order,Dims...>,Order>::end;
     using DenseBase<FixedArrayImpl<T,Order,Dims...>,Order>::stripes;
+    using DenseBase<FixedArrayImpl<T,Order,Dims...>,Order>::num_stripes;
+    using DenseBase<FixedArrayImpl<T,Order,Dims...>,Order>::get_stripe;
     using DenseBase<FixedArrayImpl<T,Order,Dims...>,Order>::operator();
     using DenseBase<FixedArrayImpl<T,Order,Dims...>,Order>::operator[];
+    using DenseBase<FixedArrayImpl<T,Order,Dims...>,Order>::operator=;
     using DenseBase<FixedArrayImpl<T,Order,Dims...>,Order>::operator+=;
     using DenseBase<FixedArrayImpl<T,Order,Dims...>,Order>::operator-=;
     using DenseBase<FixedArrayImpl<T,Order,Dims...>,Order>::operator*=;

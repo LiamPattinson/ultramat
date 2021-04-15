@@ -5,13 +5,14 @@
 //
 // Defines a base class for all dense array-like objects, including Arrays, Vectors, Matrices, and their fixed-size counterparts.
 
-#include "Expression.hpp"
+#include "DenseExpression.hpp"
 
 namespace ultra {
 
 // Declare DenseView class and StripeGenerator
 
 template<class T, ReadWrite rw=ReadWrite::writeable> class DenseView;
+template<class T, ReadWrite rw=ReadWrite::writeable> class DenseStripe;
 template<class T, ReadWrite rw=ReadWrite::writeable> class StripeGenerator;
 template<class T, ReadWrite rw=ReadWrite::writeable> class StripeGeneratorImpl;
 
@@ -79,37 +80,70 @@ class DenseBase : public DenseTag {
     }
 
     // ===============================================
-    // In-place operators
+    //  Expressions
+
+    struct Equal{ template<class U, class V> void operator()( U& u, const V& v) const { u = v; }};
+    struct AddEqual{ template<class U, class V> void operator()( U& u, const V& v) const { u += v; }};
+    struct SubEqual{ template<class U, class V> void operator()( U& u, const V& v) const { u -= v; }};
+    struct MulEqual{ template<class U, class V> void operator()( U& u, const V& v) const { u *= v; }};
+    struct DivEqual{ template<class U, class V> void operator()( U& u, const V& v) const { u /= v; }};
+
+    template<class F, class E>
+    void accept_expression( const E& expression ){
+        F f{};
+        std::size_t stripes = num_stripes();
+        std::size_t stripe_dim = ( Order == RCOrder::row_major ? dims()-1 : 0 );
+        std::size_t stripe_begin = (Order == RCOrder::row_major ? stripes : 0 );
+        std::size_t stripe_end = (Order == RCOrder::row_major ? 0 : stripes );
+        int stripe_inc = (Order == RCOrder::row_major ? -1 : 1 );
+        for( std::size_t stripe_num=stripe_begin; stripe_num != stripe_end; stripe_num+=stripe_inc){
+            auto stripe = get_stripe(stripe_num,stripe_dim);
+            auto expr_stripe = expression.get_stripe(stripe_num,stripe_dim);
+            auto expr_it = expr_stripe.begin();
+            for(auto it=stripe.begin(), it_end=stripe.end(); it != it_end; ++it, ++expr_it) f(*it,*expr_it);
+        }
+    }
 
     template<class U>
-    auto operator+=( const Expression<U>& expression ){
+    decltype(auto) operator=( const DenseExpression<U>& expression) {
         check_expression(expression);
-        auto expr=expression.begin();
-        for(auto it=derived().begin(), end=derived().end(); it != end; ++it, ++expr) *it += *expr;
+        accept_expression<Equal>(expression);
+        return derived();
+    }
+
+    // Version without checking
+    // Useful for non-fixed arrays.
+    template<class U>
+    decltype(auto) equal_expression( const DenseExpression<U>& expression) {
+        accept_expression<Equal>(expression);
         return derived();
     }
 
     template<class U>
-    auto operator-=( const Expression<U>& expression ){
+    decltype(auto) operator+=( const DenseExpression<U>& expression ){
         check_expression(expression);
-        auto expr=expression.begin();
-        for(auto it=derived().begin(), end=derived().end(); it != end; ++it, ++expr) *it -= *expr;
+        accept_expression<AddEqual>(expression);
         return derived();
     }
 
     template<class U>
-    auto operator*=( const Expression<U>& expression ){
+    decltype(auto) operator-=( const DenseExpression<U>& expression ){
         check_expression(expression);
-        auto expr=expression.begin();
-        for(auto it=derived().begin(), end=derived().end(); it != end; ++it, ++expr) *it *= *expr;
+        accept_expression<SubEqual>(expression);
+        return derived();
+    }
+
+    template<class U>
+    decltype(auto) operator*=( const DenseExpression<U>& expression ){
+        check_expression(expression);
+        accept_expression<MulEqual>(expression);
         return derived();
     }
     
     template<class U>
-    auto operator/=( const Expression<U>& expression ){
+    decltype(auto) operator/=( const DenseExpression<U>& expression ){
         check_expression(expression);
-        auto expr=expression.begin();
-        for(auto it=derived().begin(), end=derived().end(); it != end; ++it, ++expr) *it /= *expr;
+        accept_expression<DivEqual>(expression);
         return derived();
     }
 
@@ -255,26 +289,23 @@ class DenseBase : public DenseTag {
 
     std::size_t num_stripes() const { return num_stripes((derived().dims()-1)*(Order == RCOrder::row_major)); }
 
-    std::ptrdiff_t jump_to_stripe( std::size_t stripe, std::size_t dim) const requires (Order == RCOrder::row_major) {
-        std::ptrdiff_t result=0;
-        for(std::size_t ii=derived().dims(); ii!=0; --ii){
-            if( ii-1 == dim ) continue;
-            if( !stripe ) break;
-            result += ( stripe % derived()._shape[ii-1]) * derived()._stride[ii];
-            stripe /= derived()._shape[ii-1];
-        }
-        return result;
-    }
-
-    std::ptrdiff_t jump_to_stripe( std::size_t stripe, std::size_t dim) const requires (Order == RCOrder::col_major) {
+    std::ptrdiff_t jump_to_stripe( std::size_t stripe, std::size_t dim) const {
         std::ptrdiff_t result=0;
         for(std::size_t ii=0; ii!=derived().dims(); ++ii){
             if( ii == dim ) continue;
             if( !stripe ) break;
-            result += ( stripe % derived()._shape[ii]) * derived()._stride[ii];
+            result += ( stripe % derived()._shape[ii]) * derived()._stride[ii+(Order==RCOrder::row_major)];
             stripe /= derived()._shape[ii];
         }
         return result;
+    }
+
+    auto get_stripe( std::size_t stripe_num, std::size_t dim){
+        return DenseStripe<T,ReadWrite::writeable>( derived().data()+jump_to_stripe(stripe_num,dim), stride(dim+(Order==RCOrder::row_major)), shape(dim));
+    }
+
+    auto get_stripe( std::size_t stripe_num, std::size_t dim) const {
+        return DenseStripe<T,ReadWrite::read_only>( derived().data()+jump_to_stripe(stripe_num,dim), stride(dim+(Order==RCOrder::row_major)), shape(dim));
     }
 
     std::ptrdiff_t stripe_stride( std::size_t dim) const { return derived()._stride[dim+(Order==RCOrder::row_major)];}
@@ -313,7 +344,7 @@ class DenseBase : public DenseTag {
     // Tests whether an expression is compatible.
 
     template<class U>
-    void check_expression( const Expression<U>& expression){
+    void check_expression( const DenseExpression<U>& expression){
         if( dims() != expression.dims()){
             throw ExpressionException("Ultramat: Tried to construct/assign array-like object of dims " + std::to_string(dims()) 
                     + " with expression of dims " + std::to_string(expression.dims()));
