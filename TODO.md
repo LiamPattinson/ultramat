@@ -32,6 +32,7 @@
         * Not clear how well this will apply to generator expressions.
             * Perhaps limit them to 1D objects. Maybe just accept that this isn't going to end
               well and perform an eval.
+            * Should be okay in cases where order of operations doesn't matter.
         * Dim-wise cumulative expressions present a serious issue. May have to make them eval.
             * Operations must be performed in a linear order: not parallelisable
             * Stripe direction matters, and cannot be controlled by the target.

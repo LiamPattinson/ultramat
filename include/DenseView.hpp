@@ -36,6 +36,7 @@ protected:
     shape_type   _shape;
     stride_type  _stride;
     pointer      _data;
+    bool         _is_contiguous;
 
 public:
 
@@ -53,7 +54,8 @@ public:
         _size(other._size),
         _shape(other._shape),
         _stride(other._stride),
-        _data(other._data)
+        _data(other._data),
+        _is_contiguous(other._is_contiguous)
     {}
 
     // Full view of a container
@@ -61,7 +63,8 @@ public:
         _size( container.size() ),
         _shape( container.dims() ),
         _stride( container.dims()+1 ),
-        _data( container.data() )
+        _data( container.data() ),
+        _is_contiguous( container.is_contiguous())
     {
         std::ranges::copy(container.shape(),_shape.begin());
         std::ranges::copy(container.stride(),_stride.begin());
@@ -71,7 +74,8 @@ public:
         _size( container.size() ),
         _shape( container.dims() ),
         _stride( container.dims()+1 ),
-        _data( container.data() )
+        _data( container.data() ),
+        _is_contiguous( container.is_contiguous())
     {
         std::ranges::copy(container.shape(),_shape.begin());
         std::ranges::copy(container.stride(),_stride.begin());
@@ -84,6 +88,7 @@ public:
     using DenseBase<DenseView<T,rw>,T::rc_order>::dims;
     using DenseBase<DenseView<T,rw>,T::rc_order>::shape;
     using DenseBase<DenseView<T,rw>,T::rc_order>::stride;
+    using DenseBase<DenseView<T,rw>,T::rc_order>::order;
     using DenseBase<DenseView<T,rw>,T::rc_order>::fill;
     using DenseBase<DenseView<T,rw>,T::rc_order>::stripes;
     using DenseBase<DenseView<T,rw>,T::rc_order>::num_stripes;
@@ -97,12 +102,15 @@ public:
     using DenseBase<DenseView<T,rw>,T::rc_order>::operator*=;
     using DenseBase<DenseView<T,rw>,T::rc_order>::operator/=;
     using DenseBase<DenseView<T,rw>,T::rc_order>::check_expression;
+    using DenseBase<DenseView<T,rw>,T::rc_order>::is_omp_parallelisable;
 
     std::size_t size() const noexcept { return _size;}
     pointer data() const noexcept { return _data; }
     pointer data() noexcept requires ( rw == ReadWrite::writeable ){ return _data; }
 
-    bool is_contiguous() const noexcept requires (rc_order==RCOrder::row_major) {
+    bool is_contiguous() const noexcept { return _is_contiguous; }
+
+    bool test_contiguous() const noexcept requires (rc_order==RCOrder::row_major) {
         ptrdiff_t stride = 1;
         if( stride != _stride[dims()]) return false;
         for( std::size_t ii=dims(); ii != 0; --ii){
@@ -112,7 +120,7 @@ public:
         return true;
     }
 
-    bool is_contiguous() const noexcept requires (rc_order==RCOrder::col_major) {
+    bool test_contiguous() const noexcept requires (rc_order==RCOrder::col_major) {
         ptrdiff_t stride = 1;
         if( stride != _stride[0]) return false;
         for( std::size_t ii=0; ii != dims(); ++ii){
@@ -226,6 +234,7 @@ public:
         } else {
             result._stride[dims()] = result._stride[dims()-1] * result._shape[dims()-1];
         }
+        result._is_contiguous = result.test_contiguous();
         return result;
     }
 
@@ -288,6 +297,8 @@ public:
             }
             bcast_view._stride[0] = bcast_view._size;
         }
+        // Set contiguous
+        bcast_view._is_contiguous = bcast_view.test_contiguous();
         return bcast_view;
     }
 

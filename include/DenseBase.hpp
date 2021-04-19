@@ -19,6 +19,7 @@ template<class T, ReadWrite rw=ReadWrite::writeable> class StripeGeneratorImpl;
 // CRTP Base Class
 template<class T,RCOrder Order>
 class DenseBase : public DenseTag {
+    static_assert(Order != RCOrder::mixed_order);
 
     protected:
 
@@ -36,6 +37,7 @@ class DenseBase : public DenseTag {
     constexpr auto stride( std::size_t dim) const noexcept { return derived()._stride[dim]; }
     constexpr const auto& shape() const noexcept { return derived()._shape; }
     constexpr const auto& stride() const noexcept { return derived()._stride; }
+    constexpr const RCOrder order() const noexcept { return Order; }
 
     // ===============================================
     // Data access
@@ -91,16 +93,21 @@ class DenseBase : public DenseTag {
     template<class F, class E>
     void accept_expression( const E& expression ){
         F f{};
-        std::size_t stripes = num_stripes();
-        std::size_t stripe_dim = ( Order == RCOrder::row_major ? dims()-1 : 0 );
-        std::size_t stripe_begin = (Order == RCOrder::row_major ? stripes : 0 );
-        std::size_t stripe_end = (Order == RCOrder::row_major ? 0 : stripes );
-        int stripe_inc = (Order == RCOrder::row_major ? -1 : 1 );
-        for( std::size_t stripe_num=stripe_begin; stripe_num != stripe_end; stripe_num+=stripe_inc){
-            auto stripe = get_stripe(stripe_num,stripe_dim);
-            auto expr_stripe = expression.get_stripe(stripe_num,stripe_dim);
-            auto expr_it = expr_stripe.begin();
-            for(auto it=stripe.begin(), it_end=stripe.end(); it != it_end; ++it, ++expr_it) f(*it,*expr_it);
+        if( derived().is_contiguous() && expression.is_contiguous() && expression.order() == Order ){
+            auto expr_it = expression.begin();
+            for(auto it=begin(), it_end=end(); it != it_end; ++it, ++expr_it) f(*it,*expr_it);
+        } else {
+            std::size_t stripes = num_stripes();
+            std::size_t stripe_dim = ( Order == RCOrder::row_major ? dims()-1 : 0 );
+            std::size_t stripe_begin = (Order == RCOrder::row_major ? stripes : 0 );
+            std::size_t stripe_end = (Order == RCOrder::row_major ? 0 : stripes );
+            int stripe_inc = (Order == RCOrder::row_major ? -1 : 1 );
+            for( std::size_t stripe_num=stripe_begin; stripe_num != stripe_end; stripe_num+=stripe_inc){
+                auto stripe = get_stripe(stripe_num,stripe_dim);
+                auto expr_stripe = expression.get_stripe(stripe_num,stripe_dim);
+                auto expr_it = expr_stripe.begin();
+                for(auto it=stripe.begin(), it_end=stripe.end(); it != it_end; ++it, ++expr_it) f(*it,*expr_it);
+            }
         }
     }
 
@@ -392,6 +399,12 @@ class DenseBase : public DenseTag {
     // Determine if a container is contiguous. As this is guaranteed for everything except a DenseView, this function
     // is trivial. DenseView shadows it with a much more interesting function.
     constexpr bool is_contiguous() const noexcept { return true;}
+
+    // is_omp_parallelisable
+    // Determine if iterator is OpenMP compatible.
+    // Is true for all dense containers, but must be defined for compatibility with DenseExpressions, some of which
+    // are not trivially parallelisable.
+    constexpr bool is_omp_parallelisable() const noexcept { return true; }
 
     // variadic_memjump
     // used with round-bracket indexing.

@@ -121,6 +121,7 @@ public:
     using DenseBase<ArrayImpl<T,Order>,Order>::size;
     using DenseBase<ArrayImpl<T,Order>,Order>::shape;
     using DenseBase<ArrayImpl<T,Order>,Order>::stride;
+    using DenseBase<ArrayImpl<T,Order>,Order>::order;
     using DenseBase<ArrayImpl<T,Order>,Order>::data;
     using DenseBase<ArrayImpl<T,Order>,Order>::fill;
     using DenseBase<ArrayImpl<T,Order>,Order>::view;
@@ -143,6 +144,8 @@ public:
     using DenseBase<ArrayImpl<T,Order>,Order>::equal_expression;
     using DenseBase<ArrayImpl<T,Order>,Order>::check_expression;
     using DenseBase<ArrayImpl<T,Order>,Order>::set_stride;
+    using DenseBase<ArrayImpl<T,Order>,Order>::is_contiguous;
+    using DenseBase<ArrayImpl<T,Order>,Order>::is_omp_parallelisable;
 };
 
 template<class T, RCOrder Order, std::size_t... Dims>
@@ -206,6 +209,7 @@ public:
     using DenseBase<FixedArrayImpl<T,Order,Dims...>,Order>::size;
     using DenseBase<FixedArrayImpl<T,Order,Dims...>,Order>::shape;
     using DenseBase<FixedArrayImpl<T,Order,Dims...>,Order>::stride;
+    using DenseBase<FixedArrayImpl<T,Order,Dims...>,Order>::order;
     using DenseBase<FixedArrayImpl<T,Order,Dims...>,Order>::data;
     using DenseBase<FixedArrayImpl<T,Order,Dims...>,Order>::fill;
     using DenseBase<FixedArrayImpl<T,Order,Dims...>,Order>::view;
@@ -226,6 +230,8 @@ public:
     using DenseBase<FixedArrayImpl<T,Order,Dims...>,Order>::operator*=;
     using DenseBase<FixedArrayImpl<T,Order,Dims...>,Order>::operator/=;
     using DenseBase<FixedArrayImpl<T,Order,Dims...>,Order>::check_expression;
+    using DenseBase<FixedArrayImpl<T,Order,Dims...>,Order>::is_contiguous;
+    using DenseBase<FixedArrayImpl<T,Order,Dims...>,Order>::is_omp_parallelisable;
 };
 
 } // namespace

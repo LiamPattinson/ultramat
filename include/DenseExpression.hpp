@@ -14,7 +14,7 @@ namespace ultra {
 
 // Base DenseExpression
 // Requires that class T has a size, dims, shape, and stride.
-// Additionally requires that T is 'stripeable'
+// Additionally requires that T is iterable and 'stripeable'.
 
 template<class T>
 struct DenseExpression {
@@ -26,8 +26,13 @@ struct DenseExpression {
     decltype(auto) dims() const { return derived().dims(); }
     decltype(auto) shape() const { return derived().shape(); }
     decltype(auto) shape(std::size_t ii) const { return derived().shape(ii); }
-    decltype(auto) stride() const { return derived().stride(); }
-    decltype(auto) stride(std::size_t ii) const { return derived().stride(ii); }
+    decltype(auto) order() const { return derived().order(); }
+
+    constexpr bool is_contiguous() const noexcept { return derived().is_contiguous(); }
+    constexpr bool is_omp_parallelisable() const noexcept { return derived().is_omp_parallelisable(); }
+
+    decltype(auto) begin() { return derived().begin(); }
+    decltype(auto) begin() const { return derived().begin(); }
 
     decltype(auto) get_stripe(std::size_t stripe, std::size_t dim) { return derived().get_stripe(stripe,dim); }
     decltype(auto) get_stripe(std::size_t stripe, std::size_t dim) const { return derived().get_stripe(stripe,dim); }
@@ -59,6 +64,80 @@ decltype(auto) eval( DenseExpression<T>& t){
 template<class T>
 decltype(auto) eval( DenseExpression<T>&& t){
     return eval_result<T>(static_cast<T&&>(t));
+}
+
+// Expressions utils
+
+struct Begin { template<class T> decltype(auto) operator()( T&& t) { return t.begin(); }};
+struct Deref { template<class T> decltype(auto) operator()( T&& t) { return *t; }};
+struct PrefixInc { template<class T> decltype(auto) operator()( T&& t) { return ++t; }};
+struct Order{ template<class T> bool operator()( T&& t) { return t.order(); }};
+struct IsContiguous { template<class T> bool operator()( T&& t) { return t.is_contiguous(); }};
+struct IsOmpParallelisable { template<class T> bool operator()( T&& t) { return t.is_omp_parallelisable(); }};
+
+struct GetStripe {
+    std::size_t _stripe, _dim;
+    template<class T>
+    decltype(auto) operator()( T&& t) { return t.get_stripe(_stripe,_dim); }
+};
+
+// apply_to_each
+// std::apply(f,tuple) calls a function f with args given by the tuple.
+// apply_to_each returns a tuple given by (f(tuple_args[0]),f(tuple_args[1]),...) where f is unary.
+// Similar to the possible implementation of std::apply from https://en.cppreference.com/w/cpp/utility/apply
+
+template<class F,class Tuple, std::size_t... I>
+constexpr decltype(auto) apply_to_each_impl( F&& f, Tuple&& t, std::index_sequence<I...>){
+    return std::make_tuple( std::invoke(std::forward<F>(f), std::get<I>(std::forward<Tuple>(t)))...);
+}
+
+template<class F, class Tuple>
+constexpr decltype(auto) apply_to_each( F&& f, Tuple&& t){
+    return apply_to_each_impl( std::forward<F>(f), std::forward<Tuple>(t),
+            std::make_index_sequence<std::tuple_size<std::remove_reference_t<Tuple>>::value>{});
+}
+
+// all_of_tuple/any_of_tuple
+// For a tuple of bools, determine all_of/any_of
+
+template<class Tuple, std::size_t... I>
+constexpr bool all_of_tuple_impl(Tuple&& t, std::index_sequence<I...>){
+    return (std::get<I>(std::forward<Tuple>(t)) & ...);
+}
+
+template<class Tuple, std::size_t... I>
+constexpr bool any_of_tuple_impl(Tuple&& t, std::index_sequence<I...>){
+    return (std::get<I>(std::forward<Tuple>(t)) | ...);
+}
+
+template<class Tuple>
+constexpr bool all_of_tuple(Tuple&& t){
+    return all_of_tuple_impl(std::forward<Tuple>(t), std::make_index_sequence<std::tuple_size<std::remove_reference_t<Tuple>>::value>{});
+}
+
+template<class Tuple>
+constexpr bool any_of_tuple(Tuple&& t){
+    return any_of_tuple_impl(std::forward<Tuple>(t), std::make_index_sequence<std::tuple_size<std::remove_reference_t<Tuple>>::value>{});
+}
+
+// get_common_order
+// for a tuple of RCOrder, return row_major if all row_major, col_major if all col_major, and mixed_order otherwise.
+
+template<std::size_t N, class Tuple>
+struct GetCommonOrderImpl {
+    RCOrder operator()( Tuple&& t) const noexcept {
+        RCOrder order = std::get<N>(std::forward<Tuple>(t)).order();
+        return (order  == GetCommonOrderImpl<N-1,Tuple>{}(std::forward<Tuple>(t)) ? order : RCOrder::mixed_order);
+    }
+};
+
+template<class Tuple> struct GetCommonOrderImpl<0,Tuple>{
+    RCOrder operator()( Tuple&& t) const noexcept{ return std::get<0>(std::forward<Tuple>(t)).order();}
+};
+
+template<class Tuple>
+RCOrder get_common_order(Tuple&& t){
+    return GetCommonOrderImpl<std::tuple_size<std::remove_cvref_t<Tuple>>::value-1,Tuple>{}(std::forward<Tuple>(t));
 }
 
 // ElementWiseDenseExpression
@@ -118,8 +197,32 @@ public:
     decltype(auto) dims() const { return std::get<0>(_args).dims(); }
     decltype(auto) shape() const { return std::get<0>(_args).shape(); }
     decltype(auto) shape(std::size_t ii) const { return std::get<0>(_args).shape(ii); }
-    decltype(auto) stride() const { return std::get<0>(_args).stride(); }
-    decltype(auto) stride(std::size_t ii) const { return std::get<0>(_args).stride(ii); }
+    decltype(auto) order() const noexcept { return get_common_order(_args); }
+
+    constexpr bool is_contiguous() const noexcept { return all_of_tuple(apply_to_each(IsContiguous{},_args)); }
+    constexpr bool is_omp_parallelisable() const noexcept { return all_of_tuple(apply_to_each(IsOmpParallelisable{},_args)); }
+
+    // Define const_iterator class
+ 
+    // Notes:
+    // begin() should return a compound iterator over Args, containing _its.
+    // Dereferencing this will return F(*_its[0],*_its[1],...).
+    // Incrementing this will increment _its.
+
+    class const_iterator {
+        using ItTuple = std::tuple< typename std::remove_cvref_t<Args>::const_iterator ...>;
+        
+        F f;
+        ItTuple _its;
+        
+        public:
+        
+        const_iterator( ItTuple&& its) : f{}, _its(std::move(its)) {}
+        decltype(auto) operator*() { return std::apply(f,apply_to_each(Deref{},_its)); }
+        const_iterator& operator++() { apply_to_each(PrefixInc{},_its); return *this; }
+    };
+
+    const_iterator begin() const { return const_iterator(apply_to_each(Begin{},_args)); }
 
     // Define stripe class
     // As element-wise operations are strictly non-modifying, only read_only stripes are permitted.
@@ -142,7 +245,7 @@ public:
 
         class Iterator {
             
-            using ItTuple = std::tuple< typename decltype(std::declval<std::add_const_t<std::remove_cvref_t<Args>>>().get_stripe(0,0))::Iterator ...>;
+            using ItTuple = std::tuple<typename decltype(std::declval<std::add_const_t<std::remove_cvref_t<Args>>>().get_stripe(0,0))::Iterator ...>;
             
             F       _f;
             ItTuple _its;
@@ -164,7 +267,7 @@ public:
 
 };
 
-// CumulativeDenseDenseExpression
+// CumulativeDenseExpression
 // Binary operation over a single arg. Returns something of the same shape.
 // For multi-dimensional arrays, sums over the given dimension only. Defaults to zero.
 
@@ -173,8 +276,7 @@ class CumulativeDenseExpression : public DenseExpression<CumulativeDenseExpressi
     
 public:
 
-    using inner_value_type = typename std::remove_cvref_t<T>::value_type;
-    using value_type = decltype(F{}(inner_value_type(),inner_value_type()));
+    using value_type = typename std::remove_cvref_t<T>::value_type;
 
 private:
 
@@ -197,8 +299,12 @@ public:
     decltype(auto) dims() const { return _t.dims(); }
     decltype(auto) shape() const { return _t.shape(); }
     decltype(auto) shape(std::size_t ii) const { return _t.shape(ii); }
-    decltype(auto) stride() const { return _t.stride(); }
-    decltype(auto) stride(std::size_t ii) const { return _t.stride(ii); }
+    decltype(auto) order() const noexcept { return _t.order(); }
+
+    // CumulativeDenseExpressions cannot be performed in parallel and must make use of striped iteration, hence will
+    // appear as non-contiguous and non-omp-parallel. Each stripe may still be determined in parallel however.
+    constexpr bool is_contiguous() const noexcept { return false; }
+    constexpr bool is_omp_parallelisable() const noexcept { return false; }
 
     // Define stripe class
 
@@ -237,7 +343,109 @@ public:
     decltype(auto) get_stripe( std::size_t stripe_num, std::size_t dim) const {
         return Stripe(std::move(_t.get_stripe(stripe_num,dim)),_start_val);
     }
+
+    // Define const_iterator dummy class
+
+    struct const_iterator {
+        const_iterator() { throw std::runtime_error("Ultramat CumulativeDenseExpression: Must use striped iteration!");}
+        decltype(auto) operator*() { return 0; }
+        const_iterator& operator++() { return *this; }
+    };
+    const_iterator begin() const { return const_iterator(); }
 };
 
+// FoldDenseExpression
+// Binary operation over a single arg. Performs a 'fold' over a single dimension.
+// Full reductions are performed by iteratively reducing until only 1 dimension is left.
+
+/* WIP
+
+template<class F, class T>
+class FoldDenseExpression : public DenseExpression<FoldDenseExpression<F,T>> {
+    
+public:
+
+    using value_type = typename std::remove_cvref_t<T>::value_type;
+
+private:
+
+    using ref_t = decltype(std::forward<T>(std::declval<T>()));
+
+    ref_t                       _t;
+    std::size_t                 _fold_dim;
+    value_type                  _start_val;
+    std::vector<std::size_t>    _shape;
+
+public:
+
+    FoldDenseExpression() = delete;
+    FoldDenseExpression( const FoldDenseExpression& ) = delete;
+    FoldDenseExpression( FoldDenseExpression&& ) = default;
+    FoldDenseExpression& operator=( const FoldDenseExpression& ) = delete;
+    FoldDenseExpression& operator=( FoldDenseExpression&& ) = default;
+
+    FoldDenseExpression( T&& t, std::size_t fold_dim, const value_type& start_val) : 
+        _t(std::forward<T>(t)),
+        _fold_dim(fold_dim),
+        _start_val(start_val),
+        _shape(t.dims()-1),
+    {
+        for(std::size_t ii=0; ii<dims(); ++ii){
+            _shape[ii] = ( ii < _fold_dim ? _t.shape(ii) : _t.shape(ii+1));
+        }
+    }
+
+    std::size_t size() const { return std::accumulate(_shape.begin(),_shape.end(),1,std::multiplies<std::size_t>{}); }
+    std::size_t dims() const { return _shape.size(); }
+    const std::vector<std::size_t>& shape() const { return _shape; }
+    decltype(auto) shape(std::size_t ii) const { return _shape[ii]; }
+
+    // Define stripe class
+    // Every time an iterator increments, a fold is performed over the given dimension.
+    // This requires generation of a new stripe over _t.
+    // The dereference operator returns the result of the fold.
+
+    class Stripe {
+        
+        using Stripe_t = decltype(std::declval<std::add_const_t<std::remove_cvref_t<T>>>().get_stripe(0,0));
+
+        Stripe_t          _stripe;
+        std::size_t       _fold_dim;
+        const value_type& _val;
+
+        public:
+
+        Stripe( Stripe_t&& stripe, std::size_t fold_dim, const value_type& val) : 
+            _stripe(std::move(stripe)), 
+            _fold_dim(fold_dim),
+            _val(val)
+        {}
+        
+        // Define iterator type
+
+        class Iterator {
+            
+            using It_t = typename decltype(std::declval<std::add_const_t<std::remove_cvref_t<T>>>().get_stripe(0,0))::Iterator;
+            
+            F           _f;
+            It_t        _it;
+            value_type  _val;
+            
+            public:
+           
+            Iterator( It_t&& it, const value_type& val) : _f{}, _it(std::move(it)), _val(val)  {}
+            decltype(auto) operator*() { _val = _f(*_it,_val); return _val; }
+            Iterator& operator++() { ++_it; return *this; }
+        };
+        
+        Iterator begin() const { return Iterator(_stripe.begin(),_val); }
+    };
+
+    // Get stripe from _t
+    decltype(auto) get_stripe( std::size_t stripe_num, std::size_t dim) const {
+        return Stripe(std::move(_t.get_stripe(stripe_num,dim)),_start_val);
+    }
+};
+*/
 } // namespace
 #endif
