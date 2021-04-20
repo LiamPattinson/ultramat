@@ -8,42 +8,14 @@
         * Must allow easy conversion to/from Arrays.
     * Matrix class, including fixed variety.
 
-### StripingExpressions
-
-    * Overhaul expressions to make use of striping rather than standard iteration
-    * Top-level expression (the target) will send a stripe dimension and number down the stack,
-      and each lower expression will access that stripe or delegate further.
-    * Dimension-reducing expressions will complete the operation over their given dimension only
-      when called, rather than evaluating their lower expressions.
-    * Pros:
-        * Faster for many use cases i.e. adding two non-contiguous views
-        * Much more OpenMP friendly
-            * At the target, there is a loop over all stripes, and a loop over each individual
-              stripe. If individual stripes can be guaranteed random-access, can parallelise
-              both loops to handle edge cases
-        * Can do dim-wise reductions etc without building an intermediate
-            * full reductions can be constructed at run time from a series of
-              dim-wise reductions.
-        * Offers a means to have row_major and col_major entities work together, as when the
-          target is col_major, it will default to striping in the 0th dimension. This will be
-          naturally be passed down to any row major entities, which will handle it just fine.
-    * Cons:
-        * Slightly slower for some common operations, i.e. adding two contiguous arrays
-        * Not clear how well this will apply to generator expressions.
-            * Perhaps limit them to 1D objects. Maybe just accept that this isn't going to end
-              well and perform an eval.
-            * Should be okay in cases where order of operations doesn't matter.
-        * Dim-wise cumulative expressions present a serious issue. May have to make them eval.
-            * Operations must be performed in a linear order: not parallelisable
-            * Stripe direction matters, and cannot be controlled by the target.
-            * Might just remove them... they're a seriously niche application.
-
 ### Expressions
 
+    * fold expressions
+    * striping over fold expressions
+    * Cumulative should specify direction, default to 0.
+        * should be evaluating
+        * test mixed row/col major
     * Rework Generator expressions
-    * New expression types
-        * ReductionExpression. Can be used for sum, prod, max, etc.
-        * DimWiseExpression. Reduction in one dimension only.
     * Methods to broadcast scalars.
         * scalar_as_dense function that returns fixed-size Array<T,1>;
         * May just require a _lot_ of function overloading.

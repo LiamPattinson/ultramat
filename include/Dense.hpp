@@ -85,7 +85,6 @@ public:
         set_stride();
     }
 
-
     // Construct from an expression
 
     template<class U>

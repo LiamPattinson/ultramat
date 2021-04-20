@@ -34,8 +34,9 @@ struct DenseExpression {
     decltype(auto) begin() { return derived().begin(); }
     decltype(auto) begin() const { return derived().begin(); }
 
-    decltype(auto) get_stripe(std::size_t stripe, std::size_t dim) { return derived().get_stripe(stripe,dim); }
-    decltype(auto) get_stripe(std::size_t stripe, std::size_t dim) const { return derived().get_stripe(stripe,dim); }
+    decltype(auto) get_stripe(std::size_t stripe, std::size_t dim, RCOrder order) { return derived().get_stripe(stripe,dim,order); }
+    decltype(auto) get_stripe(std::size_t stripe, std::size_t dim, RCOrder order) const { return derived().get_stripe(stripe,dim,order); }
+    decltype(auto) num_stripes(std::size_t dim) const { return derived().num_stripes(dim); }
 };
 
 // Generic exception for when expressions go wrong.
@@ -77,8 +78,9 @@ struct IsOmpParallelisable { template<class T> bool operator()( T&& t) { return 
 
 struct GetStripe {
     std::size_t _stripe, _dim;
+    RCOrder _order;
     template<class T>
-    decltype(auto) operator()( T&& t) { return t.get_stripe(_stripe,_dim); }
+    decltype(auto) operator()( T&& t) { return t.get_stripe(_stripe,_dim,_order); }
 };
 
 // apply_to_each
@@ -198,6 +200,7 @@ public:
     decltype(auto) shape() const { return std::get<0>(_args).shape(); }
     decltype(auto) shape(std::size_t ii) const { return std::get<0>(_args).shape(ii); }
     decltype(auto) order() const noexcept { return get_common_order(_args); }
+    decltype(auto) num_stripes(std::size_t dim) const { return std::get<0>(_args).num_stripes(dim); }
 
     constexpr bool is_contiguous() const noexcept { return all_of_tuple(apply_to_each(IsContiguous{},_args)); }
     constexpr bool is_omp_parallelisable() const noexcept { return all_of_tuple(apply_to_each(IsOmpParallelisable{},_args)); }
@@ -229,7 +232,7 @@ public:
  
     class Stripe {
         
-        using StripeTuple = std::tuple< decltype(std::declval<std::add_const_t<std::remove_cvref_t<Args>>>().get_stripe(0,0)) ...>;
+        using StripeTuple = std::tuple< decltype(std::declval<std::add_const_t<std::remove_cvref_t<Args>>>().get_stripe(0,0,RCOrder::col_major)) ...>;
 
         StripeTuple _stripes;
 
@@ -245,7 +248,7 @@ public:
 
         class Iterator {
             
-            using ItTuple = std::tuple<typename decltype(std::declval<std::add_const_t<std::remove_cvref_t<Args>>>().get_stripe(0,0))::Iterator ...>;
+            using ItTuple = std::tuple<typename decltype(std::declval<std::add_const_t<std::remove_cvref_t<Args>>>().get_stripe(0,0,RCOrder::col_major))::Iterator ...>;
             
             F       _f;
             ItTuple _its;
@@ -261,8 +264,8 @@ public:
     };
 
     // Get stripes from each Arg
-    decltype(auto) get_stripe( std::size_t stripe_num, std::size_t dim) const {
-        return Stripe(std::move(apply_to_each(GetStripe{stripe_num,dim},_args)));
+    decltype(auto) get_stripe( std::size_t stripe_num, std::size_t dim, RCOrder order) const {
+        return Stripe(std::move(apply_to_each(GetStripe{stripe_num,dim,order},_args)));
     }
 
 };
@@ -300,6 +303,7 @@ public:
     decltype(auto) shape() const { return _t.shape(); }
     decltype(auto) shape(std::size_t ii) const { return _t.shape(ii); }
     decltype(auto) order() const noexcept { return _t.order(); }
+    decltype(auto) num_stripes(std::size_t dim) const { return _t.num_stripes(dim); }
 
     // CumulativeDenseExpressions cannot be performed in parallel and must make use of striped iteration, hence will
     // appear as non-contiguous and non-omp-parallel. Each stripe may still be determined in parallel however.
@@ -310,7 +314,7 @@ public:
 
     class Stripe {
         
-        using Stripe_t = decltype(std::declval<std::add_const_t<std::remove_cvref_t<T>>>().get_stripe(0,0));
+        using Stripe_t = decltype(std::declval<std::add_const_t<std::remove_cvref_t<T>>>().get_stripe(0,0,RCOrder::col_major));
 
         Stripe_t          _stripe;
         const value_type& _val;
@@ -323,7 +327,7 @@ public:
 
         class Iterator {
             
-            using It_t = typename decltype(std::declval<std::add_const_t<std::remove_cvref_t<T>>>().get_stripe(0,0))::Iterator;
+            using It_t = typename decltype(std::declval<std::add_const_t<std::remove_cvref_t<T>>>().get_stripe(0,0,RCOrder::col_major))::Iterator;
             
             F           _f;
             It_t        _it;
@@ -340,8 +344,8 @@ public:
     };
 
     // Get stripe from _t
-    decltype(auto) get_stripe( std::size_t stripe_num, std::size_t dim) const {
-        return Stripe(std::move(_t.get_stripe(stripe_num,dim)),_start_val);
+    decltype(auto) get_stripe( std::size_t stripe_num, std::size_t dim, RCOrder order) const {
+        return Stripe(std::move(_t.get_stripe(stripe_num,dim,order)),_start_val);
     }
 
     // Define const_iterator dummy class
@@ -358,8 +362,6 @@ public:
 // Binary operation over a single arg. Performs a 'fold' over a single dimension.
 // Full reductions are performed by iteratively reducing until only 1 dimension is left.
 
-/* WIP
-
 template<class F, class T>
 class FoldDenseExpression : public DenseExpression<FoldDenseExpression<F,T>> {
     
@@ -370,9 +372,11 @@ public:
 private:
 
     using ref_t = decltype(std::forward<T>(std::declval<T>()));
+    using Stripe_t = decltype(std::declval<std::add_const_t<std::remove_cvref_t<T>>>().get_stripe(0,0,RCOrder::col_major));
 
     ref_t                       _t;
     std::size_t                 _fold_dim;
+    std::size_t                 _fold_size;
     value_type                  _start_val;
     std::vector<std::size_t>    _shape;
 
@@ -387,8 +391,9 @@ public:
     FoldDenseExpression( T&& t, std::size_t fold_dim, const value_type& start_val) : 
         _t(std::forward<T>(t)),
         _fold_dim(fold_dim),
+        _fold_size(t.shape(fold_dim)),
         _start_val(start_val),
-        _shape(t.dims()-1),
+        _shape(t.dims()-1)
     {
         for(std::size_t ii=0; ii<dims(); ++ii){
             _shape[ii] = ( ii < _fold_dim ? _t.shape(ii) : _t.shape(ii+1));
@@ -399,53 +404,107 @@ public:
     std::size_t dims() const { return _shape.size(); }
     const std::vector<std::size_t>& shape() const { return _shape; }
     decltype(auto) shape(std::size_t ii) const { return _shape[ii]; }
+    decltype(auto) order() const noexcept { return _t.order(); }
+    decltype(auto) num_stripes(std::size_t dim) const { return size()/shape(dim); }
+    constexpr bool is_contiguous() const noexcept { return _t.is_contiguous(); }
+    constexpr bool is_omp_parallelisable() const noexcept { return _t.is_omp_parallelisable(); }
+
+    // Define const_iterator class
+ 
+    // Notes:
+    // begin() should return a const_iterator containing a stripe generator over _t, passing on the stripe dim
+    // Dereferencing this will generate a stripe, perform the fold operation, and return the result.
+    // Incrementing this will increment the stripe generator.
+
+    class const_iterator {
+
+        F           _f;
+        ref_t       _t;
+        value_type  _start_val;
+        std::size_t _stripe_dim;
+        std::size_t _stripe_num;
+        RCOrder     _order;
+        
+        public:
+        
+        const_iterator( ref_t t, std::size_t stripe_dim, value_type start_val) :
+            _f{},
+            _t(t),
+            _start_val(start_val),
+            _stripe_dim(stripe_dim),
+            _stripe_num(0),
+            _order(_t.order())
+        {}
+
+        decltype(auto) operator*() {
+            value_type val = _start_val;
+            auto stripe = _t.get_stripe(_stripe_num,_stripe_dim,_order);
+            for( auto&& x : stripe ) val = _f(x,val);
+            return val;
+        }
+
+        const_iterator& operator++() { ++_stripe_num; return *this; }
+    };
+
+    const_iterator begin() const { return const_iterator(std::forward<T>(_t),_fold_dim,_start_val); }
 
     // Define stripe class
-    // Every time an iterator increments, a fold is performed over the given dimension.
-    // This requires generation of a new stripe over _t.
-    // The dereference operator returns the result of the fold.
+    // (dummy class for now, work in progress)
 
     class Stripe {
-        
-        using Stripe_t = decltype(std::declval<std::add_const_t<std::remove_cvref_t<T>>>().get_stripe(0,0));
 
-        Stripe_t          _stripe;
-        std::size_t       _fold_dim;
-        const value_type& _val;
-
+        /*
+        ref_t       _t;
+        std::size_t _stripe_num;
+        std::size_t _stripe_inc;
+        std::size_t _fold_dim;
+        std::size_t _fold_size;
+        value_type  _val;
+        */
         public:
-
-        Stripe( Stripe_t&& stripe, std::size_t fold_dim, const value_type& val) : 
-            _stripe(std::move(stripe)), 
+        /*
+        Stripe( ref_t t, std::size_t stripe_num, std::size_t fold_dim, std::size_t fold_size, const value_type& val) : 
+            _t(t), 
+            _stripe_num(stripe_num),
             _fold_dim(fold_dim),
+            _fold_size(fold_size),
             _val(val)
         {}
+        */
+        Stripe() { throw std::runtime_error("Ultramat FoldDenseExpression: Striping not yet implemented.");}
         
         // Define iterator type
 
         class Iterator {
-            
+            /*
             using It_t = typename decltype(std::declval<std::add_const_t<std::remove_cvref_t<T>>>().get_stripe(0,0))::Iterator;
             
             F           _f;
             It_t        _it;
             value_type  _val;
             
-            public:
-           
             Iterator( It_t&& it, const value_type& val) : _f{}, _it(std::move(it)), _val(val)  {}
             decltype(auto) operator*() { _val = _f(*_it,_val); return _val; }
             Iterator& operator++() { ++_it; return *this; }
+            */
+            public:
+           
+            Iterator() = default;
+            decltype(auto) operator*() { return 0;}
+            Iterator& operator++() { return *this; }
         };
-        
+        /*
         Iterator begin() const { return Iterator(_stripe.begin(),_val); }
+        */
+        Iterator begin() const { return Iterator(); }
     };
 
     // Get stripe from _t
-    decltype(auto) get_stripe( std::size_t stripe_num, std::size_t dim) const {
-        return Stripe(std::move(_t.get_stripe(stripe_num,dim)),_start_val);
+    decltype(auto) get_stripe( std::size_t /*stripe_num*/, std::size_t /*dim*/, RCOrder /* order */) const {
+        //return Stripe(std::move(_t.get_stripe(stripe_num,dim)),_start_val);
+        return Stripe();
     }
 };
-*/
+
 } // namespace
 #endif

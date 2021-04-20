@@ -408,5 +408,62 @@ decltype(auto) cumprod( const DenseExpression<T>&& t, const StartT& start = 1){
     return CumProdDenseExpression(static_cast<T&&>(t),start);
 }
 
+// =========================
+// Reductions / Folds / Accumulations
+
+// functors
+
+struct Min { template<class X,class Y> decltype(auto) operator()( const X& x, const Y& y) const { return x < y ? x : y;}};
+struct Max { template<class X,class Y> decltype(auto) operator()( const X& x, const Y& y) const { return x > y ? x : y;}};
+
+// Expressions
+
+template<class T> using  SumDenseExpression = FoldDenseExpression<Plus,T>;
+template<class T> using ProdDenseExpression = FoldDenseExpression<Multiplies,T>;
+template<class T> using  MaxDenseExpression = FoldDenseExpression<Max,T>;
+template<class T> using  MinDenseExpression = FoldDenseExpression<Min,T>;
+
+// Functions
+
+template<class T>
+decltype(auto) sum( const DenseExpression<T>& t, std::size_t dim){
+    return SumDenseExpression(static_cast<const T&>(t),dim,0);
+}
+
+template<class T>
+decltype(auto) sum( DenseExpression<T>&& t, std::size_t dim){
+    return SumDenseExpression(static_cast<T&&>(t),dim,0);
+}
+
+template<class T>
+decltype(auto) prod( const DenseExpression<T>& t, std::size_t dim){
+    return ProdDenseExpression(static_cast<const T&>(t),dim,1);
+}
+
+template<class T>
+decltype(auto) prod( const DenseExpression<T>&& t, std::size_t dim){
+    return ProdDenseExpression(static_cast<T&&>(t),dim,1);
+}
+
+template<class T>
+decltype(auto) min( const DenseExpression<T>& t, std::size_t dim){
+    return MinDenseExpression(static_cast<const T&>(t), dim, std::numeric_limits<double>::max());
+}
+
+template<class T>
+decltype(auto) min( const DenseExpression<T>&& t, std::size_t dim){
+    return MinDenseExpression(static_cast<T&&>(t), dim, std::numeric_limits<double>::max());
+}
+
+template<class T>
+decltype(auto) max( const DenseExpression<T>& t, std::size_t dim){
+    return MaxDenseExpression(static_cast<const T&>(t),dim, std::numeric_limits<double>::lowest());
+}
+
+template<class T>
+decltype(auto) max( const DenseExpression<T>&& t, std::size_t dim){
+    return MaxDenseExpression(static_cast<T&&>(t),dim, std::numeric_limits<double>::lowest());
+}
+
 } // namespace
 #endif

@@ -198,3 +198,143 @@ TEST(ArrayCumulativeTest,CumulativeProduct){
     EXPECT_TRUE(c.shape(0) == 3);
     EXPECT_TRUE(c.shape(1) == 3);
 }
+
+TEST(ArrayFoldTest,Sum){
+    auto shape = shape_vec{6,7,8};
+    Array<double>::col_major a(shape);
+    Array<double>::row_major b(shape);
+    int count;
+    count=0; for( auto&& x : a) x=count++;
+    count=0; for( auto&& x : b) x=count++;
+
+    // sum over each direction, col major
+    Array<double>::col_major sum_a_0 = sum(a,0);
+    Array<double>::col_major sum_a_1 = sum(a,1);
+    Array<double>::col_major sum_a_2 = sum(a,2);
+    EXPECT_TRUE( sum_a_0.dims() == 2 );
+    EXPECT_TRUE( sum_a_1.dims() == 2 );
+    EXPECT_TRUE( sum_a_2.dims() == 2 );
+    EXPECT_TRUE( sum_a_0.shape(0) == 7 );
+    EXPECT_TRUE( sum_a_1.shape(0) == 6 );
+    EXPECT_TRUE( sum_a_2.shape(0) == 6 );
+    EXPECT_TRUE( sum_a_0.shape(1) == 8 );
+    EXPECT_TRUE( sum_a_1.shape(1) == 8 );
+    EXPECT_TRUE( sum_a_2.shape(1) == 7 );
+    bool sum_a_0_correct=true;
+    for( std::size_t ii=0; ii<7; ++ii){
+        for( std::size_t jj=0; jj<8; ++jj){
+            double sum=0;
+            for( std::size_t kk=0; kk<6; ++kk){
+                sum += a(kk,ii,jj);
+            }
+            if(sum!=sum_a_0(ii,jj)) sum_a_0_correct=false;
+        }
+    }
+    EXPECT_TRUE(sum_a_0_correct);
+    bool sum_a_1_correct=true;
+    for( std::size_t ii=0; ii<6; ++ii){
+        for( std::size_t jj=0; jj<8; ++jj){
+            double sum=0;
+            for( std::size_t kk=0; kk<7; ++kk){
+                sum += a(ii,kk,jj);
+            }
+            if(sum!=sum_a_1(ii,jj)) sum_a_1_correct=false;
+        }
+    }
+    EXPECT_TRUE(sum_a_1_correct);
+    bool sum_a_2_correct=true;
+    for( std::size_t ii=0; ii<6; ++ii){
+        for( std::size_t jj=0; jj<7; ++jj){
+            double sum=0;
+            for( std::size_t kk=0; kk<8; ++kk){
+                sum += a(ii,jj,kk);
+            }
+            if(sum!=sum_a_2(ii,jj)) sum_a_2_correct=false;
+        }
+    }
+    EXPECT_TRUE(sum_a_2_correct);
+
+    // sum over each direction, row major
+    Array<double>::row_major sum_b_0 = sum(b,0);
+    Array<double>::row_major sum_b_1 = sum(b,1);
+    Array<double>::row_major sum_b_2 = sum(b,2);
+    EXPECT_TRUE( sum_b_0.dims() == 2 );
+    EXPECT_TRUE( sum_b_1.dims() == 2 );
+    EXPECT_TRUE( sum_b_2.dims() == 2 );
+    EXPECT_TRUE( sum_b_0.shape(0) == 7 );
+    EXPECT_TRUE( sum_b_1.shape(0) == 6 );
+    EXPECT_TRUE( sum_b_2.shape(0) == 6 );
+    EXPECT_TRUE( sum_b_0.shape(1) == 8 );
+    EXPECT_TRUE( sum_b_1.shape(1) == 8 );
+    EXPECT_TRUE( sum_b_2.shape(1) == 7 );
+    bool sum_b_0_correct=true;
+    for( std::size_t ii=0; ii<7; ++ii){
+        for( std::size_t jj=0; jj<8; ++jj){
+            double sum=0;
+            for( std::size_t kk=0; kk<6; ++kk){
+                sum += b(kk,ii,jj);
+            }
+            if(sum!=sum_b_0(ii,jj)) sum_b_0_correct=false;
+        }
+    }
+    EXPECT_TRUE(sum_b_0_correct);
+    bool sum_b_1_correct=true;
+    for( std::size_t ii=0; ii<6; ++ii){
+        for( std::size_t jj=0; jj<8; ++jj){
+            double sum=0;
+            for( std::size_t kk=0; kk<7; ++kk){
+                sum += b(ii,kk,jj);
+            }
+            if(sum!=sum_b_1(ii,jj)) sum_b_1_correct=false;
+        }
+    }
+    EXPECT_TRUE(sum_b_1_correct);
+    bool sum_b_2_correct=true;
+    for( std::size_t ii=0; ii<6; ++ii){
+        for( std::size_t jj=0; jj<7; ++jj){
+            double sum=0;
+            for( std::size_t kk=0; kk<8; ++kk){
+                sum += b(ii,jj,kk);
+            }
+            if(sum!=sum_b_2(ii,jj)) sum_b_2_correct=false;
+        }
+    }
+    EXPECT_TRUE(sum_b_2_correct);
+
+    // sum over each direction, mixed (requires striping)
+    
+    // double sum (requires striping)
+    /*
+    Array<double>::col_major sum_a_00 = sum(sum(a,0),0);
+    Array<double>::col_major sum_a_01 = sum(sum(a,1),0);
+    Array<double>::col_major sum_a_02 = sum(sum(a,2),0);
+    Array<double>::col_major sum_a_10 = sum(sum(a,0),1);
+    Array<double>::col_major sum_a_11 = sum(sum(a,1),1);
+    Array<double>::col_major sum_a_12 = sum(sum(a,2),1);
+    EXPECT_TRUE( sum_a_00.dims() == 1 );
+    EXPECT_TRUE( sum_a_01.dims() == 1 );
+    EXPECT_TRUE( sum_a_02.dims() == 1 );
+    EXPECT_TRUE( sum_a_10.dims() == 1 );
+    EXPECT_TRUE( sum_a_11.dims() == 1 );
+    EXPECT_TRUE( sum_a_12.dims() == 1 );
+    EXPECT_TRUE( sum_a_00.shape(0) == 8 );
+    EXPECT_TRUE( sum_a_01.shape(0) == 8 );
+    EXPECT_TRUE( sum_a_02.shape(0) == 7 );
+    EXPECT_TRUE( sum_a_10.shape(0) == 8 );
+    EXPECT_TRUE( sum_a_11.shape(0) == 6 );
+    EXPECT_TRUE( sum_a_12.shape(0) == 6 );
+    bool sum_a_00_correct=true;
+    for( std::size_t ii=0; ii<8; ++ii){
+        double sum=0;
+        for( std::size_t jj=0; jj<7; ++jj){
+            for( std::size_t kk=0; kk<6; ++kk){
+                sum += a(kk,jj,ii);
+            }
+        }
+        if(sum!=sum_a_00(ii)) sum_a_00_correct=false;
+    }
+    EXPECT_TRUE(sum_a_00_correct);
+    */
+    
+    // full sum for each
+}
