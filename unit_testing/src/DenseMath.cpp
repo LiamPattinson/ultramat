@@ -201,9 +201,46 @@ TEST(ArrayCumulativeTest,CumulativeProduct){
 
 TEST(ArrayFoldTest,Sum){
     int count;
-    // TODO special case for 1D->1D
-    // TODO check given dims is compatible
+    double total;
     // TODO figure out how to handle 4D or greater
+    
+    // 1D
+    Array<double>::col_major col_1D(shape_vec{6});
+    Array<double>::row_major row_1D(shape_vec{6});
+    count=0; for( auto&& x : col_1D) x=count++;
+    count=0; for( auto&& x : row_1D) x=count++;
+
+    // sum, col major
+    Array<double>::col_major sum_1D_col = sum(col_1D,0);
+    EXPECT_TRUE( sum_1D_col.dims() == 1 );
+    EXPECT_TRUE( sum_1D_col.size() == 1 );
+    EXPECT_TRUE( sum_1D_col.shape(0) == 1 );
+    total=0;
+    for( std::size_t ii=0; ii<6; ++ii){
+        total += col_1D(ii);
+    }
+    EXPECT_TRUE(total == sum_1D_col(0));
+
+    // sum, row major
+    Array<double>::row_major sum_1D_row = sum(row_1D,0);
+    EXPECT_TRUE( sum_1D_row.dims() == 1 );
+    EXPECT_TRUE( sum_1D_row.size() == 1 );
+    EXPECT_TRUE( sum_1D_row.shape(0) == 1 );
+    EXPECT_TRUE(total == sum_1D_row(0));
+
+    // sum, mixed col to row
+    Array<double>::row_major sum_1D_col_to_row = sum(col_1D,0);
+    EXPECT_TRUE( sum_1D_col_to_row.dims() == 1 );
+    EXPECT_TRUE( sum_1D_col_to_row.size() == 1 );
+    EXPECT_TRUE( sum_1D_col_to_row.shape(0) == 1 );
+    EXPECT_TRUE(total == sum_1D_col_to_row(0));
+
+    // sum over each direction, mixed row to col
+    Array<double>::col_major sum_1D_row_to_col = sum(row_1D,0);
+    EXPECT_TRUE( sum_1D_row_to_col.dims() == 1 );
+    EXPECT_TRUE( sum_1D_row_to_col.size() == 1 );
+    EXPECT_TRUE( sum_1D_row_to_col.shape(0) == 1 );
+    EXPECT_TRUE(total == sum_1D_row_to_col(0));
     
     // 2D
     Array<double>::col_major col_2D(shape_vec{6,7});
@@ -220,20 +257,20 @@ TEST(ArrayFoldTest,Sum){
     EXPECT_TRUE( sum_2D_col_1.shape(0) == 6 );
     bool sum_2D_col_0_correct=true;
     for( std::size_t ii=0; ii<7; ++ii){
-        double sum=0;
+        total=0;
         for( std::size_t jj=0; jj<6; ++jj){
-            sum += col_2D(jj,ii);
+            total += col_2D(jj,ii);
         }
-        if(sum!=sum_2D_col_0(ii)) sum_2D_col_0_correct=false;
+        if(total!=sum_2D_col_0(ii)) sum_2D_col_0_correct=false;
     }
     EXPECT_TRUE(sum_2D_col_0_correct);
     bool sum_2D_col_1_correct=true;
     for( std::size_t ii=0; ii<6; ++ii){
-        double sum=0;
+        total=0;
         for( std::size_t jj=0; jj<7; ++jj){
-            sum += col_2D(ii,jj);
+            total += col_2D(ii,jj);
         }
-        if(sum!=sum_2D_col_1(ii)) sum_2D_col_1_correct=false;
+        if(total!=sum_2D_col_1(ii)) sum_2D_col_1_correct=false;
     }
     EXPECT_TRUE(sum_2D_col_1_correct);
 
@@ -246,20 +283,20 @@ TEST(ArrayFoldTest,Sum){
     EXPECT_TRUE( sum_2D_row_1.shape(0) == 6 );
     bool sum_2D_row_0_correct=true;
     for( std::size_t ii=0; ii<7; ++ii){
-        double sum=0;
+        total=0;
         for( std::size_t jj=0; jj<6; ++jj){
-            sum += row_2D(jj,ii);
+            total += row_2D(jj,ii);
         }
-        if(sum!=sum_2D_row_0(ii)) sum_2D_row_0_correct=false;
+        if(total!=sum_2D_row_0(ii)) sum_2D_row_0_correct=false;
     }
     EXPECT_TRUE(sum_2D_row_0_correct);
     bool sum_2D_row_1_correct=true;
     for( std::size_t ii=0; ii<6; ++ii){
-        double sum=0;
+        total=0;
         for( std::size_t jj=0; jj<7; ++jj){
-            sum += row_2D(ii,jj);
+            total += row_2D(ii,jj);
         }
-        if(sum!=sum_2D_row_1(ii)) sum_2D_row_1_correct=false;
+        if(total!=sum_2D_row_1(ii)) sum_2D_row_1_correct=false;
     }
     EXPECT_TRUE(sum_2D_row_1_correct);
 
@@ -272,20 +309,20 @@ TEST(ArrayFoldTest,Sum){
     EXPECT_TRUE( sum_2D_col_to_row_1.shape(0) == 6 );
     bool sum_2D_col_to_row_0_correct=true;
     for( std::size_t ii=0; ii<7; ++ii){
-        double sum=0;
+        total=0;
         for( std::size_t jj=0; jj<6; ++jj){
-            sum += col_2D(jj,ii);
+            total += col_2D(jj,ii);
         }
-        if(sum!=sum_2D_col_to_row_0(ii)) sum_2D_col_to_row_0_correct=false;
+        if(total!=sum_2D_col_to_row_0(ii)) sum_2D_col_to_row_0_correct=false;
     }
     EXPECT_TRUE(sum_2D_col_to_row_0_correct);
     bool sum_2D_col_to_row_1_correct=true;
     for( std::size_t ii=0; ii<6; ++ii){
-        double sum=0;
+        total=0;
         for( std::size_t jj=0; jj<7; ++jj){
-            sum += col_2D(ii,jj);
+            total += col_2D(ii,jj);
         }
-        if(sum!=sum_2D_col_to_row_1(ii)) sum_2D_col_to_row_1_correct=false;
+        if(total!=sum_2D_col_to_row_1(ii)) sum_2D_col_to_row_1_correct=false;
     }
     EXPECT_TRUE(sum_2D_col_to_row_1_correct);
 
@@ -298,22 +335,76 @@ TEST(ArrayFoldTest,Sum){
     EXPECT_TRUE( sum_2D_row_to_col_1.shape(0) == 6 );
     bool sum_2D_row_to_col_0_correct=true;
     for( std::size_t ii=0; ii<7; ++ii){
-        double sum=0;
+        total=0;
         for( std::size_t jj=0; jj<6; ++jj){
-            sum += row_2D(jj,ii);
+            total += row_2D(jj,ii);
         }
-        if(sum!=sum_2D_row_to_col_0(ii)) sum_2D_row_to_col_0_correct=false;
+        if(total!=sum_2D_row_to_col_0(ii)) sum_2D_row_to_col_0_correct=false;
     }
     EXPECT_TRUE(sum_2D_row_to_col_0_correct);
     bool sum_2D_row_to_col_1_correct=true;
     for( std::size_t ii=0; ii<6; ++ii){
-        double sum=0;
+        total=0;
         for( std::size_t jj=0; jj<7; ++jj){
-            sum += row_2D(ii,jj);
+            total += row_2D(ii,jj);
         }
-        if(sum!=sum_2D_row_to_col_1(ii)) sum_2D_row_to_col_1_correct=false;
+        if(total!=sum_2D_row_to_col_1(ii)) sum_2D_row_to_col_1_correct=false;
     }
     EXPECT_TRUE(sum_2D_row_to_col_1_correct);
+
+    // double sum over col
+    Array<double>::col_major sum_2D_col_00 = sum(sum(col_2D,0),0);
+    Array<double>::col_major sum_2D_col_01 = sum(sum(col_2D,1),0);
+    EXPECT_TRUE( sum_2D_col_00.dims() == 1 );
+    EXPECT_TRUE( sum_2D_col_01.dims() == 1 );
+    EXPECT_TRUE( sum_2D_col_00.size() == 1 );
+    EXPECT_TRUE( sum_2D_col_01.size() == 1 );
+    EXPECT_TRUE( sum_2D_col_00.shape(0) == 1 );
+    EXPECT_TRUE( sum_2D_col_01.shape(0) == 1 );
+    total=0;
+    for( std::size_t ii=0; ii<6; ++ii){
+        for( std::size_t jj=0; jj<7; ++jj){
+            total += col_2D(ii,jj);
+        }
+    }
+    EXPECT_TRUE(total==sum_2D_col_00(0));
+    EXPECT_TRUE(total==sum_2D_col_01(0));
+
+    // double sum over row
+    Array<double>::row_major sum_2D_row_00 = sum(sum(row_2D,0),0);
+    Array<double>::row_major sum_2D_row_01 = sum(sum(row_2D,1),0);
+    EXPECT_TRUE( sum_2D_row_00.dims() == 1 );
+    EXPECT_TRUE( sum_2D_row_01.dims() == 1 );
+    EXPECT_TRUE( sum_2D_row_00.size() == 1 );
+    EXPECT_TRUE( sum_2D_row_01.size() == 1 );
+    EXPECT_TRUE( sum_2D_row_00.shape(0) == 1 );
+    EXPECT_TRUE( sum_2D_row_01.shape(0) == 1 );
+    EXPECT_TRUE(total==sum_2D_row_00(0));
+    EXPECT_TRUE(total==sum_2D_row_01(0));
+
+    // double sum, row to col
+    Array<double>::col_major sum_2D_row_to_col_00 = sum(sum(row_2D,0),0);
+    Array<double>::col_major sum_2D_row_to_col_01 = sum(sum(row_2D,1),0);
+    EXPECT_TRUE( sum_2D_row_to_col_00.dims() == 1 );
+    EXPECT_TRUE( sum_2D_row_to_col_01.dims() == 1 );
+    EXPECT_TRUE( sum_2D_row_to_col_00.size() == 1 );
+    EXPECT_TRUE( sum_2D_row_to_col_01.size() == 1 );
+    EXPECT_TRUE( sum_2D_row_to_col_00.shape(0) == 1 );
+    EXPECT_TRUE( sum_2D_row_to_col_01.shape(0) == 1 );
+    EXPECT_TRUE(total==sum_2D_row_to_col_00(0));
+    EXPECT_TRUE(total==sum_2D_row_to_col_01(0));
+
+    // double sum, col to row
+    Array<double>::row_major sum_2D_col_to_row_00 = sum(sum(col_2D,0),0);
+    Array<double>::row_major sum_2D_col_to_row_01 = sum(sum(col_2D,1),0);
+    EXPECT_TRUE( sum_2D_col_to_row_00.dims() == 1 );
+    EXPECT_TRUE( sum_2D_col_to_row_01.dims() == 1 );
+    EXPECT_TRUE( sum_2D_col_to_row_00.size() == 1 );
+    EXPECT_TRUE( sum_2D_col_to_row_01.size() == 1 );
+    EXPECT_TRUE( sum_2D_col_to_row_00.shape(0) == 1 );
+    EXPECT_TRUE( sum_2D_col_to_row_01.shape(0) == 1 );
+    EXPECT_TRUE(total==sum_2D_col_to_row_00(0));
+    EXPECT_TRUE(total==sum_2D_col_to_row_01(0));
 
     // 3D
     Array<double>::col_major col_3D(shape_vec{6,7,8});
@@ -337,33 +428,33 @@ TEST(ArrayFoldTest,Sum){
     bool sum_3D_col_0_correct=true;
     for( std::size_t ii=0; ii<7; ++ii){
         for( std::size_t jj=0; jj<8; ++jj){
-            double sum=0;
+            total=0;
             for( std::size_t kk=0; kk<6; ++kk){
-                sum += col_3D(kk,ii,jj);
+                total += col_3D(kk,ii,jj);
             }
-            if(sum!=sum_3D_col_0(ii,jj)) sum_3D_col_0_correct=false;
+            if(total!=sum_3D_col_0(ii,jj)) sum_3D_col_0_correct=false;
         }
     }
     EXPECT_TRUE(sum_3D_col_0_correct);
     bool sum_3D_col_1_correct=true;
     for( std::size_t ii=0; ii<6; ++ii){
         for( std::size_t jj=0; jj<8; ++jj){
-            double sum=0;
+            total=0;
             for( std::size_t kk=0; kk<7; ++kk){
-                sum += col_3D(ii,kk,jj);
+                total += col_3D(ii,kk,jj);
             }
-            if(sum!=sum_3D_col_1(ii,jj)) sum_3D_col_1_correct=false;
+            if(total!=sum_3D_col_1(ii,jj)) sum_3D_col_1_correct=false;
         }
     }
     EXPECT_TRUE(sum_3D_col_1_correct);
     bool sum_3D_col_2_correct=true;
     for( std::size_t ii=0; ii<6; ++ii){
         for( std::size_t jj=0; jj<7; ++jj){
-            double sum=0;
+            total=0;
             for( std::size_t kk=0; kk<8; ++kk){
-                sum += col_3D(ii,jj,kk);
+                total += col_3D(ii,jj,kk);
             }
-            if(sum!=sum_3D_col_2(ii,jj)) sum_3D_col_2_correct=false;
+            if(total!=sum_3D_col_2(ii,jj)) sum_3D_col_2_correct=false;
         }
     }
     EXPECT_TRUE(sum_3D_col_2_correct);
@@ -384,33 +475,33 @@ TEST(ArrayFoldTest,Sum){
     bool sum_3D_row_0_correct=true;
     for( std::size_t ii=0; ii<7; ++ii){
         for( std::size_t jj=0; jj<8; ++jj){
-            double sum=0;
+            total=0;
             for( std::size_t kk=0; kk<6; ++kk){
-                sum += row_3D(kk,ii,jj);
+                total += row_3D(kk,ii,jj);
             }
-            if(sum!=sum_3D_row_0(ii,jj)) sum_3D_row_0_correct=false;
+            if(total!=sum_3D_row_0(ii,jj)) sum_3D_row_0_correct=false;
         }
     }
     EXPECT_TRUE(sum_3D_row_0_correct);
     bool sum_3D_row_1_correct=true;
     for( std::size_t ii=0; ii<6; ++ii){
         for( std::size_t jj=0; jj<8; ++jj){
-            double sum=0;
+            total=0;
             for( std::size_t kk=0; kk<7; ++kk){
-                sum += row_3D(ii,kk,jj);
+                total += row_3D(ii,kk,jj);
             }
-            if(sum!=sum_3D_row_1(ii,jj)) sum_3D_row_1_correct=false;
+            if(total!=sum_3D_row_1(ii,jj)) sum_3D_row_1_correct=false;
         }
     }
     EXPECT_TRUE(sum_3D_row_1_correct);
     bool sum_3D_row_2_correct=true;
     for( std::size_t ii=0; ii<6; ++ii){
         for( std::size_t jj=0; jj<7; ++jj){
-            double sum=0;
+            total=0;
             for( std::size_t kk=0; kk<8; ++kk){
-                sum += row_3D(ii,jj,kk);
+                total += row_3D(ii,jj,kk);
             }
-            if(sum!=sum_3D_row_2(ii,jj)) sum_3D_row_2_correct=false;
+            if(total!=sum_3D_row_2(ii,jj)) sum_3D_row_2_correct=false;
         }
     }
     EXPECT_TRUE(sum_3D_row_2_correct);
@@ -431,33 +522,33 @@ TEST(ArrayFoldTest,Sum){
     bool sum_3D_col_to_row_0_correct=true;
     for( std::size_t ii=0; ii<7; ++ii){
         for( std::size_t jj=0; jj<8; ++jj){
-            double sum=0;
+            total=0;
             for( std::size_t kk=0; kk<6; ++kk){
-                sum += col_3D(kk,ii,jj);
+                total += col_3D(kk,ii,jj);
             }
-            if(sum!=sum_3D_col_to_row_0(ii,jj)) sum_3D_col_to_row_0_correct=false;
+            if(total!=sum_3D_col_to_row_0(ii,jj)) sum_3D_col_to_row_0_correct=false;
         }
     }
     EXPECT_TRUE(sum_3D_col_to_row_0_correct);
     bool sum_3D_col_to_row_1_correct=true;
     for( std::size_t ii=0; ii<6; ++ii){
         for( std::size_t jj=0; jj<8; ++jj){
-            double sum=0;
+            total=0;
             for( std::size_t kk=0; kk<7; ++kk){
-                sum += col_3D(ii,kk,jj);
+                total += col_3D(ii,kk,jj);
             }
-            if(sum!=sum_3D_col_to_row_1(ii,jj)) sum_3D_col_to_row_1_correct=false;
+            if(total!=sum_3D_col_to_row_1(ii,jj)) sum_3D_col_to_row_1_correct=false;
         }
     }
     EXPECT_TRUE(sum_3D_col_to_row_1_correct);
     bool sum_3D_col_to_row_2_correct=true;
     for( std::size_t ii=0; ii<6; ++ii){
         for( std::size_t jj=0; jj<7; ++jj){
-            double sum=0;
+            total=0;
             for( std::size_t kk=0; kk<8; ++kk){
-                sum += col_3D(ii,jj,kk);
+                total += col_3D(ii,jj,kk);
             }
-            if(sum!=sum_3D_col_to_row_2(ii,jj)) sum_3D_col_to_row_2_correct=false;
+            if(total!=sum_3D_col_to_row_2(ii,jj)) sum_3D_col_to_row_2_correct=false;
         }
     }
     EXPECT_TRUE(sum_3D_col_to_row_2_correct);
@@ -478,33 +569,33 @@ TEST(ArrayFoldTest,Sum){
     bool sum_3D_row_to_col_0_correct=true;
     for( std::size_t ii=0; ii<7; ++ii){
         for( std::size_t jj=0; jj<8; ++jj){
-            double sum=0;
+            total=0;
             for( std::size_t kk=0; kk<6; ++kk){
-                sum += row_3D(kk,ii,jj);
+                total += row_3D(kk,ii,jj);
             }
-            if(sum!=sum_3D_row_to_col_0(ii,jj)) sum_3D_row_to_col_0_correct=false;
+            if(total!=sum_3D_row_to_col_0(ii,jj)) sum_3D_row_to_col_0_correct=false;
         }
     }
     EXPECT_TRUE(sum_3D_row_to_col_0_correct);
     bool sum_3D_row_to_col_1_correct=true;
     for( std::size_t ii=0; ii<6; ++ii){
         for( std::size_t jj=0; jj<8; ++jj){
-            double sum=0;
+            total=0;
             for( std::size_t kk=0; kk<7; ++kk){
-                sum += row_3D(ii,kk,jj);
+                total += row_3D(ii,kk,jj);
             }
-            if(sum!=sum_3D_row_to_col_1(ii,jj)) sum_3D_row_to_col_1_correct=false;
+            if(total!=sum_3D_row_to_col_1(ii,jj)) sum_3D_row_to_col_1_correct=false;
         }
     }
     EXPECT_TRUE(sum_3D_row_to_col_1_correct);
     bool sum_3D_row_to_col_2_correct=true;
     for( std::size_t ii=0; ii<6; ++ii){
         for( std::size_t jj=0; jj<7; ++jj){
-            double sum=0;
+            total=0;
             for( std::size_t kk=0; kk<8; ++kk){
-                sum += row_3D(ii,jj,kk);
+                total += row_3D(ii,jj,kk);
             }
-            if(sum!=sum_3D_row_to_col_2(ii,jj)) sum_3D_row_to_col_2_correct=false;
+            if(total!=sum_3D_row_to_col_2(ii,jj)) sum_3D_row_to_col_2_correct=false;
         }
     }
     EXPECT_TRUE(sum_3D_row_to_col_2_correct);
@@ -530,40 +621,40 @@ TEST(ArrayFoldTest,Sum){
     EXPECT_TRUE( sum_3D_col_12.shape(0) == 6 );
     bool sum_3D_col_00_correct=true, sum_3D_col_01_correct=true;
     for( std::size_t ii=0; ii<8; ++ii){
-        double sum=0;
+        total=0;
         for( std::size_t jj=0; jj<7; ++jj){
             for( std::size_t kk=0; kk<6; ++kk){
-                sum += col_3D(kk,jj,ii);
+                total += col_3D(kk,jj,ii);
             }
         }
-        if(sum!=sum_3D_col_00(ii)) sum_3D_col_00_correct=false;
-        if(sum!=sum_3D_col_01(ii)) sum_3D_col_01_correct=false;
+        if(total!=sum_3D_col_00(ii)) sum_3D_col_00_correct=false;
+        if(total!=sum_3D_col_01(ii)) sum_3D_col_01_correct=false;
     }
     EXPECT_TRUE(sum_3D_col_00_correct);
     EXPECT_TRUE(sum_3D_col_01_correct);
     bool sum_3D_col_02_correct=true, sum_3D_col_10_correct=true;
     for( std::size_t ii=0; ii<7; ++ii){
-        double sum=0;
+        total=0;
         for( std::size_t jj=0; jj<6; ++jj){
             for( std::size_t kk=0; kk<8; ++kk){
-                sum += col_3D(jj,ii,kk);
+                total += col_3D(jj,ii,kk);
             }
         }
-        if(sum!=sum_3D_col_02(ii)) sum_3D_col_02_correct=false;
-        if(sum!=sum_3D_col_10(ii)) sum_3D_col_10_correct=false;
+        if(total!=sum_3D_col_02(ii)) sum_3D_col_02_correct=false;
+        if(total!=sum_3D_col_10(ii)) sum_3D_col_10_correct=false;
     }
     EXPECT_TRUE(sum_3D_col_02_correct);
     EXPECT_TRUE(sum_3D_col_10_correct);
     bool sum_3D_col_11_correct=true, sum_3D_col_12_correct=true;
     for( std::size_t ii=0; ii<6; ++ii){
-        double sum=0;
+        total=0;
         for( std::size_t jj=0; jj<7; ++jj){
             for( std::size_t kk=0; kk<8; ++kk){
-                sum += col_3D(ii,jj,kk);
+                total += col_3D(ii,jj,kk);
             }
         }
-        if(sum!=sum_3D_col_11(ii)) sum_3D_col_11_correct=false;
-        if(sum!=sum_3D_col_12(ii)) sum_3D_col_12_correct=false;
+        if(total!=sum_3D_col_11(ii)) sum_3D_col_11_correct=false;
+        if(total!=sum_3D_col_12(ii)) sum_3D_col_12_correct=false;
     }
     EXPECT_TRUE(sum_3D_col_11_correct);
     EXPECT_TRUE(sum_3D_col_12_correct);
@@ -589,40 +680,40 @@ TEST(ArrayFoldTest,Sum){
     EXPECT_TRUE( sum_3D_row_12.shape(0) == 6 );
     bool sum_3D_row_00_correct=true, sum_3D_row_01_correct=true;
     for( std::size_t ii=0; ii<8; ++ii){
-        double sum=0;
+        total=0;
         for( std::size_t jj=0; jj<7; ++jj){
             for( std::size_t kk=0; kk<6; ++kk){
-                sum += row_3D(kk,jj,ii);
+                total += row_3D(kk,jj,ii);
             }
         }
-        if(sum!=sum_3D_row_00(ii)) sum_3D_row_00_correct=false;
-        if(sum!=sum_3D_row_01(ii)) sum_3D_row_01_correct=false;
+        if(total!=sum_3D_row_00(ii)) sum_3D_row_00_correct=false;
+        if(total!=sum_3D_row_01(ii)) sum_3D_row_01_correct=false;
     }
     EXPECT_TRUE(sum_3D_row_00_correct);
     EXPECT_TRUE(sum_3D_row_01_correct);
     bool sum_3D_row_02_correct=true, sum_3D_row_10_correct=true;
     for( std::size_t ii=0; ii<7; ++ii){
-        double sum=0;
+        total=0;
         for( std::size_t jj=0; jj<6; ++jj){
             for( std::size_t kk=0; kk<8; ++kk){
-                sum += row_3D(jj,ii,kk);
+                total += row_3D(jj,ii,kk);
             }
         }
-        if(sum!=sum_3D_row_02(ii)) sum_3D_row_02_correct=false;
-        if(sum!=sum_3D_row_10(ii)) sum_3D_row_10_correct=false;
+        if(total!=sum_3D_row_02(ii)) sum_3D_row_02_correct=false;
+        if(total!=sum_3D_row_10(ii)) sum_3D_row_10_correct=false;
     }
     EXPECT_TRUE(sum_3D_row_02_correct);
     EXPECT_TRUE(sum_3D_row_10_correct);
     bool sum_3D_row_11_correct=true, sum_3D_row_12_correct=true;
     for( std::size_t ii=0; ii<6; ++ii){
-        double sum=0;
+        total=0;
         for( std::size_t jj=0; jj<7; ++jj){
             for( std::size_t kk=0; kk<8; ++kk){
-                sum += row_3D(ii,jj,kk);
+                total += row_3D(ii,jj,kk);
             }
         }
-        if(sum!=sum_3D_row_11(ii)) sum_3D_row_11_correct=false;
-        if(sum!=sum_3D_row_12(ii)) sum_3D_row_12_correct=false;
+        if(total!=sum_3D_row_11(ii)) sum_3D_row_11_correct=false;
+        if(total!=sum_3D_row_12(ii)) sum_3D_row_12_correct=false;
     }
     EXPECT_TRUE(sum_3D_row_11_correct);
     EXPECT_TRUE(sum_3D_row_12_correct);
@@ -648,40 +739,40 @@ TEST(ArrayFoldTest,Sum){
     EXPECT_TRUE( sum_3D_col_to_row_12.shape(0) == 6 );
     bool sum_3D_col_to_row_00_correct=true, sum_3D_col_to_row_01_correct=true;
     for( std::size_t ii=0; ii<8; ++ii){
-        double sum=0;
+        total=0;
         for( std::size_t jj=0; jj<7; ++jj){
             for( std::size_t kk=0; kk<6; ++kk){
-                sum += col_3D(kk,jj,ii);
+                total += col_3D(kk,jj,ii);
             }
         }
-        if(sum!=sum_3D_col_to_row_00(ii)) sum_3D_col_to_row_00_correct=false;
-        if(sum!=sum_3D_col_to_row_01(ii)) sum_3D_col_to_row_01_correct=false;
+        if(total!=sum_3D_col_to_row_00(ii)) sum_3D_col_to_row_00_correct=false;
+        if(total!=sum_3D_col_to_row_01(ii)) sum_3D_col_to_row_01_correct=false;
     }
     EXPECT_TRUE(sum_3D_col_to_row_00_correct);
     EXPECT_TRUE(sum_3D_col_to_row_01_correct);
     bool sum_3D_col_to_row_02_correct=true, sum_3D_col_to_row_10_correct=true;
     for( std::size_t ii=0; ii<7; ++ii){
-        double sum=0;
+        total=0;
         for( std::size_t jj=0; jj<6; ++jj){
             for( std::size_t kk=0; kk<8; ++kk){
-                sum += col_3D(jj,ii,kk);
+                total += col_3D(jj,ii,kk);
             }
         }
-        if(sum!=sum_3D_col_to_row_02(ii)) sum_3D_col_to_row_02_correct=false;
-        if(sum!=sum_3D_col_to_row_10(ii)) sum_3D_col_to_row_10_correct=false;
+        if(total!=sum_3D_col_to_row_02(ii)) sum_3D_col_to_row_02_correct=false;
+        if(total!=sum_3D_col_to_row_10(ii)) sum_3D_col_to_row_10_correct=false;
     }
     EXPECT_TRUE(sum_3D_col_to_row_02_correct);
     EXPECT_TRUE(sum_3D_col_to_row_10_correct);
     bool sum_3D_col_to_row_11_correct=true, sum_3D_col_to_row_12_correct=true;
     for( std::size_t ii=0; ii<6; ++ii){
-        double sum=0;
+        total=0;
         for( std::size_t jj=0; jj<7; ++jj){
             for( std::size_t kk=0; kk<8; ++kk){
-                sum += col_3D(ii,jj,kk);
+                total += col_3D(ii,jj,kk);
             }
         }
-        if(sum!=sum_3D_col_to_row_11(ii)) sum_3D_col_to_row_11_correct=false;
-        if(sum!=sum_3D_col_to_row_12(ii)) sum_3D_col_to_row_12_correct=false;
+        if(total!=sum_3D_col_to_row_11(ii)) sum_3D_col_to_row_11_correct=false;
+        if(total!=sum_3D_col_to_row_12(ii)) sum_3D_col_to_row_12_correct=false;
     }
     EXPECT_TRUE(sum_3D_col_to_row_11_correct);
     EXPECT_TRUE(sum_3D_col_to_row_12_correct);
@@ -707,40 +798,40 @@ TEST(ArrayFoldTest,Sum){
     EXPECT_TRUE( sum_3D_row_to_col_12.shape(0) == 6 );
     bool sum_3D_row_to_col_00_correct=true, sum_3D_row_to_col_01_correct=true;
     for( std::size_t ii=0; ii<8; ++ii){
-        double sum=0;
+        total=0;
         for( std::size_t jj=0; jj<7; ++jj){
             for( std::size_t kk=0; kk<6; ++kk){
-                sum += row_3D(kk,jj,ii);
+                total += row_3D(kk,jj,ii);
             }
         }
-        if(sum!=sum_3D_row_to_col_00(ii)) sum_3D_row_to_col_00_correct=false;
-        if(sum!=sum_3D_row_to_col_01(ii)) sum_3D_row_to_col_01_correct=false;
+        if(total!=sum_3D_row_to_col_00(ii)) sum_3D_row_to_col_00_correct=false;
+        if(total!=sum_3D_row_to_col_01(ii)) sum_3D_row_to_col_01_correct=false;
     }
     EXPECT_TRUE(sum_3D_row_to_col_00_correct);
     EXPECT_TRUE(sum_3D_row_to_col_01_correct);
     bool sum_3D_row_to_col_02_correct=true, sum_3D_row_to_col_10_correct=true;
     for( std::size_t ii=0; ii<7; ++ii){
-        double sum=0;
+        total=0;
         for( std::size_t jj=0; jj<6; ++jj){
             for( std::size_t kk=0; kk<8; ++kk){
-                sum += row_3D(jj,ii,kk);
+                total += row_3D(jj,ii,kk);
             }
         }
-        if(sum!=sum_3D_row_to_col_02(ii)) sum_3D_row_to_col_02_correct=false;
-        if(sum!=sum_3D_row_to_col_10(ii)) sum_3D_row_to_col_10_correct=false;
+        if(total!=sum_3D_row_to_col_02(ii)) sum_3D_row_to_col_02_correct=false;
+        if(total!=sum_3D_row_to_col_10(ii)) sum_3D_row_to_col_10_correct=false;
     }
     EXPECT_TRUE(sum_3D_row_to_col_02_correct);
     EXPECT_TRUE(sum_3D_row_to_col_10_correct);
     bool sum_3D_row_to_col_11_correct=true, sum_3D_row_to_col_12_correct=true;
     for( std::size_t ii=0; ii<6; ++ii){
-        double sum=0;
+        total=0;
         for( std::size_t jj=0; jj<7; ++jj){
             for( std::size_t kk=0; kk<8; ++kk){
-                sum += row_3D(ii,jj,kk);
+                total += row_3D(ii,jj,kk);
             }
         }
-        if(sum!=sum_3D_row_to_col_11(ii)) sum_3D_row_to_col_11_correct=false;
-        if(sum!=sum_3D_row_to_col_12(ii)) sum_3D_row_to_col_12_correct=false;
+        if(total!=sum_3D_row_to_col_11(ii)) sum_3D_row_to_col_11_correct=false;
+        if(total!=sum_3D_row_to_col_12(ii)) sum_3D_row_to_col_12_correct=false;
     }
     EXPECT_TRUE(sum_3D_row_to_col_11_correct);
     EXPECT_TRUE(sum_3D_row_to_col_12_correct);
@@ -757,13 +848,13 @@ TEST(ArrayFoldTest,Sum){
     bool sum_4D_00_correct=true;
     for( std::size_t ii=0; ii<8; ++ii){
         for( std::size_t jj=0; jj<9; ++ii){
-            double sum=0;
+            total=0;
             for( std::size_t kk=0; kk<6; ++kk){
                 for( std::size_t ll=0; ll<7; ++ll){
-                    sum += c(kk,ll,ii,jj);
+                    total += c(kk,ll,ii,jj);
                 }
             }
-            if(sum!=sum_4D_00(ii,jj)) sum_4D_00_correct=false;
+            if(total!=sum_4D_00(ii,jj)) sum_4D_00_correct=false;
         }
     }
     EXPECT_TRUE(sum_4D_00_correct);
@@ -774,13 +865,13 @@ TEST(ArrayFoldTest,Sum){
     bool sum_4D_11_correct=true;
     for( std::size_t ii=0; ii<6; ++ii){
         for( std::size_t jj=0; jj<9; ++ii){
-            double sum=0;
+            total=0;
             for( std::size_t kk=0; kk<7; ++kk){
                 for( std::size_t ll=0; ll<8; ++ll){
-                    sum += c(ii,kk,ll,jj);
+                    total += c(ii,kk,ll,jj);
                 }
             }
-            if(sum!=sum_4D_11(ii,jj)) sum_4D_11_correct=false;
+            if(total!=sum_4D_11(ii,jj)) sum_4D_11_correct=false;
         }
     }
     EXPECT_TRUE(sum_4D_11_correct);

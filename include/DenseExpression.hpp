@@ -393,7 +393,9 @@ public:
         _fold_dim(fold_dim),
         _fold_size(t.shape(fold_dim)),
         _start_val(start_val)
-    {}
+    {
+        if( _fold_dim >= _t.dims() ) throw ExpressionException("Ultramat: Fold dimension must be smaller than dims()");
+    }
 
     std::size_t size() const { 
         std::size_t result=1;
@@ -401,8 +403,8 @@ public:
         return result;
     }
 
-    std::size_t dims() const { return _t.dims()-1; }
-    decltype(auto) shape(std::size_t ii) const { return _t.shape(ii < _fold_dim ? ii : ii+1); }
+    std::size_t dims() const { return std::max((std::size_t)1,_t.dims()-1); }
+    decltype(auto) shape(std::size_t ii) const { return (_t.dims()==1 ? 1 : _t.shape(ii < _fold_dim ? ii : ii+1)); }
     decltype(auto) order() const noexcept { return _t.order(); }
     decltype(auto) num_stripes(std::size_t dim) const { return size()/shape(dim); }
     constexpr bool is_contiguous() const noexcept { return _t.is_contiguous(); }
