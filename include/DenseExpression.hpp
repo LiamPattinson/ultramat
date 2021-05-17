@@ -524,16 +524,22 @@ public:
 
     // Get stripe from _t
     decltype(auto) get_stripe( std::size_t stripe_num, std::size_t dim, RCOrder order) const {
-        std::size_t start_stripe_num, end_stripe_num, stripe_num_inc;
         std::size_t first_dim = ( order == RCOrder::col_major ? 0 : dims()-1);
+
+        std::size_t stripe_num_inc = 1;
+        for(std::size_t ii=first_dim; ii != dim; ii += (order==RCOrder::col_major ? 1 : -1)){
+            stripe_num_inc *= shape(ii);
+        }
+
+        std::size_t start_stripe_num;
         if( dim==first_dim ){
             start_stripe_num = stripe_num*shape(first_dim);
-            stripe_num_inc = 1;
         } else {
-            start_stripe_num = stripe_num;
-            stripe_num_inc = shape(first_dim);
+            start_stripe_num = (stripe_num % stripe_num_inc);
+            start_stripe_num += (stripe_num / stripe_num_inc)*stripe_num_inc*shape(dim);
         }
-        end_stripe_num = start_stripe_num+stripe_num_inc*shape(dim);
+
+        std::size_t end_stripe_num = start_stripe_num + stripe_num_inc*shape(dim);
         return Stripe(std::forward<T>(_t),_fold_dim,order,_start_val,start_stripe_num,end_stripe_num,stripe_num_inc);
     }
 };
