@@ -374,7 +374,7 @@ protected:
     using input_value_type = typename std::remove_cvref_t<T>::value_type;
     using start_type = StartType;
     using value_type = decltype(std::declval<F>()(std::declval<start_type>(),std::declval<input_value_type>()));
-    static_assert( std::is_same<start_type,value_type>::value );
+    static_assert( std::is_same<start_type,std::remove_cvref_t<value_type>>::value );
     static constexpr bool is_general_fold = true;
     static constexpr bool is_accumulate = false;
     static constexpr bool is_boolean_fold = false;
@@ -391,19 +391,20 @@ protected:
     using input_value_type = typename std::remove_cvref_t<T>::value_type;
     using result_type = decltype(std::declval<F>()(std::declval<ValueType>(),std::declval<ValueType>()));
     static_assert( std::is_same<ValueType,input_value_type>::value );
-    static_assert( std::is_same<ValueType,result_type>::value );
+    static_assert( std::is_same<ValueType,std::remove_cvref_t<result_type>>::value );
     static constexpr bool is_general_fold = false;
     static constexpr bool is_accumulate = true;
     static constexpr bool is_boolean_fold = false;
 };
 
-template<class F, class StartT, class T>
+template<class F, class ValueType, class T>
 class BooleanFoldPolicy {
+    static_assert( std::is_same<ValueType,bool>::value );
 protected:
+    using value_type = ValueType;
     using input_value_type = typename std::remove_cvref_t<T>::value_type;
-    using start_type = bool;
-    using value_type = decltype(std::declval<F>()(std::declval<start_type>(),std::declval<input_value_type>()));
-    static_assert( std::is_same<start_type,value_type>::value );
+    using result_type = decltype(std::declval<F>()(std::declval<ValueType>(),std::declval<input_value_type>()));
+    static_assert( std::is_same<result_type,value_type>::value );
     static constexpr bool is_general_fold = false;
     static constexpr bool is_accumulate = false;
     static constexpr bool is_boolean_fold = true;
@@ -536,17 +537,15 @@ public:
             return val;
         }
 
-        /* TODO
         decltype(auto) operator*() requires (is_boolean_fold) {
-            // Does not actually use F
-            bool result = FoldPolicy<F,ValueType,T>::start_bool;
+            // Rather than using F directly, we will instead make use of start_bool and early_exit_bool 
+            bool result = F::start_bool;
             auto stripe = _t.get_stripe(_stripe_num,_stripe_dim,_order);
             for( auto&& x : stripe){
-                if( x == FoldPolicy<F,ValueType,T>::early_exit_bool ) return !result;
+                if( x == F::early_exit_bool ) return !result;
             }
             return result;
         }
-        */
 
         const_iterator& operator++() { _stripe_num+=_stripe_inc; return *this; }
         bool operator==(const const_iterator& it) { return _stripe_num == it._stripe_num; }
@@ -662,7 +661,7 @@ public:
 
 template<class F, class ValueType, class T> using FoldDenseExpression = FoldDenseExpressionImpl<F,ValueType,T,GeneralFoldPolicy>;
 template<class F, class T> using AccumulateDenseExpression = FoldDenseExpressionImpl<F,typename std::remove_cvref_t<T>::value_type,T,AccumulatePolicy>;
-//template<class F, class T> using BooleanFoldDenseExpression = FoldDenseExpressionImpl<F,T,BooleanFoldPolicy>; // needs work
+template<class F, class T> using BooleanFoldDenseExpression = FoldDenseExpressionImpl<F,bool,T,BooleanFoldPolicy>;
 
 } // namespace
 #endif

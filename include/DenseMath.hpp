@@ -601,8 +601,8 @@ decltype(auto) cumprod( const DenseExpression<T>&& t, const StartT& start = 1){
 
 // functors
 
-struct Min { template<class X,class Y> decltype(auto) operator()( const X& x, const Y& y) const { return x < y ? x : y;}};
-struct Max { template<class X,class Y> decltype(auto) operator()( const X& x, const Y& y) const { return x > y ? x : y;}};
+struct Min { template<class T> decltype(auto) operator()( const T& x, const T& y) const { return (x < y ? x : y);}};
+struct Max { template<class T> decltype(auto) operator()( const T& x, const T& y) const { return (x > y ? x : y);}};
 
 // Functions
 
@@ -632,7 +632,7 @@ decltype(auto) prod( const DenseExpression<T>& t, std::size_t dim){
 }
 
 template<class T>
-decltype(auto) prod( const DenseExpression<T>&& t, std::size_t dim){
+decltype(auto) prod( DenseExpression<T>&& t, std::size_t dim){
     return accumulate(Multiplies{},static_cast<T&&>(t),dim);
 }
 
@@ -642,7 +642,7 @@ decltype(auto) min( const DenseExpression<T>& t, std::size_t dim){
 }
 
 template<class T>
-decltype(auto) min( const DenseExpression<T>&& t, std::size_t dim){
+decltype(auto) min( DenseExpression<T>&& t, std::size_t dim){
     return accumulate(Min{},static_cast<T&&>(t), dim);
 }
 
@@ -652,8 +652,68 @@ decltype(auto) max( const DenseExpression<T>& t, std::size_t dim){
 }
 
 template<class T>
-decltype(auto) max( const DenseExpression<T>&& t, std::size_t dim){
+decltype(auto) max( DenseExpression<T>&& t, std::size_t dim){
     return accumulate(Max{},static_cast<T&&>(t),dim);
+}
+
+// =========================
+// BooleanFolds
+
+struct AllOf {
+    template<class Y>
+    bool operator()( bool x, const Y& y) const {
+        return x && y;
+    }
+    static constexpr bool start_bool = true;
+    static constexpr bool early_exit_bool = false;
+};
+
+struct AnyOf {
+    template<class Y>
+    bool operator()( bool x, const Y& y) const {
+        return x || y;
+    }
+    static constexpr bool start_bool = false;
+    static constexpr bool early_exit_bool = true;
+};
+
+struct NoneOf {
+    template<class Y>
+    bool operator()( bool x, const Y& y) const {
+        return x && !y;
+    }
+    static constexpr bool start_bool = true;
+    static constexpr bool early_exit_bool = true;
+};
+
+template<class T>
+decltype(auto) all_of( const DenseExpression<T>& t, std::size_t dim){
+    return BooleanFoldDenseExpression(AllOf{},static_cast<const T&>(t),dim);
+}
+
+template<class T>
+decltype(auto) all_of( DenseExpression<T>&& t, std::size_t dim){
+    return BooleanFoldDenseExpression(AllOf{},static_cast<T&&>(t),dim);
+}
+
+template<class T>
+decltype(auto) any_of( const DenseExpression<T>& t, std::size_t dim){
+    return BooleanFoldDenseExpression(AnyOf{},static_cast<const T&>(t),dim);
+}
+
+template<class T>
+decltype(auto) any_of( DenseExpression<T>&& t, std::size_t dim){
+    return BooleanFoldDenseExpression(AnyOf{},static_cast<T&&>(t),dim);
+}
+
+template<class T>
+decltype(auto) none_of( const DenseExpression<T>& t, std::size_t dim){
+    return BooleanFoldDenseExpression(NoneOf{},static_cast<const T&>(t),dim);
+}
+
+template<class T>
+decltype(auto) none_of( DenseExpression<T>&& t, std::size_t dim){
+    return BooleanFoldDenseExpression(NoneOf{},static_cast<T&&>(t),dim);
 }
 
 } // namespace

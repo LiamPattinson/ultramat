@@ -6,7 +6,7 @@
 using namespace ultra;
 using shape_vec = std::vector<std::size_t>;
 
-TEST(ArrayArithmeticTest,Arithmetic){
+TEST(ArrayMathTest,Arithmetic){
     auto shape = shape_vec{5,10,20};
     Array<int>::col_major         a(shape);
     Array<float>::row_major       b(shape);
@@ -38,7 +38,7 @@ TEST(ArrayArithmeticTest,Arithmetic){
     EXPECT_TRUE( e_correct );
 }
 
-TEST(ArrayArithmeticTest,Boolean){
+TEST(ArrayMathTest,Boolean){
     auto shape = shape_vec{5,7};
     Array<int>::col_major      a(shape);
     Array<bool>::row_major     b(shape);
@@ -75,7 +75,7 @@ TEST(ArrayArithmeticTest,Boolean){
     EXPECT_TRUE(bool_arithmetic_correct);
 }
 
-TEST(ArrayArithmeticTest,InPlaceArithmetic){
+TEST(ArrayMathTest,InPlaceArithmetic){
     auto shape = shape_vec{5,10,20};
     Array<double>::row_major a(shape);
     Array<double>::col_major b(shape);
@@ -195,7 +195,7 @@ TEST(ArrayMathTest,Eval){
  
 }
 
-TEST(ArrayCumulativeTest,CumulativeSum){
+TEST(ArrayMathTest,CumulativeSum){
     auto shape = shape_vec{5,10,20};
     Array<float>  a(shape);
     Array<double> b(shape);
@@ -218,7 +218,7 @@ TEST(ArrayCumulativeTest,CumulativeSum){
 
 }
 
-TEST(ArrayCumulativeTest,CumulativeProduct){
+TEST(ArrayMathTest,CumulativeProduct){
     auto shape = shape_vec{3,3};
     Array<double>::col_major a(shape);
     Array<double>::col_major b(shape);
@@ -237,466 +237,454 @@ TEST(ArrayCumulativeTest,CumulativeProduct){
     EXPECT_TRUE(c.shape(1) == 3);
 }
 
-class ArraySumTest : public ::testing::Test {
+template<class T1, class T2>
+T1 single_sum( const T2& array, std::size_t dim0=0) {
+    return sum(array,dim0);
+}
 
-    protected:
+template<class T1, class T2>
+T1 double_sum( const T2& array, std::size_t dim0, std::size_t dim1) {
+    return sum(sum(array,dim0),dim1);
+}
 
-    Array<std::size_t>::col_major col_1D, col_2D, col_3D, col_4D, col_5D;
-    Array<std::size_t>::row_major row_1D, row_2D, row_3D, row_4D, row_5D;
+template<class T1, class T2>
+T1 triple_sum( const T2& array, std::size_t dim0, std::size_t dim1, std::size_t dim2) {
+    return sum(sum(sum(array,dim0),dim1),dim2);
+}
 
-    ArraySumTest() :
-        col_1D(shape_vec{6}),
-        col_2D(shape_vec{6,7}),
-        col_3D(shape_vec{6,7,8}),
-        col_4D(shape_vec{4,5,6,7}),
-        col_5D(shape_vec{3,4,2,5,2}),
-        row_1D(shape_vec{6}),
-        row_2D(shape_vec{6,7}),
-        row_3D(shape_vec{6,7,8}),
-        row_4D(shape_vec{4,5,6,7}),
-        row_5D(shape_vec{3,4,2,5,2})
-    {
-        std::size_t count;
-        count = 0; for( auto&& x : col_1D ) x = count++;
-        count = 0; for( auto&& x : col_2D ) x = count++;
-        count = 0; for( auto&& x : col_3D ) x = count++;
-        count = 0; for( auto&& x : col_4D ) x = count++;
-        count = 0; for( auto&& x : col_5D ) x = count++;
-        count = 0; for( auto&& x : row_1D ) x = count++;
-        count = 0; for( auto&& x : row_2D ) x = count++;
-        count = 0; for( auto&& x : row_3D ) x = count++;
-        count = 0; for( auto&& x : row_4D ) x = count++;
-        count = 0; for( auto&& x : row_5D ) x = count++;
+template<class T1, class T2>
+T1 quad_sum( const T2& array, std::size_t dim0, std::size_t dim1, std::size_t dim2, std::size_t dim3) {
+    return sum(sum(sum(sum(array,dim0),dim1),dim2),dim3);
+}
+
+template<class T1, class T2>
+T1 quin_sum( const T2& array, std::size_t dim0, std::size_t dim1, std::size_t dim2, std::size_t dim3, std::size_t dim4) {
+    return sum(sum(sum(sum(sum(array,dim0),dim1),dim2),dim3),dim4);
+}
+
+template<class T1, class T2>
+bool test_1D( const T2& array ) {
+    bool correct = true;
+    T1 result = single_sum<T1,T2>(array);
+    if( result.dims() != 1 ){ correct=false; std::cerr << "Incorrect dims" << std::endl;}
+    if( result.size() != 1 ){ correct=false; std::cerr << "Incorrect size" << std::endl;}
+    if( result.shape(0) != 1 ){ correct=false; std::cerr << "Incorrect shape(0)" << std::endl;}
+    std::size_t total=0;
+    for( std::size_t ii=0; ii<array.shape(0); ++ii){
+        total += array(ii);
     }
+    if( total != result(0) ){ correct=false; std::cerr << "Expected: " << total << " Actual: " << result(0) << std::endl;}
+    return correct;
+}
 
-    template<class T1, class T2>
-    T1 single_sum( const T2& array, std::size_t dim0=0) {
-        return sum(array,dim0);
-    }
-
-    template<class T1, class T2>
-    T1 double_sum( const T2& array, std::size_t dim0, std::size_t dim1) {
-        return sum(sum(array,dim0),dim1);
-    }
-
-    template<class T1, class T2>
-    T1 triple_sum( const T2& array, std::size_t dim0, std::size_t dim1, std::size_t dim2) {
-        return sum(sum(sum(array,dim0),dim1),dim2);
-    }
-
-    template<class T1, class T2>
-    T1 quad_sum( const T2& array, std::size_t dim0, std::size_t dim1, std::size_t dim2, std::size_t dim3) {
-        return sum(sum(sum(sum(array,dim0),dim1),dim2),dim3);
-    }
-
-    template<class T1, class T2>
-    T1 quin_sum( const T2& array, std::size_t dim0, std::size_t dim1, std::size_t dim2, std::size_t dim3, std::size_t dim4) {
-        return sum(sum(sum(sum(sum(array,dim0),dim1),dim2),dim3),dim4);
-    }
-
-    template<class T1, class T2>
-    bool test_1D( const T2& array ) {
-        bool correct = true;
-        T1 result = single_sum<T1,T2>(array);
-        if( result.dims() != 1 ){ correct=false; std::cerr << "Incorrect dims" << std::endl;}
-        if( result.size() != 1 ){ correct=false; std::cerr << "Incorrect size" << std::endl;}
-        if( result.shape(0) != 1 ){ correct=false; std::cerr << "Incorrect shape(0)" << std::endl;}
-        std::size_t total=0;
-        for( std::size_t ii=0; ii<array.shape(0); ++ii){
-            total += array(ii);
+template<class T1, class T2>
+bool test_2D_single( const T2& array, std::size_t dim ) {
+    bool correct = true;
+    T1 result = single_sum<T1,T2>(array,dim);
+    if( result.dims() != 1 ){ correct=false; std::cerr << "Incorrect dims" << std::endl;}
+    if( result.shape(0) != array.shape(!dim) ){ correct=false; std::cerr << "Incorrect shape(0)" << std::endl;}
+    std::size_t total;
+    shape_vec permutation{0,1};
+    std::swap( permutation[1], permutation[dim] );
+    auto view = array.permute(permutation);
+    for( std::size_t ii=0; ii<view.shape(0); ++ii){
+        total=0;
+        for( std::size_t jj=0; jj<view.shape(1); ++jj){
+            total += view(ii,jj);
         }
-        if( total != result(0) ){ correct=false; std::cerr << "Expected: " << total << " Actual: " << result(0) << std::endl;}
-        return correct;
-    }
-
-    template<class T1, class T2>
-    bool test_2D_single( const T2& array, std::size_t dim ) {
-        bool correct = true;
-        T1 result = single_sum<T1,T2>(array,dim);
-        if( result.dims() != 1 ){ correct=false; std::cerr << "Incorrect dims" << std::endl;}
-        if( result.shape(0) != array.shape(!dim) ){ correct=false; std::cerr << "Incorrect shape(0)" << std::endl;}
-        std::size_t total;
-        shape_vec permutation{0,1};
-        std::swap( permutation[1], permutation[dim] );
-        auto view = array.permute(permutation);
-        for( std::size_t ii=0; ii<view.shape(0); ++ii){
-            total=0;
-            for( std::size_t jj=0; jj<view.shape(1); ++jj){
-                total += view(ii,jj);
-            }
-            if( total != result(ii) ){
-                correct=false;
-                std::cerr << "[" << ii << "] Expected: " << total << " Actual: " << result(ii) << std::endl;
-            }
-        }
-        return correct;
-    }
-
-    template<class T1, class T2>
-    bool test_2D_double( const T2& array, std::size_t dim ) {
-        bool correct = true;
-        T1 result = double_sum<T1,T2>(array,dim,0);
-        if( result.dims() != 1 ){ correct=false; std::cerr << "Incorrect dims" << std::endl;}
-        if( result.shape(0) != 1 ){ correct=false; std::cerr << "Incorrect shape(0)" << std::endl;}
-        std::size_t total = 0;
-        for( std::size_t ii=0; ii<array.shape(0); ++ii){
-            for( std::size_t jj=0; jj<array.shape(1); ++jj){
-                total += array(ii,jj);
-            }
-        }
-        if( total != result(0) ){
+        if( total != result(ii) ){
             correct=false;
-            std::cerr << " Expected: " << total << " Actual: " << result(0) << std::endl;
+            std::cerr << "[" << ii << "] Expected: " << total << " Actual: " << result(ii) << std::endl;
         }
-        return correct;
     }
+    return correct;
+}
 
-    template<class T1, class T2>
-    bool test_3D_single( const T2& array, std::size_t dim ) {
-        bool correct = true;
-        T1 result = single_sum<T1,T2>(array,dim);
-        if( result.dims() != 2 ){ correct=false; std::cerr << "Incorrect dims" << std::endl;}
-        if( result.shape(0) != array.shape(dim==0 ? 1 : 0) ){ correct=false; std::cerr << "Incorrect shape(0)" << std::endl;}
-        if( result.shape(1) != array.shape(dim<=1 ? 2 : 1) ){ correct=false; std::cerr << "Incorrect shape(1)" << std::endl;}
-        std::size_t total;
-        shape_vec permutation{0,1,2};
-        std::swap( permutation[2], permutation[dim] );
-        std::sort(permutation.begin(), permutation.begin()+2);
-        auto view = array.permute(permutation);
-        for( std::size_t ii=0; ii<view.shape(0); ++ii){
-            for( std::size_t jj=0; jj<view.shape(1); ++jj){
+template<class T1, class T2>
+bool test_2D_double( const T2& array, std::size_t dim ) {
+    bool correct = true;
+    T1 result = double_sum<T1,T2>(array,dim,0);
+    if( result.dims() != 1 ){ correct=false; std::cerr << "Incorrect dims" << std::endl;}
+    if( result.shape(0) != 1 ){ correct=false; std::cerr << "Incorrect shape(0)" << std::endl;}
+    std::size_t total = 0;
+    for( std::size_t ii=0; ii<array.shape(0); ++ii){
+        for( std::size_t jj=0; jj<array.shape(1); ++jj){
+            total += array(ii,jj);
+        }
+    }
+    if( total != result(0) ){
+        correct=false;
+        std::cerr << " Expected: " << total << " Actual: " << result(0) << std::endl;
+    }
+    return correct;
+}
+
+template<class T1, class T2>
+bool test_3D_single( const T2& array, std::size_t dim ) {
+    bool correct = true;
+    T1 result = single_sum<T1,T2>(array,dim);
+    if( result.dims() != 2 ){ correct=false; std::cerr << "Incorrect dims" << std::endl;}
+    if( result.shape(0) != array.shape(dim==0 ? 1 : 0) ){ correct=false; std::cerr << "Incorrect shape(0)" << std::endl;}
+    if( result.shape(1) != array.shape(dim<=1 ? 2 : 1) ){ correct=false; std::cerr << "Incorrect shape(1)" << std::endl;}
+    std::size_t total;
+    shape_vec permutation{0,1,2};
+    std::swap( permutation[2], permutation[dim] );
+    std::sort(permutation.begin(), permutation.begin()+2);
+    auto view = array.permute(permutation);
+    for( std::size_t ii=0; ii<view.shape(0); ++ii){
+        for( std::size_t jj=0; jj<view.shape(1); ++jj){
+            total=0;
+            for( std::size_t kk=0; kk<view.shape(2); ++kk){
+                total += view(ii,jj,kk);
+            }
+            if( total != result(ii,jj) ){
+                correct=false;
+                std::cerr << "[" << ii << "," << jj << "] Expected: " << total << " Actual: " << result(ii,jj) << std::endl;
+            }
+        }
+    }
+    return correct;
+}
+
+template<class T1, class T2>
+bool test_3D_double( const T2& array, std::size_t dim0 , std::size_t dim1) {
+    bool correct = true;
+    T1 result = double_sum<T1,T2>(array,dim0,dim1);
+    if( result.dims() != 1 ){ correct=false; std::cerr << "Incorrect dims" << std::endl;}
+    std::size_t total;
+    shape_vec permutation{0,1,2};
+    std::swap( permutation[2], permutation[dim0] );
+    std::sort(permutation.begin(), permutation.begin()+2);
+    std::swap( permutation[1], permutation[dim1] );
+    std::sort(permutation.begin(), permutation.begin()+1);
+    auto view = array.permute(permutation);
+    for( std::size_t ii=0; ii<view.shape(0); ++ii){
+        total=0;
+        for( std::size_t jj=0; jj<view.shape(1); ++jj){
+            for( std::size_t kk=0; kk<view.shape(2); ++kk){
+                total += view(ii,jj,kk);
+            }
+        }
+        if( total != result(ii) ){
+            correct=false;
+            std::cerr << "[" << ii << "] Expected: " << total << " Actual: " << result(ii) << std::endl;
+        }
+    }
+    return correct;
+}
+
+template<class T1, class T2>
+bool test_3D_triple( const T2& array, std::size_t dim0 , std::size_t dim1) {
+    bool correct = true;
+    T1 result = triple_sum<T1,T2>(array,dim0,dim1,0);
+    if( result.dims() != 1 ){ correct=false; std::cerr << "Incorrect dims" << std::endl;}
+    if( result.size() != 1 ){ correct=false; std::cerr << "Incorrect size" << std::endl;}
+    if( result.shape(0) != 1 ){ correct=false; std::cerr << "Incorrect shape(0)" << std::endl;}
+    std::size_t total=0;
+    for( std::size_t ii=0; ii<array.shape(0); ++ii){
+        for( std::size_t jj=0; jj<array.shape(1); ++jj){
+            for( std::size_t kk=0; kk<array.shape(2); ++kk){
+                total += array(ii,jj,kk);
+            }
+        }
+    }
+    if( total != result(0) ){
+        correct=false;
+        std::cerr << "Expected: " << total << " Actual: " << result(0) << std::endl;
+    }
+    return correct;
+}
+
+template<class T1, class T2>
+bool test_4D_single( const T2& array, std::size_t dim ) {
+    bool correct = true;
+    T1 result = single_sum<T1,T2>(array,dim);
+    if( result.dims() != 3 ){ correct=false; std::cerr << "Incorrect dims" << std::endl;}
+    if( result.shape(0) != array.shape(dim==0 ? 1 : 0) ){ correct=false; std::cerr << "Incorrect shape(0)" << std::endl;}
+    if( result.shape(1) != array.shape(dim<=1 ? 2 : 1) ){ correct=false; std::cerr << "Incorrect shape(1)" << std::endl;}
+    if( result.shape(2) != array.shape(dim<=2 ? 3 : 2) ){ correct=false; std::cerr << "Incorrect shape(2)" << std::endl;}
+    std::size_t total;
+    shape_vec permutation{0,1,2,3};
+    std::swap( permutation[3], permutation[dim] );
+    std::sort(permutation.begin(), permutation.begin()+3);
+    auto view = array.permute(permutation);
+    for( std::size_t ii=0; ii<view.shape(0); ++ii){
+        for( std::size_t jj=0; jj<view.shape(1); ++jj){
+            for( std::size_t kk=0; kk<view.shape(2); ++kk){
                 total=0;
-                for( std::size_t kk=0; kk<view.shape(2); ++kk){
-                    total += view(ii,jj,kk);
+                for( std::size_t ll=0; ll<view.shape(3); ++ll){
+                    total += view(ii,jj,kk,ll);
                 }
-                if( total != result(ii,jj) ){
+                if( total != result(ii,jj,kk) ){
                     correct=false;
-                    std::cerr << "[" << ii << "," << jj << "] Expected: " << total << " Actual: " << result(ii,jj) << std::endl;
+                    std::cerr << "[" << ii << "," << jj << "," << kk << "] Expected: " << total << " Actual: " << result(ii,jj,kk) << std::endl;
                 }
             }
         }
-        return correct;
     }
+    return correct;
+}
 
-    template<class T1, class T2>
-    bool test_3D_double( const T2& array, std::size_t dim0 , std::size_t dim1) {
-        bool correct = true;
-        T1 result = double_sum<T1,T2>(array,dim0,dim1);
-        if( result.dims() != 1 ){ correct=false; std::cerr << "Incorrect dims" << std::endl;}
-        std::size_t total;
-        shape_vec permutation{0,1,2};
-        std::swap( permutation[2], permutation[dim0] );
-        std::sort(permutation.begin(), permutation.begin()+2);
-        std::swap( permutation[1], permutation[dim1] );
-        std::sort(permutation.begin(), permutation.begin()+1);
-        auto view = array.permute(permutation);
-        for( std::size_t ii=0; ii<view.shape(0); ++ii){
+template<class T1, class T2>
+bool test_4D_double( const T2& array, std::size_t dim0, std::size_t dim1) {
+    bool correct = true;
+    T1 result = double_sum<T1,T2>(array,dim0,dim1);
+    if( result.dims() != 2 ){ correct=false; std::cerr << "Incorrect dims" << std::endl;}
+    std::size_t total;
+    shape_vec permutation{0,1,2,3};
+    std::swap( permutation[3], permutation[dim0] );
+    std::sort(permutation.begin(), permutation.begin()+3);
+    std::swap( permutation[2], permutation[dim1] );
+    std::sort(permutation.begin(), permutation.begin()+2);
+    auto view = array.permute(permutation);
+    for( std::size_t ii=0; ii<view.shape(0); ++ii){
+        for( std::size_t jj=0; jj<view.shape(1); ++jj){
             total=0;
-            for( std::size_t jj=0; jj<view.shape(1); ++jj){
-                for( std::size_t kk=0; kk<view.shape(2); ++kk){
-                    total += view(ii,jj,kk);
+            for( std::size_t kk=0; kk<view.shape(2); ++kk){
+                for( std::size_t ll=0; ll<view.shape(3); ++ll){
+                    total += view(ii,jj,kk,ll);
                 }
             }
-            if( total != result(ii) ){
+            if( total != result(ii,jj) ){
                 correct=false;
-                std::cerr << "[" << ii << "] Expected: " << total << " Actual: " << result(ii) << std::endl;
+                std::cerr << "[" << ii << "," << jj << "] Expected: " << total << " Actual: " << result(ii,jj) << std::endl;
             }
         }
-        return correct;
     }
+    return correct;
+}
 
-    template<class T1, class T2>
-    bool test_3D_triple( const T2& array, std::size_t dim0 , std::size_t dim1) {
-        bool correct = true;
-        T1 result = triple_sum<T1,T2>(array,dim0,dim1,0);
-        if( result.dims() != 1 ){ correct=false; std::cerr << "Incorrect dims" << std::endl;}
-        if( result.size() != 1 ){ correct=false; std::cerr << "Incorrect size" << std::endl;}
-        if( result.shape(0) != 1 ){ correct=false; std::cerr << "Incorrect shape(0)" << std::endl;}
-        std::size_t total=0;
-        for( std::size_t ii=0; ii<array.shape(0); ++ii){
-            for( std::size_t jj=0; jj<array.shape(1); ++jj){
-                for( std::size_t kk=0; kk<array.shape(2); ++kk){
-                    total += array(ii,jj,kk);
+template<class T1, class T2>
+bool test_4D_triple( const T2& array, std::size_t dim0, std::size_t dim1, std::size_t dim2) {
+    bool correct = true;
+    T1 result = triple_sum<T1,T2>(array,dim0,dim1,dim2);
+    if( result.dims() != 1 ){ correct=false; std::cerr << "Incorrect dims" << std::endl;}
+    std::size_t total;
+    shape_vec permutation{0,1,2,3};
+    std::swap( permutation[3], permutation[dim0] );
+    std::sort(permutation.begin(), permutation.begin()+3);
+    std::swap( permutation[2], permutation[dim1] );
+    std::sort(permutation.begin(), permutation.begin()+2);
+    std::swap( permutation[1], permutation[dim2] );
+    auto view = array.permute(permutation);
+    for( std::size_t ii=0; ii<view.shape(0); ++ii){
+        total=0;
+        for( std::size_t jj=0; jj<view.shape(1); ++jj){
+            for( std::size_t kk=0; kk<view.shape(2); ++kk){
+                for( std::size_t ll=0; ll<view.shape(3); ++ll){
+                    total += view(ii,jj,kk,ll);
                 }
             }
         }
-        if( total != result(0) ){
+        if( total != result(ii) ){
             correct=false;
-            std::cerr << "Expected: " << total << " Actual: " << result(0) << std::endl;
+            std::cerr << "[" << ii << "] Expected: " << total << " Actual: " << result(ii) << std::endl;
         }
-        return correct;
     }
+    return correct;
+}
 
-    template<class T1, class T2>
-    bool test_4D_single( const T2& array, std::size_t dim ) {
-        bool correct = true;
-        T1 result = single_sum<T1,T2>(array,dim);
-        if( result.dims() != 3 ){ correct=false; std::cerr << "Incorrect dims" << std::endl;}
-        if( result.shape(0) != array.shape(dim==0 ? 1 : 0) ){ correct=false; std::cerr << "Incorrect shape(0)" << std::endl;}
-        if( result.shape(1) != array.shape(dim<=1 ? 2 : 1) ){ correct=false; std::cerr << "Incorrect shape(1)" << std::endl;}
-        if( result.shape(2) != array.shape(dim<=2 ? 3 : 2) ){ correct=false; std::cerr << "Incorrect shape(2)" << std::endl;}
-        std::size_t total;
-        shape_vec permutation{0,1,2,3};
-        std::swap( permutation[3], permutation[dim] );
-        std::sort(permutation.begin(), permutation.begin()+3);
-        auto view = array.permute(permutation);
-        for( std::size_t ii=0; ii<view.shape(0); ++ii){
-            for( std::size_t jj=0; jj<view.shape(1); ++jj){
-                for( std::size_t kk=0; kk<view.shape(2); ++kk){
+template<class T1, class T2>
+bool test_4D_quad( const T2& array, std::size_t dim0 , std::size_t dim1, std::size_t dim2) {
+    bool correct = true;
+    T1 result = quad_sum<T1,T2>(array,dim0,dim1,dim2,0);
+    if( result.dims() != 1 ){ correct=false; std::cerr << "Incorrect dims" << std::endl;}
+    std::size_t total = 0;
+    for( std::size_t ii=0; ii<array.shape(0); ++ii){
+        for( std::size_t jj=0; jj<array.shape(1); ++jj){
+            for( std::size_t kk=0; kk<array.shape(2); ++kk){
+                for( std::size_t ll=0; ll<array.shape(3); ++ll){
+                    total += array(ii,jj,kk,ll);
+                }
+            }
+        }
+    }
+    if( total != result(0) ){
+        correct=false;
+        std::cerr << "Expected: " << total << " Actual: " << result(0) << std::endl;
+    }
+    return correct;
+}
+
+template<class T1, class T2>
+bool test_5D_single( const T2& array, std::size_t dim ) {
+    bool correct = true;
+    T1 result = single_sum<T1,T2>(array,dim);
+    if( result.dims() != 4 ){ correct=false; std::cerr << "Incorrect dims" << std::endl;}
+    if( result.shape(0) != array.shape(dim==0 ? 1 : 0) ){ correct=false; std::cerr << "Incorrect shape(0)" << std::endl;}
+    if( result.shape(1) != array.shape(dim<=1 ? 2 : 1) ){ correct=false; std::cerr << "Incorrect shape(1)" << std::endl;}
+    if( result.shape(2) != array.shape(dim<=2 ? 3 : 2) ){ correct=false; std::cerr << "Incorrect shape(2)" << std::endl;}
+    if( result.shape(3) != array.shape(dim<=3 ? 4 : 3) ){ correct=false; std::cerr << "Incorrect shape(3)" << std::endl;}
+    std::size_t total;
+    shape_vec permutation{0,1,2,3,4};
+    std::swap( permutation[4], permutation[dim] );
+    std::sort(permutation.begin(), permutation.begin()+4);
+    auto view = array.permute(permutation);
+    for( std::size_t ii=0; ii<view.shape(0); ++ii){
+        for( std::size_t jj=0; jj<view.shape(1); ++jj){
+            for( std::size_t kk=0; kk<view.shape(2); ++kk){
+                for( std::size_t ll=0; ll<view.shape(3); ++ll){
                     total=0;
-                    for( std::size_t ll=0; ll<view.shape(3); ++ll){
-                        total += view(ii,jj,kk,ll);
+                    for( std::size_t mm=0; mm<view.shape(4); ++mm){
+                        total += view(ii,jj,kk,ll,mm);
                     }
-                    if( total != result(ii,jj,kk) ){
+                    if( total != result(ii,jj,kk,ll) ){
                         correct=false;
-                        std::cerr << "[" << ii << "," << jj << "," << kk << "] Expected: " << total << " Actual: " << result(ii,jj,kk) << std::endl;
+                        std::cerr << "[" << ii << "," << jj << "," << kk << "," << ll << "] Expected: " << total << " Actual: " << result(ii,jj,kk,ll) << std::endl;
                     }
                 }
             }
         }
-        return correct;
     }
+    return correct;
+}
 
-    template<class T1, class T2>
-    bool test_4D_double( const T2& array, std::size_t dim0, std::size_t dim1) {
-        bool correct = true;
-        T1 result = double_sum<T1,T2>(array,dim0,dim1);
-        if( result.dims() != 2 ){ correct=false; std::cerr << "Incorrect dims" << std::endl;}
-        std::size_t total;
-        shape_vec permutation{0,1,2,3};
-        std::swap( permutation[3], permutation[dim0] );
-        std::sort(permutation.begin(), permutation.begin()+3);
-        std::swap( permutation[2], permutation[dim1] );
-        std::sort(permutation.begin(), permutation.begin()+2);
-        auto view = array.permute(permutation);
-        for( std::size_t ii=0; ii<view.shape(0); ++ii){
-            for( std::size_t jj=0; jj<view.shape(1); ++jj){
+template<class T1, class T2>
+bool test_5D_double( const T2& array, std::size_t dim0 , std::size_t dim1) {
+    bool correct = true;
+    T1 result = double_sum<T1,T2>(array,dim0,dim1);
+    if( result.dims() != 3 ){ correct=false; std::cerr << "Incorrect dims" << std::endl;}
+    std::size_t total;
+    shape_vec permutation{0,1,2,3,4};
+    std::swap( permutation[4], permutation[dim0] );
+    std::sort(permutation.begin(), permutation.begin()+4);
+    std::swap( permutation[3], permutation[dim1] );
+    std::sort(permutation.begin(), permutation.begin()+3);
+    auto view = array.permute(permutation);
+    for( std::size_t ii=0; ii<view.shape(0); ++ii){
+        for( std::size_t jj=0; jj<view.shape(1); ++jj){
+            for( std::size_t kk=0; kk<view.shape(2); ++kk){
                 total=0;
-                for( std::size_t kk=0; kk<view.shape(2); ++kk){
-                    for( std::size_t ll=0; ll<view.shape(3); ++ll){
-                        total += view(ii,jj,kk,ll);
+                for( std::size_t ll=0; ll<view.shape(3); ++ll){
+                    for( std::size_t mm=0; mm<view.shape(4); ++mm){
+                        total += view(ii,jj,kk,ll,mm);
                     }
                 }
-                if( total != result(ii,jj) ){
+                if( total != result(ii,jj,kk) ){
                     correct=false;
-                    std::cerr << "[" << ii << "," << jj << "] Expected: " << total << " Actual: " << result(ii,jj) << std::endl;
+                    std::cerr << "[" << ii << "," << jj << "," << kk << "] Expected: " << total << " Actual: " << result(ii,jj,kk) << std::endl;
                 }
             }
         }
-        return correct;
     }
+    return correct;
+}
 
-    template<class T1, class T2>
-    bool test_4D_triple( const T2& array, std::size_t dim0, std::size_t dim1, std::size_t dim2) {
-        bool correct = true;
-        T1 result = triple_sum<T1,T2>(array,dim0,dim1,dim2);
-        if( result.dims() != 1 ){ correct=false; std::cerr << "Incorrect dims" << std::endl;}
-        std::size_t total;
-        shape_vec permutation{0,1,2,3};
-        std::swap( permutation[3], permutation[dim0] );
-        std::sort(permutation.begin(), permutation.begin()+3);
-        std::swap( permutation[2], permutation[dim1] );
-        std::sort(permutation.begin(), permutation.begin()+2);
-        std::swap( permutation[1], permutation[dim2] );
-        auto view = array.permute(permutation);
-        for( std::size_t ii=0; ii<view.shape(0); ++ii){
+template<class T1, class T2>
+bool test_5D_triple( const T2& array, std::size_t dim0 , std::size_t dim1, std::size_t dim2) {
+    bool correct = true;
+    T1 result = triple_sum<T1,T2>(array,dim0,dim1,dim2);
+    if( result.dims() != 2 ){ correct=false; std::cerr << "Incorrect dims" << std::endl;}
+    std::size_t total;
+    shape_vec permutation{0,1,2,3,4};
+    std::swap( permutation[4], permutation[dim0] );
+    std::sort(permutation.begin(), permutation.begin()+4);
+    std::swap( permutation[3], permutation[dim1] );
+    std::sort(permutation.begin(), permutation.begin()+3);
+    std::swap( permutation[2], permutation[dim2] );
+    std::sort(permutation.begin(), permutation.begin()+2);
+    auto view = array.permute(permutation);
+    for( std::size_t ii=0; ii<view.shape(0); ++ii){
+        for( std::size_t jj=0; jj<view.shape(1); ++jj){
             total=0;
-            for( std::size_t jj=0; jj<view.shape(1); ++jj){
-                for( std::size_t kk=0; kk<view.shape(2); ++kk){
-                    for( std::size_t ll=0; ll<view.shape(3); ++ll){
-                        total += view(ii,jj,kk,ll);
+            for( std::size_t kk=0; kk<view.shape(2); ++kk){
+                for( std::size_t ll=0; ll<view.shape(3); ++ll){
+                    for( std::size_t mm=0; mm<view.shape(4); ++mm){
+                        total += view(ii,jj,kk,ll,mm);
                     }
                 }
             }
-            if( total != result(ii) ){
+            if( total != result(ii,jj) ){
                 correct=false;
-                std::cerr << "[" << ii << "] Expected: " << total << " Actual: " << result(ii) << std::endl;
+                std::cerr << "[" << ii << "," << jj << "] Expected: " << total << " Actual: " << result(ii,jj) << std::endl;
             }
         }
-        return correct;
     }
+    return correct;
+}
 
-    template<class T1, class T2>
-    bool test_4D_quad( const T2& array, std::size_t dim0 , std::size_t dim1, std::size_t dim2) {
-        bool correct = true;
-        T1 result = quad_sum<T1,T2>(array,dim0,dim1,dim2,0);
-        if( result.dims() != 1 ){ correct=false; std::cerr << "Incorrect dims" << std::endl;}
-        std::size_t total = 0;
-        for( std::size_t ii=0; ii<array.shape(0); ++ii){
-            for( std::size_t jj=0; jj<array.shape(1); ++jj){
-                for( std::size_t kk=0; kk<array.shape(2); ++kk){
-                    for( std::size_t ll=0; ll<array.shape(3); ++ll){
-                        total += array(ii,jj,kk,ll);
+template<class T1, class T2>
+bool test_5D_quad( const T2& array, std::size_t dim0 , std::size_t dim1, std::size_t dim2, std::size_t dim3) {
+    bool correct = true;
+    T1 result = quad_sum<T1,T2>(array,dim0,dim1,dim2,dim3);
+    if( result.dims() != 1 ){ correct=false; std::cerr << "Incorrect dims" << std::endl;}
+    std::size_t total;
+    shape_vec permutation{0,1,2,3,4};
+    std::swap( permutation[4], permutation[dim0] );
+    std::sort(permutation.begin(), permutation.begin()+4);
+    std::swap( permutation[3], permutation[dim1] );
+    std::sort(permutation.begin(), permutation.begin()+3);
+    std::swap( permutation[2], permutation[dim2] );
+    std::sort(permutation.begin(), permutation.begin()+2);
+    std::swap( permutation[1], permutation[dim3] );
+    auto view = array.permute(permutation);
+    for( std::size_t ii=0; ii<view.shape(0); ++ii){
+        total=0;
+        for( std::size_t jj=0; jj<view.shape(1); ++jj){
+            for( std::size_t kk=0; kk<view.shape(2); ++kk){
+                for( std::size_t ll=0; ll<view.shape(3); ++ll){
+                    for( std::size_t mm=0; mm<view.shape(4); ++mm){
+                        total += view(ii,jj,kk,ll,mm);
                     }
                 }
             }
         }
-        if( total != result(0) ){
+        if( total != result(ii) ){
             correct=false;
-            std::cerr << "Expected: " << total << " Actual: " << result(0) << std::endl;
+            std::cerr << "[" << ii << "] Expected: " << total << " Actual: " << result(ii) << std::endl;
         }
-        return correct;
     }
+    return correct;
+}
 
-    template<class T1, class T2>
-    bool test_5D_single( const T2& array, std::size_t dim ) {
-        bool correct = true;
-        T1 result = single_sum<T1,T2>(array,dim);
-        if( result.dims() != 4 ){ correct=false; std::cerr << "Incorrect dims" << std::endl;}
-        if( result.shape(0) != array.shape(dim==0 ? 1 : 0) ){ correct=false; std::cerr << "Incorrect shape(0)" << std::endl;}
-        if( result.shape(1) != array.shape(dim<=1 ? 2 : 1) ){ correct=false; std::cerr << "Incorrect shape(1)" << std::endl;}
-        if( result.shape(2) != array.shape(dim<=2 ? 3 : 2) ){ correct=false; std::cerr << "Incorrect shape(2)" << std::endl;}
-        if( result.shape(3) != array.shape(dim<=3 ? 4 : 3) ){ correct=false; std::cerr << "Incorrect shape(3)" << std::endl;}
-        std::size_t total;
-        shape_vec permutation{0,1,2,3,4};
-        std::swap( permutation[4], permutation[dim] );
-        std::sort(permutation.begin(), permutation.begin()+4);
-        auto view = array.permute(permutation);
-        for( std::size_t ii=0; ii<view.shape(0); ++ii){
-            for( std::size_t jj=0; jj<view.shape(1); ++jj){
-                for( std::size_t kk=0; kk<view.shape(2); ++kk){
-                    for( std::size_t ll=0; ll<view.shape(3); ++ll){
-                        total=0;
-                        for( std::size_t mm=0; mm<view.shape(4); ++mm){
-                            total += view(ii,jj,kk,ll,mm);
-                        }
-                        if( total != result(ii,jj,kk,ll) ){
-                            correct=false;
-                            std::cerr << "[" << ii << "," << jj << "," << kk << "," << ll << "] Expected: " << total << " Actual: " << result(ii,jj,kk,ll) << std::endl;
-                        }
+template<class T1, class T2>
+bool test_5D_quin( const T2& array, std::size_t dim0 , std::size_t dim1, std::size_t dim2, std::size_t dim3) {
+    bool correct = true;
+    T1 result = quin_sum<T1,T2>(array,dim0,dim1,dim2,dim3,0);
+    if( result.dims() != 1 ){ correct=false; std::cerr << "Incorrect dims" << std::endl;}
+    if( result.size() != 1 ){ correct=false; std::cerr << "Incorrect size" << std::endl;}
+    std::size_t total=0;
+    for( std::size_t ii=0; ii<array.shape(0); ++ii){
+        for( std::size_t jj=0; jj<array.shape(1); ++jj){
+            for( std::size_t kk=0; kk<array.shape(2); ++kk){
+                for( std::size_t ll=0; ll<array.shape(3); ++ll){
+                    for( std::size_t mm=0; mm<array.shape(4); ++mm){
+                        total += array(ii,jj,kk,ll,mm);
                     }
                 }
             }
         }
-        return correct;
     }
-
-    template<class T1, class T2>
-    bool test_5D_double( const T2& array, std::size_t dim0 , std::size_t dim1) {
-        bool correct = true;
-        T1 result = double_sum<T1,T2>(array,dim0,dim1);
-        if( result.dims() != 3 ){ correct=false; std::cerr << "Incorrect dims" << std::endl;}
-        std::size_t total;
-        shape_vec permutation{0,1,2,3,4};
-        std::swap( permutation[4], permutation[dim0] );
-        std::sort(permutation.begin(), permutation.begin()+4);
-        std::swap( permutation[3], permutation[dim1] );
-        std::sort(permutation.begin(), permutation.begin()+3);
-        auto view = array.permute(permutation);
-        for( std::size_t ii=0; ii<view.shape(0); ++ii){
-            for( std::size_t jj=0; jj<view.shape(1); ++jj){
-                for( std::size_t kk=0; kk<view.shape(2); ++kk){
-                    total=0;
-                    for( std::size_t ll=0; ll<view.shape(3); ++ll){
-                        for( std::size_t mm=0; mm<view.shape(4); ++mm){
-                            total += view(ii,jj,kk,ll,mm);
-                        }
-                    }
-                    if( total != result(ii,jj,kk) ){
-                        correct=false;
-                        std::cerr << "[" << ii << "," << jj << "," << kk << "] Expected: " << total << " Actual: " << result(ii,jj,kk) << std::endl;
-                    }
-                }
-            }
-        }
-        return correct;
+    if( total != result(0) ){
+        correct=false;
+        std::cerr << "Expected: " << total << " Actual: " << result(0) << std::endl;
     }
+    return correct;
+}
 
-    template<class T1, class T2>
-    bool test_5D_triple( const T2& array, std::size_t dim0 , std::size_t dim1, std::size_t dim2) {
-        bool correct = true;
-        T1 result = triple_sum<T1,T2>(array,dim0,dim1,dim2);
-        if( result.dims() != 2 ){ correct=false; std::cerr << "Incorrect dims" << std::endl;}
-        std::size_t total;
-        shape_vec permutation{0,1,2,3,4};
-        std::swap( permutation[4], permutation[dim0] );
-        std::sort(permutation.begin(), permutation.begin()+4);
-        std::swap( permutation[3], permutation[dim1] );
-        std::sort(permutation.begin(), permutation.begin()+3);
-        std::swap( permutation[2], permutation[dim2] );
-        std::sort(permutation.begin(), permutation.begin()+2);
-        auto view = array.permute(permutation);
-        for( std::size_t ii=0; ii<view.shape(0); ++ii){
-            for( std::size_t jj=0; jj<view.shape(1); ++jj){
-                total=0;
-                for( std::size_t kk=0; kk<view.shape(2); ++kk){
-                    for( std::size_t ll=0; ll<view.shape(3); ++ll){
-                        for( std::size_t mm=0; mm<view.shape(4); ++mm){
-                            total += view(ii,jj,kk,ll,mm);
-                        }
-                    }
-                }
-                if( total != result(ii,jj) ){
-                    correct=false;
-                    std::cerr << "[" << ii << "," << jj << "] Expected: " << total << " Actual: " << result(ii,jj) << std::endl;
-                }
-            }
-        }
-        return correct;
-    }
-
-    template<class T1, class T2>
-    bool test_5D_quad( const T2& array, std::size_t dim0 , std::size_t dim1, std::size_t dim2, std::size_t dim3) {
-        bool correct = true;
-        T1 result = quad_sum<T1,T2>(array,dim0,dim1,dim2,dim3);
-        if( result.dims() != 1 ){ correct=false; std::cerr << "Incorrect dims" << std::endl;}
-        std::size_t total;
-        shape_vec permutation{0,1,2,3,4};
-        std::swap( permutation[4], permutation[dim0] );
-        std::sort(permutation.begin(), permutation.begin()+4);
-        std::swap( permutation[3], permutation[dim1] );
-        std::sort(permutation.begin(), permutation.begin()+3);
-        std::swap( permutation[2], permutation[dim2] );
-        std::sort(permutation.begin(), permutation.begin()+2);
-        std::swap( permutation[1], permutation[dim3] );
-        auto view = array.permute(permutation);
-        for( std::size_t ii=0; ii<view.shape(0); ++ii){
-            total=0;
-            for( std::size_t jj=0; jj<view.shape(1); ++jj){
-                for( std::size_t kk=0; kk<view.shape(2); ++kk){
-                    for( std::size_t ll=0; ll<view.shape(3); ++ll){
-                        for( std::size_t mm=0; mm<view.shape(4); ++mm){
-                            total += view(ii,jj,kk,ll,mm);
-                        }
-                    }
-                }
-            }
-            if( total != result(ii) ){
-                correct=false;
-                std::cerr << "[" << ii << "] Expected: " << total << " Actual: " << result(ii) << std::endl;
-            }
-        }
-        return correct;
-    }
-
-    template<class T1, class T2>
-    bool test_5D_quin( const T2& array, std::size_t dim0 , std::size_t dim1, std::size_t dim2, std::size_t dim3) {
-        bool correct = true;
-        T1 result = quin_sum<T1,T2>(array,dim0,dim1,dim2,dim3,0);
-        if( result.dims() != 1 ){ correct=false; std::cerr << "Incorrect dims" << std::endl;}
-        if( result.size() != 1 ){ correct=false; std::cerr << "Incorrect size" << std::endl;}
-        std::size_t total=0;
-        for( std::size_t ii=0; ii<array.shape(0); ++ii){
-            for( std::size_t jj=0; jj<array.shape(1); ++jj){
-                for( std::size_t kk=0; kk<array.shape(2); ++kk){
-                    for( std::size_t ll=0; ll<array.shape(3); ++ll){
-                        for( std::size_t mm=0; mm<array.shape(4); ++mm){
-                            total += array(ii,jj,kk,ll,mm);
-                        }
-                    }
-                }
-            }
-        }
-        if( total != result(0) ){
-            correct=false;
-            std::cerr << "Expected: " << total << " Actual: " << result(0) << std::endl;
-        }
-        return correct;
-    }
-};
-
-TEST_F(ArraySumTest,SumTest){
+TEST(ArrayMathTest,SumTest){
     // Tests folding in general
+    Array<std::size_t>::col_major col_1D(shape_vec{6});
+    Array<std::size_t>::col_major col_2D(shape_vec{6,7});
+    Array<std::size_t>::col_major col_3D(shape_vec{6,7,8});
+    Array<std::size_t>::col_major col_4D(shape_vec{4,5,6,7});
+    Array<std::size_t>::col_major col_5D(shape_vec{3,4,2,5,2});
+    Array<std::size_t>::row_major row_1D(shape_vec{6});
+    Array<std::size_t>::row_major row_2D(shape_vec{6,7});
+    Array<std::size_t>::row_major row_3D(shape_vec{6,7,8});
+    Array<std::size_t>::row_major row_4D(shape_vec{4,5,6,7});
+    Array<std::size_t>::row_major row_5D(shape_vec{3,4,2,5,2});
+    std::size_t count;
+    count = 0; for( auto&& x : col_1D ) x = count++;
+    count = 0; for( auto&& x : col_2D ) x = count++;
+    count = 0; for( auto&& x : col_3D ) x = count++;
+    count = 0; for( auto&& x : col_4D ) x = count++;
+    count = 0; for( auto&& x : col_5D ) x = count++;
+    count = 0; for( auto&& x : row_1D ) x = count++;
+    count = 0; for( auto&& x : row_2D ) x = count++;
+    count = 0; for( auto&& x : row_3D ) x = count++;
+    count = 0; for( auto&& x : row_4D ) x = count++;
+    count = 0; for( auto&& x : row_5D ) x = count++;
     
     // 1D
     EXPECT_TRUE( test_1D<Array<std::size_t>::col_major>( col_1D));
@@ -787,4 +775,83 @@ TEST_F(ArraySumTest,SumTest){
             }
         }
     }
+}
+
+TEST(ArrayMathTest,BooleanFold){
+    Array<bool> a(shape_vec{4,7});
+    for( std::size_t ii=0; ii<a.shape(0); ++ii){
+        for( std::size_t jj=0; jj<a.shape(1); ++jj){
+            switch(ii){
+                case(0): a(ii,jj) = false; break;
+                case(1): a(ii,jj) = true; break;
+                case(2): a(ii,jj) = (jj%2); break;
+                case(3): a(ii,jj) = (jj==4); break;
+            }
+        }
+    }
+    Array<bool> all  = all_of(a,1);
+    Array<bool> any  = any_of(a,1);
+    Array<bool> none = none_of(a,1);
+    EXPECT_TRUE(all.dims() == 1);
+    EXPECT_TRUE(any.dims() == 1);
+    EXPECT_TRUE(none.dims() == 1);
+    EXPECT_TRUE(all.shape(0) == 4);
+    EXPECT_TRUE(any.shape(0) == 4);
+    EXPECT_TRUE(none.shape(0) == 4);
+    EXPECT_FALSE(all(0));
+    EXPECT_FALSE(any(0));
+    EXPECT_TRUE(none(0));
+    EXPECT_TRUE(all(1));
+    EXPECT_TRUE(any(1));
+    EXPECT_FALSE(none(1));
+    EXPECT_FALSE(all(2));
+    EXPECT_TRUE(any(2));
+    EXPECT_FALSE(none(2));
+    EXPECT_FALSE(all(3));
+    EXPECT_TRUE(any(3));
+    EXPECT_FALSE(none(3));
+}
+
+TEST(ArrayMathTest,Accumulate){
+    // test min,max,prod
+    Array<std::size_t> a(shape_vec{3,4});
+    a(0,0) = 3; a(0,1) = 3; a(0,2) = 7; a(0,3) = 0;
+    a(1,0) = 3; a(1,1) = 1; a(1,2) = 4; a(1,3) = 4;
+    a(2,0) = 0; a(2,1) = 2; a(2,2) = 1; a(2,3) = 0;
+    Array<std::size_t> min_0 = min(a,0);
+    Array<std::size_t> min_1 = min(a,1);
+    Array<std::size_t> max_0 = max(a,0);
+    Array<std::size_t> max_1 = max(a,1);
+    Array<std::size_t> prod_0 = prod(a,0);
+    Array<std::size_t> prod_1 = prod(a,1);
+    Array<std::size_t> minmax_0 = min(max(a,0),0);
+    Array<std::size_t> minmax_1 = min(max(a,1),0);
+    EXPECT_EQ(min_0(0),0);
+    EXPECT_EQ(min_0(1),1);
+    EXPECT_EQ(min_0(2),1);
+    EXPECT_EQ(min_0(3),0);
+    EXPECT_EQ(max_0(0),3);
+    EXPECT_EQ(max_0(1),3);
+    EXPECT_EQ(max_0(2),7);
+    EXPECT_EQ(max_0(3),4);
+    EXPECT_EQ(prod_0(0),0);
+    EXPECT_EQ(prod_0(1),6);
+    EXPECT_EQ(prod_0(2),28);
+    EXPECT_EQ(prod_0(3),0);
+    EXPECT_EQ(min_1(0),0);
+    EXPECT_EQ(min_1(1),1);
+    EXPECT_EQ(min_1(2),0);
+    EXPECT_EQ(max_1(0),7);
+    EXPECT_EQ(max_1(1),4);
+    EXPECT_EQ(max_1(2),2);
+    EXPECT_EQ(prod_1(0),0);
+    EXPECT_EQ(prod_1(1),48);
+    EXPECT_EQ(prod_1(2),0);
+    EXPECT_EQ(minmax_0(0),3);
+    EXPECT_EQ(minmax_1(0),2);
+}
+
+TEST(ArrayMathTest,Fold){
+    // TODO
+    // Test with lambda function. Have 2D Array of 2D FixedArrays, get maximum norm in each dimension
 }

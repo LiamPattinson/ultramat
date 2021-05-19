@@ -12,7 +12,6 @@
 
     * fold expressions
         - test general fold
-        - implement boolean folds
     * Cumulative should specify direction, default to 0.
         * should be evaluating
         * test mixed row/col major
