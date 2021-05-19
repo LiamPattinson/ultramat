@@ -361,38 +361,100 @@ public:
 
 // FoldDenseExpression
 // Binary operation over a single arg. Performs a 'fold' over a single dimension.
-// Full reductions are performed by iteratively reducing until only 1 dimension is left.
+// Full reductions are performed by iteratively folding until only 1 dimension is left.
 
-template<class F, class T>
-class FoldDenseExpression : public DenseExpression<FoldDenseExpression<F,T>> {
+// Inherits from one of three 'policy' classes
+// - GeneralFold: start_val is provided of type StartT, takes function of form `StartT f(StartT,T) `
+// - Accumulate: start_val is not provided, takes function of form `T f(T,T)`. Includes min, max, sum, prod
+// - BooleanFold: all_of, any_of, none_of, all may stop early under the right conditions
+
+template<class F, class StartType, class T>
+class GeneralFoldPolicy {
+protected:
+    using input_value_type = typename std::remove_cvref_t<T>::value_type;
+    using start_type = StartType;
+    using value_type = decltype(std::declval<F>()(std::declval<start_type>(),std::declval<input_value_type>()));
+    static_assert( std::is_same<start_type,value_type>::value );
+    static constexpr bool is_general_fold = true;
+    static constexpr bool is_accumulate = false;
+    static constexpr bool is_boolean_fold = false;
+    start_type _start_val;
+public:
+    GeneralFoldPolicy( const start_type& start_val) : _start_val(start_val) {}
+    start_type get() const { return _start_val; }
+};
+
+template<class F, class ValueType, class T>
+class AccumulatePolicy {
+protected:
+    using value_type = ValueType;
+    using input_value_type = typename std::remove_cvref_t<T>::value_type;
+    using result_type = decltype(std::declval<F>()(std::declval<ValueType>(),std::declval<ValueType>()));
+    static_assert( std::is_same<ValueType,input_value_type>::value );
+    static_assert( std::is_same<ValueType,result_type>::value );
+    static constexpr bool is_general_fold = false;
+    static constexpr bool is_accumulate = true;
+    static constexpr bool is_boolean_fold = false;
+};
+
+template<class F, class StartT, class T>
+class BooleanFoldPolicy {
+protected:
+    using input_value_type = typename std::remove_cvref_t<T>::value_type;
+    using start_type = bool;
+    using value_type = decltype(std::declval<F>()(std::declval<start_type>(),std::declval<input_value_type>()));
+    static_assert( std::is_same<start_type,value_type>::value );
+    static constexpr bool is_general_fold = false;
+    static constexpr bool is_accumulate = false;
+    static constexpr bool is_boolean_fold = true;
+};
+
+template<class F, class ValueType, class T, template<class,class,class> class FoldPolicy>
+class FoldDenseExpressionImpl : public DenseExpression<FoldDenseExpressionImpl<F,ValueType,T,FoldPolicy>>, public FoldPolicy<F,ValueType,T> {
     
 public:
 
-    using value_type = typename std::remove_cvref_t<T>::value_type;
+    using input_value_type = FoldPolicy<F,ValueType,T>::input_value_type;
+    using value_type = ValueType;
+    static_assert(std::is_same<value_type,typename FoldPolicy<F,ValueType,T>::value_type>::value);
+
+    static constexpr bool is_general_fold = FoldPolicy<F,ValueType,T>::is_general_fold;
+    static constexpr bool is_accumulate = FoldPolicy<F,ValueType,T>::is_accumulate;
+    static constexpr bool is_boolean_fold = FoldPolicy<F,ValueType,T>::is_boolean_fold;
 
 private:
 
     using ref_t = decltype(std::forward<T>(std::declval<T>()));
     using Stripe_t = decltype(std::declval<std::add_const_t<std::remove_cvref_t<T>>>().get_stripe(0,0,RCOrder::col_major));
 
-    ref_t                       _t;
-    std::size_t                 _fold_dim;
-    std::size_t                 _fold_size;
-    value_type                  _start_val;
+    F           _f;
+    ref_t       _t;
+    std::size_t _fold_dim;
+    std::size_t _fold_size;
 
 public:
 
-    FoldDenseExpression() = delete;
-    FoldDenseExpression( const FoldDenseExpression& ) = delete;
-    FoldDenseExpression( FoldDenseExpression&& ) = default;
-    FoldDenseExpression& operator=( const FoldDenseExpression& ) = delete;
-    FoldDenseExpression& operator=( FoldDenseExpression&& ) = default;
+    FoldDenseExpressionImpl() = delete;
+    FoldDenseExpressionImpl( const FoldDenseExpressionImpl& ) = delete;
+    FoldDenseExpressionImpl( FoldDenseExpressionImpl&& ) = default;
+    FoldDenseExpressionImpl& operator=( const FoldDenseExpressionImpl& ) = delete;
+    FoldDenseExpressionImpl& operator=( FoldDenseExpressionImpl&& ) = default;
 
-    FoldDenseExpression( T&& t, std::size_t fold_dim, const value_type& start_val) : 
+    FoldDenseExpressionImpl( const F& f, T&& t, const ValueType& start_val, std::size_t fold_dim ) : 
+        FoldPolicy<F,ValueType,T>(start_val),
+        _f(f),
         _t(std::forward<T>(t)),
         _fold_dim(fold_dim),
-        _fold_size(t.shape(fold_dim)),
-        _start_val(start_val)
+        _fold_size(t.shape(fold_dim))
+    {
+        if( _fold_dim >= _t.dims() ) throw ExpressionException("Ultramat: Fold dimension must be smaller than dims()");
+    }
+
+    FoldDenseExpressionImpl( const F& f, T&& t, std::size_t fold_dim ) : 
+        _f(f),
+        _t(std::forward<T>(t)),
+        _fold_dim(fold_dim),
+        _fold_size(t.shape(fold_dim))
     {
         if( _fold_dim >= _t.dims() ) throw ExpressionException("Ultramat: Fold dimension must be smaller than dims()");
     }
@@ -417,7 +479,7 @@ public:
     // Dereferencing this will generate a stripe, perform the fold operation, and return the result.
     // Incrementing this will increment the stripe generator.
 
-    class const_iterator {
+    class const_iterator : public FoldPolicy<F,ValueType,T> {
 
         F           _f;
         ref_t       _t;
@@ -425,73 +487,95 @@ public:
         RCOrder     _order;
         std::size_t _stripe_num;
         std::size_t _stripe_inc;
-        value_type  _start_val;
         
         public:
         
-        const_iterator( ref_t t, std::size_t stripe_dim, RCOrder order, std::size_t stripe_num, std::size_t stripe_inc, value_type start_val) :
-            _f{},
+        const_iterator( const F& f, ref_t t, std::size_t stripe_dim, RCOrder order, std::size_t stripe_num, std::size_t stripe_inc, value_type start_val) :
+            FoldPolicy<F,ValueType,T>(start_val),
+            _f(f),
             _t(std::forward<T>(t)),
             _stripe_dim(stripe_dim),
             _order(order),
             _stripe_num(stripe_num),
-            _stripe_inc(stripe_inc),
-            _start_val(start_val)
+            _stripe_inc(stripe_inc)
         {}
 
-        const_iterator( ref_t t, std::size_t stripe_dim, std::size_t stripe_num, std::size_t stripe_inc, value_type start_val) :
-            const_iterator(std::forward<T>(t),stripe_dim,t.order(),stripe_num,stripe_inc,start_val)
+        const_iterator( const F& f, ref_t t, std::size_t stripe_dim, RCOrder order, std::size_t stripe_num, std::size_t stripe_inc ) :
+            _f(f),
+            _t(std::forward<T>(t)),
+            _stripe_dim(stripe_dim),
+            _order(order),
+            _stripe_num(stripe_num),
+            _stripe_inc(stripe_inc)
         {}
 
-        decltype(auto) operator*() {
-            value_type val = _start_val;
+        const_iterator( const F& f, ref_t t, std::size_t stripe_dim, std::size_t stripe_num, std::size_t stripe_inc, value_type start_val) :
+            const_iterator(f,std::forward<T>(t),stripe_dim,t.order(),stripe_num,stripe_inc,start_val)
+        {}
+
+        const_iterator( const F& f, ref_t t, std::size_t stripe_dim, std::size_t stripe_num, std::size_t stripe_inc ) :
+            const_iterator(f,std::forward<T>(t),stripe_dim,t.order(),stripe_num,stripe_inc)
+        {}
+
+        decltype(auto) operator*() requires (is_general_fold) {
+            F f = _f;
+            value_type val = FoldPolicy<F,ValueType,T>::get();
             auto stripe = _t.get_stripe(_stripe_num,_stripe_dim,_order);
-            for( auto&& x : stripe ) val = _f(x,val);
+            for( auto&& x : stripe ) val = f(val,x);
             return val;
         }
+
+        decltype(auto) operator*() requires (is_accumulate) {
+            F f = _f;
+            auto stripe = _t.get_stripe(_stripe_num,_stripe_dim,_order);
+            auto it = stripe.begin();
+            auto end = stripe.end();
+            value_type val = *it;
+            ++it;
+            for(; it != end; ++it ) val = f(val,*it);
+            return val;
+        }
+
+        /* TODO
+        decltype(auto) operator*() requires (is_boolean_fold) {
+            // Does not actually use F
+            bool result = FoldPolicy<F,ValueType,T>::start_bool;
+            auto stripe = _t.get_stripe(_stripe_num,_stripe_dim,_order);
+            for( auto&& x : stripe){
+                if( x == FoldPolicy<F,ValueType,T>::early_exit_bool ) return !result;
+            }
+            return result;
+        }
+        */
 
         const_iterator& operator++() { _stripe_num+=_stripe_inc; return *this; }
         bool operator==(const const_iterator& it) { return _stripe_num == it._stripe_num; }
     };
 
-    const_iterator begin() const { return const_iterator(std::forward<T>(_t),_fold_dim,0,1,_start_val); }
-    const_iterator end() const { return const_iterator(std::forward<T>(_t),_fold_dim,num_stripes(),1,_start_val); }
+    const_iterator begin() const requires (is_general_fold) {
+        return const_iterator(_f,std::forward<T>(_t),_fold_dim,0,1,FoldPolicy<F,ValueType,T>::get());
+    }
+    
+    const_iterator end() const requires (is_general_fold) {
+        return const_iterator(_f,std::forward<T>(_t),_fold_dim,num_stripes(),1,FoldPolicy<F,ValueType,T>::get());
+    }
+
+    const_iterator begin() const requires (!is_general_fold) {
+        return const_iterator(_f,std::forward<T>(_t),_fold_dim,0,1);
+    }
+
+    const_iterator end() const requires (!is_general_fold) {
+        return const_iterator(_f,std::forward<T>(_t),_fold_dim,num_stripes(),1);
+    }
 
     // Define stripe class
-    //
-    // Stripe number 'stripe_num' along dimension 'dim' of the fictitious result, following stripe numbering convention given by 'order'.
-    // Fold along 'fold_dim' of the arg.
-    // 
-    // Say we have an array of shape (Nx,Ny,Nz)
-    // Start at stripe 0, as always. Say we're using col_major stripe numbering, and also folding dimension 0.
-    // This should result in an array of shape (Ny,Nz)
-    // Stripe 0 should begin by generating stripe 0 over dim 0 of the arg. When calling operator*, it should perform a fold over this whole inner stirpe
-    // We then call ++, which moves us to location (1,0) in the result. We then generate stripe 1 in the arg, and fold again.
-    // This continues until reaching end location (Ny,0), at which point we stop and generate a new stripe in the result.
-    // Stripe 1 starts at location (0,1), and ends at location (Ny,1). The inner stripe number is now Ny, and goes to 2Ny.
-    // 
-    // What if instead we fold dimension 1?
-    // This should result in an array of shape (Nx,Nz)
-    // Stripe 0 should begin by generating stripe 0 over dim 1 of the arg.
-    // When we call ++, we go to location (1,0) in the result, and then generate stripe 1 in the arg. 
-    // We continue until reaching end location (Nx,0), and then generate a new result stripe.
-    // Stripe 1 again starts at location (0,1), and the inner stripe number starts as Nx, and goes to 2Nx.
-    //
-    // The schema is therefore: increment inner stripe number by 1 each time.
-    // Begin at stripe 'stripe_num*shape(0)', end at stripe '(stripe_num+1)*shape(0).
-    // The same applies for row_major, only using 'stripe_num*shape(dims()-1)' and '(stripe_num+1)*shape(dims()-1)'
-    //
-    // Things get trickier if the result stripe dim is non-zero/non-max for col_major/row_major. 
-    // Say it's 1 instead, and we're back to col_major and folding over 0.
-    // The first iteration is the same, but when we call ++ we go to (0,1).
-    // Rather than incrementing the inner stripe to 1, we instead have to increment Ny.
 
-    class Stripe {
+    class Stripe : public FoldPolicy<F,ValueType,T> {
 
+        F           _f;
         ref_t       _t;
         std::size_t _fold_dim;
         RCOrder     _order;
-        value_type  _val;
 
         std::size_t _start_stripe_num;
         std::size_t _end_stripe_num;
@@ -499,12 +583,24 @@ public:
 
         public:
         
-        Stripe( ref_t t, std::size_t fold_dim, RCOrder order,  const value_type& val,
+        Stripe( const F& f, ref_t t, std::size_t fold_dim, RCOrder order,  const value_type& val,
                 std::size_t start_stripe_num, std::size_t end_stripe_num, std::size_t stripe_num_inc):
+            FoldPolicy<F,ValueType,T>(val),
+            _f(f),
             _t(std::forward<T>(t)),
             _fold_dim(fold_dim),
             _order(order),
-            _val(val),
+            _start_stripe_num(start_stripe_num),
+            _end_stripe_num(end_stripe_num),
+            _stripe_num_inc(stripe_num_inc)
+        {}
+
+        Stripe( const F& f, ref_t t, std::size_t fold_dim, RCOrder order,
+                std::size_t start_stripe_num, std::size_t end_stripe_num, std::size_t stripe_num_inc):
+            _f(f),
+            _t(std::forward<T>(t)),
+            _fold_dim(fold_dim),
+            _order(order),
             _start_stripe_num(start_stripe_num),
             _end_stripe_num(end_stripe_num),
             _stripe_num_inc(stripe_num_inc)
@@ -513,36 +609,60 @@ public:
         // Define iterator type
         using Iterator = const_iterator;
 
-        Iterator begin() const {
-            return Iterator( std::forward<T>(_t), _fold_dim, _order, _start_stripe_num, _stripe_num_inc, _val);
+        Iterator begin() const requires (is_general_fold) {
+            return Iterator( _f, std::forward<T>(_t), _fold_dim, _order, _start_stripe_num, _stripe_num_inc, FoldPolicy<F,ValueType,T>::get());
         }
 
-        Iterator end() const {
-            return Iterator( std::forward<T>(_t), _fold_dim, _order, _end_stripe_num, _stripe_num_inc, _val);
+        Iterator begin() const requires (!is_general_fold) {
+            return Iterator( _f, std::forward<T>(_t), _fold_dim, _order, _start_stripe_num, _stripe_num_inc);
+        }
+
+        Iterator end() const requires (is_general_fold) {
+            return Iterator( _f, std::forward<T>(_t), _fold_dim, _order, _end_stripe_num, _stripe_num_inc, FoldPolicy<F,ValueType,T>::get());
+        }
+
+        Iterator end() const requires (!is_general_fold) {
+            return Iterator( _f, std::forward<T>(_t), _fold_dim, _order, _end_stripe_num, _stripe_num_inc);
         }
     };
 
-    // Get stripe from _t
-    decltype(auto) get_stripe( std::size_t stripe_num, std::size_t dim, RCOrder order) const {
+    // Stripe start/end/inc helper
+    decltype(auto) get_stripe_info( std::size_t stripe_num, std::size_t dim, RCOrder order) const {
+        std::size_t start_stripe_num, end_stripe_num, stripe_num_inc;
         std::size_t first_dim = ( order == RCOrder::col_major ? 0 : dims()-1);
-
-        std::size_t stripe_num_inc = 1;
+        // Get increment first
+        stripe_num_inc = 1;
         for(std::size_t ii=first_dim; ii != dim; ii += (order==RCOrder::col_major ? 1 : -1)){
             stripe_num_inc *= shape(ii);
         }
-
-        std::size_t start_stripe_num;
+        // Get start stripe number
         if( dim==first_dim ){
             start_stripe_num = stripe_num*shape(first_dim);
         } else {
-            start_stripe_num = (stripe_num % stripe_num_inc);
-            start_stripe_num += (stripe_num / stripe_num_inc)*stripe_num_inc*shape(dim);
+            start_stripe_num = (stripe_num % stripe_num_inc) + (stripe_num / stripe_num_inc)*stripe_num_inc*shape(dim);
         }
+        // Combine the two to get end stripe number
+        end_stripe_num = start_stripe_num + stripe_num_inc*shape(dim);
+        return std::make_tuple(start_stripe_num,end_stripe_num,stripe_num_inc);
+    }
 
-        std::size_t end_stripe_num = start_stripe_num + stripe_num_inc*shape(dim);
-        return Stripe(std::forward<T>(_t),_fold_dim,order,_start_val,start_stripe_num,end_stripe_num,stripe_num_inc);
+    // Get stripe from _t
+    decltype(auto) get_stripe( std::size_t stripe_num, std::size_t dim, RCOrder order) const requires (is_general_fold) {
+        std::size_t start_stripe_num, end_stripe_num, stripe_num_inc;
+        std::tie(start_stripe_num,end_stripe_num,stripe_num_inc) = get_stripe_info(stripe_num,dim,order);
+        return Stripe(_f,std::forward<T>(_t),_fold_dim,order,FoldPolicy<F,ValueType,T>::get(),start_stripe_num,end_stripe_num,stripe_num_inc);
+    }
+
+    decltype(auto) get_stripe( std::size_t stripe_num, std::size_t dim, RCOrder order) const requires (!is_general_fold) {
+        std::size_t start_stripe_num, end_stripe_num, stripe_num_inc;
+        std::tie(start_stripe_num,end_stripe_num,stripe_num_inc) = get_stripe_info(stripe_num,dim,order);
+        return Stripe(_f,std::forward<T>(_t),_fold_dim,order,start_stripe_num,end_stripe_num,stripe_num_inc);
     }
 };
+
+template<class F, class ValueType, class T> using FoldDenseExpression = FoldDenseExpressionImpl<F,ValueType,T,GeneralFoldPolicy>;
+template<class F, class T> using AccumulateDenseExpression = FoldDenseExpressionImpl<F,typename std::remove_cvref_t<T>::value_type,T,AccumulatePolicy>;
+//template<class F, class T> using BooleanFoldDenseExpression = FoldDenseExpressionImpl<F,T,BooleanFoldPolicy>; // needs work
 
 } // namespace
 #endif
