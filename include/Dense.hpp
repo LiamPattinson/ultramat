@@ -19,11 +19,11 @@ class ArrayImpl : public DenseExpression<ArrayImpl<T,Order>>, public DenseBase<A
 
 public:
 
-    using value_type = T;
+    using value_type = std::conditional_t<std::is_same<T,bool>::value,Bool,T>;
     static constexpr RCOrder rc_order = Order;
     using shape_type = std::vector<std::size_t>;
     using stride_type = std::vector<std::size_t>;
-    using data_type = std::vector<T>;
+    using data_type = std::vector<value_type>;
     using iterator = data_type::iterator;
     using const_iterator = data_type::const_iterator;
 

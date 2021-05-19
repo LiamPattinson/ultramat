@@ -65,5 +65,21 @@ struct Slice {
     std::ptrdiff_t step=1;
 };
 
+// Bool class
+// Looks like a bool, acts like a bool. Used in place of regular bool to avoid the horrors of std::vector<bool>
+
+class Bool {
+    bool _x;
+    public:
+    Bool() = default;
+    Bool( const Bool& ) = default;
+    Bool( Bool&& ) = default;
+    Bool& operator=( const Bool& ) = default;
+    Bool& operator=( Bool&& ) = default;
+    inline Bool( bool x) : _x(x) {}
+    inline operator bool() const { return _x; }
+    inline operator bool&() { return _x; }
+};
+
 } // namespace
 #endif

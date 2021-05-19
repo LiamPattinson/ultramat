@@ -38,6 +38,43 @@ TEST(ArrayArithmeticTest,Arithmetic){
     EXPECT_TRUE( e_correct );
 }
 
+TEST(ArrayArithmeticTest,Boolean){
+    auto shape = shape_vec{5,7};
+    Array<int>::col_major      a(shape);
+    Array<bool>::row_major     b(shape);
+    Array<unsigned>::col_major c(shape);
+    Array<float>::col_major    d(shape);
+    // fill arrays
+    int count;
+    count=0; for( auto&& x : a) x = (count++) % 2;
+    count=1; for( auto&& x : b) x = (count++) % 2;
+    count=0; for( auto&& x : c) x = 5 + ((count++) % 2);
+    count=1; for( auto&& x : d) x = 5 + ((count++) % 2);
+    // perform comparisons
+    Array<bool> not_a = !a;
+    Array<bool> a_and_b = a && b;
+    Array<bool> a_or_b = a || b;
+    Array<bool> c_lt_d = c < d;
+    Array<bool> c_gt_d = c > d;
+    // Check results
+    bool not_a_correct=true, a_and_b_correct=true, a_or_b_correct=true, c_lt_d_correct=true, c_gt_d_correct=true;
+    count=1; for( auto&& x : not_a ) not_a_correct &= ( x == ((count++) % 2));
+    EXPECT_TRUE(not_a_correct);
+    for( auto&& x : a_and_b ) a_and_b_correct &= !x;
+    EXPECT_TRUE(a_and_b_correct);
+    for( auto&& x : a_or_b ) a_or_b_correct &= x;
+    EXPECT_TRUE(a_or_b_correct);
+    count=1; for( auto&& x : c_lt_d ) c_lt_d_correct &= ( x == ((count++) % 2));
+    EXPECT_TRUE(c_lt_d_correct);
+    count=0; for( auto&& x : c_gt_d ) c_gt_d_correct &= ( x == ((count++) % 2));
+    EXPECT_TRUE(c_gt_d_correct);
+    // test that results can themselves be used in arithmetic
+    Array<int> bool_arithmetic = (!a + (c < d));
+    bool bool_arithmetic_correct=true;
+    count=1; for( auto&& x : bool_arithmetic ) bool_arithmetic_correct &= ( x == 2*((count++) % 2));
+    EXPECT_TRUE(bool_arithmetic_correct);
+}
+
 TEST(ArrayArithmeticTest,InPlaceArithmetic){
     auto shape = shape_vec{5,10,20};
     Array<double>::row_major a(shape);
