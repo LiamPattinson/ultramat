@@ -852,6 +852,29 @@ TEST(ArrayMathTest,Accumulate){
 }
 
 TEST(ArrayMathTest,Fold){
-    // TODO
     // Test with lambda function. Have 2D Array of 2D FixedArrays, get maximum norm in each dimension
+    Array<Array<double,2>> vector_field(shape_vec{6,7});
+    for(std::size_t ii=0; ii<6; ++ii){
+        for(std::size_t jj=0; jj<7; ++jj){
+            Array<double,2> vec;
+            vec(0) = ii+1;
+            vec(1) = (int)ii-(int)jj;
+            vector_field(ii,jj) = vec;
+        }
+    }
+    Array<double> max_norm_0 = fold([](double a,const Array<double,2>& v){return std::max(a,std::sqrt(v(0)*v(0)+v(1)*v(1)));},vector_field,0,0);
+    Array<double> max_norm_1 = fold([](double a,const Array<double,2>& v){return std::max(a,std::sqrt(v(0)*v(0)+v(1)*v(1)));},vector_field,0,1);
+    EXPECT_TRUE( std::fabs(max_norm_0(0) - std::sqrt(6*6+5*5)) < 1e-5);
+    EXPECT_TRUE( std::fabs(max_norm_0(1) - std::sqrt(6*6+4*4)) < 1e-5);
+    EXPECT_TRUE( std::fabs(max_norm_0(2) - std::sqrt(6*6+3*3)) < 1e-5);
+    EXPECT_TRUE( std::fabs(max_norm_0(3) - std::sqrt(6*6+2*2)) < 1e-5);
+    EXPECT_TRUE( std::fabs(max_norm_0(4) - std::sqrt(6*6+1*1)) < 1e-5);
+    EXPECT_TRUE( std::fabs(max_norm_0(5) - std::sqrt(6*6+0*0)) < 1e-5);
+    EXPECT_TRUE( std::fabs(max_norm_0(6) - std::sqrt(6*6+1*1)) < 1e-5);
+    EXPECT_TRUE( std::fabs(max_norm_1(0) - std::sqrt(1*1+6*6)) < 1e-5);
+    EXPECT_TRUE( std::fabs(max_norm_1(1) - std::sqrt(2*2+5*5)) < 1e-5);
+    EXPECT_TRUE( std::fabs(max_norm_1(2) - std::sqrt(3*3+4*4)) < 1e-5);
+    EXPECT_TRUE( std::fabs(max_norm_1(3) - std::sqrt(4*4+3*3)) < 1e-5);
+    EXPECT_TRUE( std::fabs(max_norm_1(4) - std::sqrt(5*5+4*4)) < 1e-5);
+    EXPECT_TRUE( std::fabs(max_norm_1(5) - std::sqrt(6*6+5*5)) < 1e-5);
 }

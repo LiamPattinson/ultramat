@@ -10,8 +10,6 @@
 
 ### Expressions
 
-    * fold expressions
-        - test general fold
     * Cumulative should specify direction, default to 0.
         * should be evaluating
         * test mixed row/col major
@@ -31,7 +29,6 @@
     * LU factorisation
     * Set BLAS/LAPACK usage at compile time
     * This list will go MUCH deeper as time goes on...
-
 
 ### OpenMP
 

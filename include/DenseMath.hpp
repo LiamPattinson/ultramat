@@ -606,6 +606,18 @@ struct Max { template<class T> decltype(auto) operator()( const T& x, const T& y
 
 // Functions
 
+template<class F, class T, class ValueType>
+decltype(auto) fold( const F& f, const DenseExpression<T>& t, const ValueType& start_val, std::size_t dim){
+    static_assert(std::is_convertible< decltype(f(start_val,std::declval<typename std::remove_cvref_t<T>::value_type>())), std::remove_cvref_t<ValueType>>::value );
+    return FoldDenseExpression(f,static_cast<const T&>(t),start_val,dim);
+}
+
+template<class F, class T, class ValueType>
+decltype(auto) fold( const F& f, DenseExpression<T>&& t, const ValueType& start_val, std::size_t dim){
+    static_assert(std::is_convertible< decltype(f(start_val,std::declval<typename std::remove_cvref_t<T>::value_type>())), std::remove_cvref_t<ValueType>>::value);
+    return FoldDenseExpression(f,static_cast<T&&>(t),start_val,dim);
+}
+
 template<class F, class T>
 decltype(auto) accumulate( const F& f, const DenseExpression<T>& t, std::size_t dim){
     return AccumulateDenseExpression(f,static_cast<const T&>(t),dim);

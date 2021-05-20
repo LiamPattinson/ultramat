@@ -374,7 +374,7 @@ protected:
     using input_value_type = typename std::remove_cvref_t<T>::value_type;
     using start_type = StartType;
     using value_type = decltype(std::declval<F>()(std::declval<start_type>(),std::declval<input_value_type>()));
-    static_assert( std::is_same<start_type,std::remove_cvref_t<value_type>>::value );
+    static_assert( std::is_convertible<start_type,std::remove_cvref_t<value_type>>::value );
     static constexpr bool is_general_fold = true;
     static constexpr bool is_accumulate = false;
     static constexpr bool is_boolean_fold = false;
@@ -387,11 +387,9 @@ public:
 template<class F, class ValueType, class T>
 class AccumulatePolicy {
 protected:
-    using value_type = ValueType;
     using input_value_type = typename std::remove_cvref_t<T>::value_type;
-    using result_type = decltype(std::declval<F>()(std::declval<ValueType>(),std::declval<ValueType>()));
-    static_assert( std::is_same<ValueType,input_value_type>::value );
-    static_assert( std::is_same<ValueType,std::remove_cvref_t<result_type>>::value );
+    using value_type = decltype(std::declval<F>()(std::declval<input_value_type>(),std::declval<input_value_type>()));
+    static_assert( std::is_convertible<ValueType,input_value_type>::value );
     static constexpr bool is_general_fold = false;
     static constexpr bool is_accumulate = true;
     static constexpr bool is_boolean_fold = false;
@@ -416,8 +414,7 @@ class FoldDenseExpressionImpl : public DenseExpression<FoldDenseExpressionImpl<F
 public:
 
     using input_value_type = FoldPolicy<F,ValueType,T>::input_value_type;
-    using value_type = ValueType;
-    static_assert(std::is_same<value_type,typename FoldPolicy<F,ValueType,T>::value_type>::value);
+    using value_type = FoldPolicy<F,ValueType,T>::value_type;
 
     static constexpr bool is_general_fold = FoldPolicy<F,ValueType,T>::is_general_fold;
     static constexpr bool is_accumulate = FoldPolicy<F,ValueType,T>::is_accumulate;
@@ -531,7 +528,7 @@ public:
             auto stripe = _t.get_stripe(_stripe_num,_stripe_dim,_order);
             auto it = stripe.begin();
             auto end = stripe.end();
-            value_type val = *it;
+            std::remove_cvref_t<value_type> val = *it;
             ++it;
             for(; it != end; ++it ) val = f(val,*it);
             return val;
