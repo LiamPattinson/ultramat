@@ -37,6 +37,7 @@ struct DenseExpression {
     decltype(auto) get_stripe(std::size_t stripe, std::size_t dim, RCOrder order) { return derived().get_stripe(stripe,dim,order); }
     decltype(auto) get_stripe(std::size_t stripe, std::size_t dim, RCOrder order) const { return derived().get_stripe(stripe,dim,order); }
     decltype(auto) num_stripes(std::size_t dim) const { return derived().num_stripes(dim); }
+    decltype(auto) required_stripe_dim() const { return derived().required_stripe_dim(); } // simply return dims() if no preference.
 };
 
 // Generic exception for when expressions go wrong.
@@ -202,6 +203,7 @@ public:
     decltype(auto) shape(std::size_t ii) const { return std::get<0>(_args).shape(ii); }
     decltype(auto) order() const noexcept { return get_common_order(_args); }
     decltype(auto) num_stripes(std::size_t dim) const { return std::get<0>(_args).num_stripes(dim); }
+    decltype(auto) required_stripe_dim() const { return dims(); }
 
     constexpr bool is_contiguous() const noexcept { return all_of_tuple(apply_to_each(IsContiguous{},_args)); }
     constexpr bool is_omp_parallelisable() const noexcept { return all_of_tuple(apply_to_each(IsOmpParallelisable{},_args)); }
@@ -269,94 +271,6 @@ public:
         return Stripe(std::move(apply_to_each(GetStripe{stripe_num,dim,order},_args)));
     }
 
-};
-
-// CumulativeDenseExpression
-// Binary operation over a single arg. Returns something of the same shape.
-// For multi-dimensional arrays, sums over the given dimension only. Defaults to zero.
-
-template<class F, class T>
-class CumulativeDenseExpression : public DenseExpression<CumulativeDenseExpression<F,T>> {
-    
-public:
-
-    using value_type = typename std::remove_cvref_t<T>::value_type;
-
-private:
-
-    using ref_t = decltype(std::forward<T>(std::declval<T>()));
-
-    ref_t _t;
-    value_type _start_val;
-
-public:
-
-    CumulativeDenseExpression() = delete;
-    CumulativeDenseExpression( const CumulativeDenseExpression& ) = delete;
-    CumulativeDenseExpression( CumulativeDenseExpression&& ) = default;
-    CumulativeDenseExpression& operator=( const CumulativeDenseExpression& ) = delete;
-    CumulativeDenseExpression& operator=( CumulativeDenseExpression&& ) = default;
-
-    CumulativeDenseExpression( T&& t, const value_type& start_val) : _t(std::forward<T>(t)) , _start_val(start_val) {}
-
-    decltype(auto) size() const { return _t.size(); }
-    decltype(auto) dims() const { return _t.dims(); }
-    decltype(auto) shape() const { return _t.shape(); }
-    decltype(auto) shape(std::size_t ii) const { return _t.shape(ii); }
-    decltype(auto) order() const noexcept { return _t.order(); }
-    decltype(auto) num_stripes(std::size_t dim) const { return _t.num_stripes(dim); }
-
-    // CumulativeDenseExpressions cannot be performed in parallel and must make use of striped iteration, hence will
-    // appear as non-contiguous and non-omp-parallel. Each stripe may still be determined in parallel however.
-    constexpr bool is_contiguous() const noexcept { return false; }
-    constexpr bool is_omp_parallelisable() const noexcept { return false; }
-
-    // Define stripe class
-
-    class Stripe {
-        
-        using Stripe_t = decltype(std::declval<std::add_const_t<std::remove_cvref_t<T>>>().get_stripe(0,0,RCOrder::col_major));
-
-        Stripe_t          _stripe;
-        const value_type& _val;
-
-        public:
-
-        Stripe( Stripe_t&& stripe, const value_type& val) : _stripe(std::move(stripe)), _val(val) {}
-        
-        // Define iterator type
-
-        class Iterator {
-            
-            using It_t = typename decltype(std::declval<std::add_const_t<std::remove_cvref_t<T>>>().get_stripe(0,0,RCOrder::col_major))::Iterator;
-            
-            F           _f;
-            It_t        _it;
-            value_type  _val;
-            
-            public:
-           
-            Iterator( It_t&& it, const value_type& val) : _f{}, _it(std::move(it)), _val(val)  {}
-            decltype(auto) operator*() { _val = _f(*_it,_val); return _val; }
-            Iterator& operator++() { ++_it; return *this; }
-        };
-        
-        Iterator begin() const { return Iterator(_stripe.begin(),_val); }
-    };
-
-    // Get stripe from _t
-    decltype(auto) get_stripe( std::size_t stripe_num, std::size_t dim, RCOrder order) const {
-        return Stripe(std::move(_t.get_stripe(stripe_num,dim,order)),_start_val);
-    }
-
-    // Define const_iterator dummy class
-
-    struct const_iterator {
-        const_iterator() { throw std::runtime_error("Ultramat CumulativeDenseExpression: Must use striped iteration!");}
-        decltype(auto) operator*() { return 0; }
-        const_iterator& operator++() { return *this; }
-    };
-    const_iterator begin() const { return const_iterator(); }
 };
 
 // FoldDenseExpression
@@ -469,6 +383,7 @@ public:
     decltype(auto) num_stripes(std::size_t dim) const { return size()/shape(dim); }
     constexpr bool is_contiguous() const noexcept { return _t.is_contiguous(); }
     constexpr bool is_omp_parallelisable() const noexcept { return _t.is_omp_parallelisable(); }
+    decltype(auto) required_stripe_dim() const { return dims(); }
 
     // Define const_iterator class
  
@@ -659,6 +574,125 @@ public:
 template<class F, class ValueType, class T> using FoldDenseExpression = FoldDenseExpressionImpl<F,ValueType,T,GeneralFoldPolicy>;
 template<class F, class T> using AccumulateDenseExpression = FoldDenseExpressionImpl<F,typename std::remove_cvref_t<T>::value_type,T,AccumulatePolicy>;
 template<class F, class T> using BooleanFoldDenseExpression = FoldDenseExpressionImpl<F,bool,T,BooleanFoldPolicy>;
+
+// CumulativeDenseExpression
+// Binary operation over a single arg. Returns something of the same shape.
+// For multi-dimensional arrays, sums over the given dimension only. Defaults to zero.
+// Unlike FoldDenseExpression, only an accumulating version exists.
+// A more general implementation will only be included if a good use case can be demonstrated.
+
+template<class F, class T>
+class CumulativeDenseExpression : public DenseExpression<CumulativeDenseExpression<F,T>> {
+
+public:
+
+    using inner_value_type = typename std::remove_cvref_t<T>::value_type;
+    using value_type = decltype(std::declval<F>()(std::declval<inner_value_type>(),std::declval<inner_value_type>()));
+    static_assert( std::is_convertible<inner_value_type,value_type>::value );
+
+private:
+
+    using ref_t = decltype(std::forward<T>(std::declval<T>()));
+    using function_type = F;
+
+    function_type _f;
+    ref_t         _t;
+    std::size_t   _dim;
+
+public:
+
+    CumulativeDenseExpression() = delete;
+    CumulativeDenseExpression( const CumulativeDenseExpression& ) = delete;
+    CumulativeDenseExpression( CumulativeDenseExpression&& ) = default;
+    CumulativeDenseExpression& operator=( const CumulativeDenseExpression& ) = delete;
+    CumulativeDenseExpression& operator=( CumulativeDenseExpression&& ) = default;
+
+    CumulativeDenseExpression( const function_type& f, T&& t, std::size_t dim) : _f(f), _t(std::forward<T>(t)) , _dim(dim) {}
+
+    decltype(auto) size() const { return _t.size(); }
+    decltype(auto) dims() const { return _t.dims(); }
+    decltype(auto) shape() const { return _t.shape(); }
+    decltype(auto) shape(std::size_t ii) const { return _t.shape(ii); }
+    decltype(auto) order() const noexcept { return _t.order(); }
+
+    decltype(auto) num_stripes(std::size_t dim) const {
+        if( dim != _dim ){
+            std::string err = "Ultramat: CumulativeDenseExpressions may only be striped in the direction specified upon their creation.";
+            err += " num_stripes was given dim of " + std::to_string(dim) + ", but expected " + std::to_string(_dim) + '.';
+            throw std::runtime_error(err);
+        }
+        return _t.num_stripes(dim);
+    }
+    
+    decltype(auto) required_stripe_dim() const { return _dim; }
+
+    // CumulativeDenseExpressions cannot be performed in parallel and must make use of striped iteration, hence will
+    // appear as non-contiguous and non-omp-parallel. Each stripe may still be determined in parallel however.
+    constexpr bool is_contiguous() const noexcept { return false; }
+    constexpr bool is_omp_parallelisable() const noexcept { return false; }
+
+    // Define stripe class
+
+    class Stripe {
+        
+        using Stripe_t = decltype(std::declval<std::add_const_t<std::remove_cvref_t<T>>>().get_stripe(0,0,RCOrder::col_major));
+
+        function_type     _f;
+        Stripe_t          _stripe;
+
+        public:
+
+        Stripe( const function_type& f, Stripe_t&& stripe) : _f(f), _stripe(std::move(stripe)) {}
+        
+        // Define iterator type
+
+        class Iterator {
+            
+            using It_t = typename decltype(std::declval<std::add_const_t<std::remove_cvref_t<T>>>().get_stripe(0,0,RCOrder::col_major))::Iterator;
+            
+            function_type _f;
+            It_t          _it;
+            bool          _first;
+            value_type    _val;
+            
+            public:
+           
+            Iterator( const function_type& f, It_t&& it) : _f(f), _it(std::move(it)), _first(true) {}
+            Iterator& operator++() { ++_it; return *this; }
+            decltype(auto) operator*() {
+                if( _first ){
+                    _first = false;
+                    _val = *_it;
+                } else {
+                    _val = _f(*_it,_val); 
+                }    
+                return _val;
+            }
+        };
+        
+        Iterator begin() const { return Iterator(_f,_stripe.begin()); }
+    };
+
+    // Get stripe from _t
+    decltype(auto) get_stripe( std::size_t stripe_num, std::size_t dim, RCOrder order) const {
+        if( dim != _dim ){
+            std::string err = "Ultramat: CumulativeDenseExpressions may only be striped in the direction specified upon their creation.";
+            err += " get_stripe was given dim of " + std::to_string(dim) + ", but expected " + std::to_string(_dim) + '.';
+            throw std::runtime_error(err);
+        }
+        return Stripe(_f,std::move(_t.get_stripe(stripe_num,dim,order)));
+    }
+
+    // Define const_iterator dummy class
+
+    struct const_iterator {
+        const_iterator() { throw std::runtime_error("Ultramat CumulativeDenseExpression: Must use striped iteration!");}
+        decltype(auto) operator*() { return 0; }
+        const_iterator& operator++() { return *this; }
+    };
+    const_iterator begin() const { return const_iterator(); }
+};
+
 
 } // namespace
 #endif

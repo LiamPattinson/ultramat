@@ -567,36 +567,6 @@ decltype(auto) hypot( DenseExpression<X>&& x, DenseExpression<Y>&& y, DenseExpre
 }
 
 // =========================
-// Cumulative
-
-// Expressions
-
-template<class T> using  CumSumDenseExpression = CumulativeDenseExpression<Plus,T>;
-template<class T> using CumProdDenseExpression = CumulativeDenseExpression<Multiplies,T>;
-
-// Functions
-
-template<class T, class StartT=int>
-decltype(auto) cumsum( const DenseExpression<T>& t, const StartT& start = 0){
-    return CumSumDenseExpression(static_cast<const T&>(t),start);
-}
-
-template<class T, class StartT=int>
-decltype(auto) cumsum( DenseExpression<T>&& t, const StartT& start = 0){
-    return CumSumDenseExpression(static_cast<T&&>(t),start);
-}
-
-template<class T, class StartT=int>
-decltype(auto) cumprod( const DenseExpression<T>& t, const StartT& start = 1){
-    return CumProdDenseExpression(static_cast<const T&>(t),start);
-}
-
-template<class T, class StartT=int>
-decltype(auto) cumprod( const DenseExpression<T>&& t, const StartT& start = 1){
-    return CumProdDenseExpression(static_cast<T&&>(t),start);
-}
-
-// =========================
 // Reductions / Folds / Accumulations
 
 // functors
@@ -726,6 +696,29 @@ decltype(auto) none_of( const DenseExpression<T>& t, std::size_t dim){
 template<class T>
 decltype(auto) none_of( DenseExpression<T>&& t, std::size_t dim){
     return BooleanFoldDenseExpression(NoneOf{},static_cast<T&&>(t),dim);
+}
+
+// =========================
+// Cumulative
+
+template<class T>
+decltype(auto) cumsum( const DenseExpression<T>& t, std::size_t dim){
+    return eval(CumulativeDenseExpression(Plus{},static_cast<const T&>(t),dim));
+}
+
+template<class T>
+decltype(auto) cumsum( DenseExpression<T>&& t, std::size_t dim){
+    return eval(CumulativeDenseExpression(Plus{},static_cast<T&&>(t),dim));
+}
+
+template<class T>
+decltype(auto) cumprod( const DenseExpression<T>& t, std::size_t dim){
+    return eval(CumulativeDenseExpression(Multiplies{},static_cast<const T&>(t),dim));
+}
+
+template<class T>
+decltype(auto) cumprod( DenseExpression<T>&& t, std::size_t dim){
+    return eval(CumulativeDenseExpression(Multiplies{},static_cast<T&&>(t),dim));
 }
 
 } // namespace

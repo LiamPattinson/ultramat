@@ -97,8 +97,9 @@ class DenseBase : public DenseTag {
             auto expr_it = expression.begin();
             for(auto it=begin(), it_end=end(); it != it_end; ++it, ++expr_it) f(*it,*expr_it);
         } else {
-            std::size_t stripes = num_stripes();
-            std::size_t stripe_dim = ( Order == RCOrder::row_major ? dims()-1 : 0 );
+            std::size_t stripe_dim = expression.required_stripe_dim();
+            if( stripe_dim == dims() ) stripe_dim = ( Order == RCOrder::row_major ? dims()-1 : 0 );
+            std::size_t stripes = num_stripes(stripe_dim);
             for( std::size_t stripe_num=0; stripe_num != stripes; ++stripe_num){
                 auto stripe = get_stripe(stripe_num,stripe_dim,Order);
                 auto expr_stripe = expression.get_stripe(stripe_num,stripe_dim,Order);
@@ -325,6 +326,8 @@ class DenseBase : public DenseTag {
     auto stripes( std::size_t dim ) const { return StripeGeneratorImpl<T,ReadWrite::read_only>(derived(),dim); }
     auto stripes() { return StripeGeneratorImpl<T>(derived()); }
     auto stripes() const { return StripeGeneratorImpl<T,ReadWrite::read_only>(derived()); }
+
+    decltype(auto) required_stripe_dim() const { return dims(); }
 
     // ===============================================
     // Utils

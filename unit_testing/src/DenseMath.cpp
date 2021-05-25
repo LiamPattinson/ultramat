@@ -197,44 +197,63 @@ TEST(ArrayMathTest,Eval){
 
 TEST(ArrayMathTest,CumulativeSum){
     auto shape = shape_vec{5,10,20};
-    Array<float>  a(shape);
-    Array<double> b(shape);
-    for( auto&& x : a) x=2.5;
-    for( auto&& x : b) x=0.5;
+    Array<float>::col_major  a(shape);
+    Array<double>::row_major b(shape);
+    int count;
+    count=0; for( auto&& x : a) x=2.5*count++;
+    count=0; for( auto&& x : b) x=0.3*count++;
 
-    Array<std::size_t> c = ultra::cumsum(a+b);
-    bool cumsum_correct = true;
-    for( std::size_t ii=0; ii<5; ++ii){
-        for( std::size_t jj=0; jj<10; ++jj){
-            for( std::size_t kk=0; kk<20; ++kk){
-                if( c(ii,jj,kk) != 3*(kk+1) ) cumsum_correct = false;
+    // cumsum is evaluating: can use auto type deduction
+    auto cumsum_0 = ultra::cumsum(a+b,0);
+    auto cumsum_1 = ultra::cumsum(a+b,1);
+    auto cumsum_2 = ultra::cumsum(a+b,2);
+
+    EXPECT_TRUE(cumsum_0.shape(0) == 5);
+    EXPECT_TRUE(cumsum_1.shape(0) == 5);
+    EXPECT_TRUE(cumsum_2.shape(0) == 5);
+    EXPECT_TRUE(cumsum_0.shape(1) == 10);
+    EXPECT_TRUE(cumsum_1.shape(1) == 10);
+    EXPECT_TRUE(cumsum_2.shape(1) == 10);
+    EXPECT_TRUE(cumsum_0.shape(2) == 20);
+    EXPECT_TRUE(cumsum_1.shape(2) == 20);
+    EXPECT_TRUE(cumsum_2.shape(2) == 20);
+
+    bool cumsum_0_correct = true;
+    for( std::size_t ii=0; ii<10; ++ii){
+        for( std::size_t jj=0; jj<20; ++jj){
+            double result = 0;
+            for( std::size_t kk=0; kk<5; ++kk){
+                result += a(kk,ii,jj) + b(kk,ii,jj);
+                if( std::fabs(result - cumsum_0(kk,ii,jj)) > 1e-5 ) cumsum_0_correct = false;
             }
         }
     }
-    EXPECT_TRUE(cumsum_correct);
-    EXPECT_TRUE(c.shape(0) == 5);
-    EXPECT_TRUE(c.shape(1) == 10);
-    EXPECT_TRUE(c.shape(2) == 20);
+    EXPECT_TRUE(cumsum_0_correct);
 
-}
-
-TEST(ArrayMathTest,CumulativeProduct){
-    auto shape = shape_vec{3,3};
-    Array<double>::col_major a(shape);
-    Array<double>::col_major b(shape);
-    for( auto&& x : a) x=1;
-    for( auto&& x : b) x=2;
-
-    Array<double>::col_major c = a + ultra::cumprod(b);
-    bool cumprod_correct = true;
-    for( std::size_t jj=0; jj<3; ++jj){
-        for( std::size_t ii=0; ii<3; ++ii){
-            if( std::fabs( c(ii,jj) - (1+std::pow(2,ii+1))) > 1e-5 ) cumprod_correct = false;
+    bool cumsum_1_correct = true;
+    for( std::size_t ii=0; ii<5; ++ii){
+        for( std::size_t jj=0; jj<20; ++jj){
+            double result = 0;
+            for( std::size_t kk=0; kk<10; ++kk){
+                result += a(ii,kk,jj) + b(ii,kk,jj);
+                if( std::fabs(result - cumsum_1(ii,kk,jj)) > 1e-5 ) cumsum_1_correct = false;
+            }
         }
     }
-    EXPECT_TRUE(cumprod_correct);
-    EXPECT_TRUE(c.shape(0) == 3);
-    EXPECT_TRUE(c.shape(1) == 3);
+    EXPECT_TRUE(cumsum_1_correct);
+    
+    bool cumsum_2_correct = true;
+    for( std::size_t ii=0; ii<5; ++ii){
+        for( std::size_t jj=0; jj<10; ++jj){
+            double result = 0;
+            for( std::size_t kk=0; kk<20; ++kk){
+                result += a(ii,jj,kk) + b(ii,jj,kk);
+                if( std::fabs(result - cumsum_2(ii,jj,kk)) > 1e-5 ) cumsum_2_correct = false;
+            }
+        }
+    }
+    EXPECT_TRUE(cumsum_2_correct);
+
 }
 
 template<class T1, class T2>

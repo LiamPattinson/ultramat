@@ -10,9 +10,6 @@
 
 ### Expressions
 
-    * Cumulative should specify direction, default to 0.
-        * should be evaluating
-        * test mixed row/col major
     * Rework Generator expressions
     * Methods to broadcast scalars.
         * scalar_as_dense function that returns fixed-size Array<T,1>;
