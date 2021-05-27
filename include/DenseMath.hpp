@@ -721,5 +721,136 @@ decltype(auto) cumprod( DenseExpression<T>&& t, std::size_t dim){
     return eval(CumulativeDenseExpression(Multiplies{},static_cast<T&&>(t),dim));
 }
 
+// =========================
+// Generators
+
+// Zeros/Ones
+
+template<class T> struct ZerosFunctor { constexpr T operator()( std::size_t ) const { return 0; } };
+template<class T> struct OnesFunctor  { constexpr T operator()( std::size_t ) const { return 1; } };
+
+template<std::ranges::sized_range Shape, class T=double>
+decltype(auto) zeros( const Shape& shape) {
+    return GeneratorExpression<ZerosFunctor<T>,ConstantGeneratorPolicy>( ZerosFunctor<T>(), shape);
+}
+
+template<class T=double>
+decltype(auto) zeros( std::size_t N) {
+    return zeros(std::array<std::size_t,1>{N});
+}
+
+template<std::ranges::sized_range Shape, class T=double>
+decltype(auto) ones( const Shape& shape) {
+    return GeneratorExpression<OnesFunctor<T>,ConstantGeneratorPolicy>( OnesFunctor<T>(), shape);
+}
+
+template<class T=double>
+decltype(auto) ones( std::size_t N) {
+    return ones(std::array<std::size_t,1>{N});
+}
+
+// linspace and logspace
+
+template<class T>
+class LinspaceFunctor {
+    T _start;
+    T _stop;
+    std::size_t _N_minus_1;
+public:
+    LinspaceFunctor( const T& start, const T& stop, std::size_t N ) : _start(start), _stop(stop), _N_minus_1(N-1) {}
+    T operator()( std::size_t idx) {
+        // Not the most efficient, but should be robust.
+        return _start*(static_cast<T>(_N_minus_1-idx)/_N_minus_1) + _stop*(static_cast<T>(idx)/_N_minus_1);
+    }
+};
+
+template<class T> requires ( !std::is_integral<T>::value )
+decltype(auto) linspace( const T& start, const T& stop, std::size_t N) {
+    return GeneratorExpression<LinspaceFunctor<T>,LinearGeneratorPolicy>( LinspaceFunctor<T>(start,stop,N), std::array<std::size_t,1>{N});
+}
+
+template<class T> requires ( std::is_integral<T>::value )
+decltype(auto) linspace( const T& start, const T& stop, std::size_t N) {
+    return linspace<double>(start,stop,N);
+}
+
+template<class T>
+class LogspaceFunctor {
+    LinspaceFunctor<T> lin;
+public:
+    LogspaceFunctor( const T& start, const T& stop, std::size_t N ) : lin(start,stop,N) {}
+    T operator()( std::size_t idx) {
+        return std::pow(10,lin(idx));
+    }
+};
+
+template<class T> requires ( !std::is_integral<T>::value )
+decltype(auto) logspace( const T& start, const T& stop, std::size_t N) {
+    return GeneratorExpression<LogspaceFunctor<T>,LinearGeneratorPolicy>( LogspaceFunctor<T>(start,stop,N), std::array<std::size_t,1>{N});
+}
+
+template<class T> requires ( std::is_integral<T>::value )
+decltype(auto) logspace( const T& start, const T& stop, std::size_t N) {
+    return logspace<double>(start,stop,N);
+}
+
+// Random number generation
+// 
+// Takes as first template parameter a random number distribution. See <random>.
+// There is no standard concept for this, but at a minimum it must define a
+// result_type, and must have the function `result_type operator()(std::size_t)`.
+// It must also be copyable.
+//
+// A random number generator may be provided as a second argument. By default, we use
+// the slow but high-quality mt19937_64. 
+//
+// RandomFunctors must be initialised with a distribution functor and a seed (typically
+// std::size_t or unsigned). If no seed is provided, it will make use of the random
+// number generator's default seed, plus 1 for each instance.
+
+template<class Dist, std::uniform_random_bit_generator RNG = std::mt19937_64>
+class RandomFunctor {
+
+public:
+
+    using dist_result_type = Dist::result_type;
+    using rng_result_type = RNG::result_type;
+
+private:
+
+    Dist            _dist;
+    RNG             _rng;
+    static rng_result_type _static_seed;
+
+public:
+    
+    RandomFunctor( const Dist& dist ) : 
+        _dist(dist),
+        _rng(_static_seed++)
+    {}
+
+    RandomFunctor( const RandomFunctor& other ) :
+        _dist(other._dist),
+        _rng(_static_seed++)
+    {}
+
+    dist_result_type operator()( std::size_t ) {
+        return _dist(_rng);
+    }
+};
+
+template<class Dist, std::uniform_random_bit_generator RNG>
+RandomFunctor<Dist,RNG>::rng_result_type RandomFunctor<Dist,RNG>::_static_seed = RNG::default_seed;
+
+template<class Dist, std::uniform_random_bit_generator RNG = std::mt19937_64, std::ranges::sized_range Range>
+decltype(auto) random( const Dist& dist, const Range& range) {
+    return GeneratorExpression<RandomFunctor<Dist,RNG>,ConstantGeneratorPolicy>( RandomFunctor<Dist,RNG>(dist), range);
+}
+
+template<class Dist, std::uniform_random_bit_generator RNG = std::mt19937_64>
+decltype(auto) random( const Dist& dist, std::size_t N) {
+    return random(dist,std::array<std::size_t,1>{N});
+}
+
 } // namespace
 #endif

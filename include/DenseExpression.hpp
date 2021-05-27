@@ -693,6 +693,96 @@ public:
     const_iterator begin() const { return const_iterator(); }
 };
 
+// GeneratorExpression
+// Define policies:
+
+class ConstantGeneratorPolicy {
+
+public:
+    ConstantGeneratorPolicy() = default;
+    ConstantGeneratorPolicy( std::size_t ) {}
+    constexpr std::size_t get() const { return 0;}
+    ConstantGeneratorPolicy& operator++() { /* do nothing! */ return *this; }
+};
+
+class LinearGeneratorPolicy {
+    std::size_t _count;
+public:
+    LinearGeneratorPolicy() : _count(0) {}
+    LinearGeneratorPolicy( std::size_t count) : _count(count) {}
+    std::size_t get() const { return _count;}
+    LinearGeneratorPolicy& operator++() { ++_count; return *this; }
+};
+
+// Define GeneratorExpression:
+
+template<class F, class GeneratorPolicy>
+class GeneratorExpression : public DenseExpression<GeneratorExpression<F,GeneratorPolicy>> {
+    
+public:
+
+    using value_type = decltype(std::declval<F>()(static_cast<std::size_t>(0)));
+    using function_type = F;
+
+private:
+
+    function_type            _f;
+    std::vector<std::size_t> _shape;
+    std::size_t              _size;
+
+public:
+
+    template<std::ranges::sized_range Shape>
+    GeneratorExpression(const function_type& f, const Shape& shape) : _f(f), _shape(shape.size()) {
+        std::ranges::copy( shape, _shape.begin());
+        _size = std::accumulate( _shape.begin(), _shape.end(), 1, std::multiplies<std::size_t>() );
+    }
+
+    decltype(auto) size() const { return _size; }
+    decltype(auto) dims() const { return _shape.size(); }
+    decltype(auto) shape() const { return _shape; }
+    decltype(auto) shape(std::size_t ii) const { return _shape[ii]; }
+    decltype(auto) order() const noexcept { return default_rc_order; }
+    decltype(auto) num_stripes(std::size_t dim) const { return _size/_shape[dim]; }
+    decltype(auto) required_stripe_dim() const { return dims(); }
+
+    constexpr bool is_contiguous() const noexcept { return true; }
+    constexpr bool is_omp_parallelisable() const noexcept { return true; }
+
+    // Define iterator class
+
+    class const_iterator : public GeneratorPolicy {
+        
+        function_type _f;
+
+        public:
+        
+        const_iterator( const function_type& f, std::size_t count) : GeneratorPolicy(count), _f(f) {}
+        decltype(auto) operator*() { return _f(GeneratorPolicy::get()); }
+        const_iterator& operator++() { GeneratorPolicy::operator++(); return *this; }
+    };
+
+    const_iterator begin() const { return const_iterator(_f,0); }
+
+    // Define stripe class
+ 
+    class Stripe {
+
+        function_type _f;
+
+        public:
+
+        Stripe( const function_type& f) : _f(f) {}
+
+        using Iterator = const_iterator;
+        const_iterator begin() const { return const_iterator(_f,0); }
+    };
+
+    // Get stripes from each Arg
+    decltype(auto) get_stripe( std::size_t, std::size_t, RCOrder) const {
+        return Stripe(_f);
+    }
+};
 
 } // namespace
 #endif

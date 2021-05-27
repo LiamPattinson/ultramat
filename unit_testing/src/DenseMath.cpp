@@ -897,3 +897,97 @@ TEST(ArrayMathTest,Fold){
     EXPECT_TRUE( std::fabs(max_norm_1(4) - std::sqrt(5*5+4*4)) < 1e-5);
     EXPECT_TRUE( std::fabs(max_norm_1(5) - std::sqrt(6*6+5*5)) < 1e-5);
 }
+
+TEST(ArrayMathTest,OnesAndZeros){
+    auto shape = shape_vec{5,10,20};
+
+    // Set things to zeros/ones
+    Array<int>    a(shape); a = zeros(shape);
+    Array<float>  b = ones(shape);
+
+    bool zero_correct=true, one_correct=true;
+    for( auto&& x : a ) if( x )    zero_correct=false;
+    for( auto&& x : b ) if( x!=1 ) one_correct=false;
+
+    EXPECT_TRUE(zero_correct);
+    EXPECT_TRUE(one_correct);
+    EXPECT_TRUE(a.shape(0) == 5);
+    EXPECT_TRUE(a.shape(1) == 10);
+    EXPECT_TRUE(a.shape(2) == 20);
+    EXPECT_TRUE(b.shape(0) == 5);
+    EXPECT_TRUE(b.shape(1) == 10);
+    EXPECT_TRUE(b.shape(2) == 20);
+
+    // Combine ones with arithmetic
+    Array<float> c = b + b + ones(shape) + b;
+    bool four_correct = true;
+    for( auto&& x : c ) if( x!=4 ) four_correct=false;
+    EXPECT_TRUE(four_correct);
+}
+
+TEST(ArrayMathTest,Linspace){
+    std::size_t idx;
+
+    Array<double> a = linspace(0,1,101);
+    EXPECT_TRUE(a.dims() == 1);
+    EXPECT_TRUE(a.size() == 101);
+    EXPECT_TRUE(a.shape(0) == 101);
+    bool linear_linspace_correct = true;
+    idx=0;
+    for(auto&& x : a) if( std::abs(x - (idx++)*0.01) > 1e-5 ) linear_linspace_correct = false;
+    EXPECT_TRUE(linear_linspace_correct);
+
+}
+
+
+TEST(ArrayMathTest,Logspace){
+    Array<double> a = logspace(-2,2,5);
+    // Note:
+    // Early versions of this code had a dangling reference bug. Using assertions here
+    // to halt testing if anything weird happens.
+    ASSERT_TRUE(a.dims() == 1);
+    ASSERT_TRUE(a.size() == 5);
+    ASSERT_TRUE(a.shape(0) == 5);
+    bool logspace_correct = true;
+    int idx=-2;
+    for(auto&& x : a) if( std::fabs(x - std::pow(10,idx++)) > 1e-5 ) logspace_correct = false;
+    EXPECT_TRUE(logspace_correct);
+}
+
+TEST(ArrayMathTest,Random){
+    shape_vec shape{5,10,20}; 
+    Array<double> a = random(std::uniform_real_distribution<double>(0,1),100);
+    Array<double> b = random(std::uniform_real_distribution<double>(0,1),100);
+    Array<int> c = random(std::uniform_int_distribution<int>(-5000000,500000),shape);
+    Array<int> d = random(std::uniform_int_distribution<int>(-5000000,500000),shape);
+    EXPECT_TRUE(a.dims() == 1);
+    EXPECT_TRUE(a.size() == 100);
+    EXPECT_TRUE(a.shape(0) == 100);
+    EXPECT_TRUE(b.dims() == 1);
+    EXPECT_TRUE(b.size() == 100);
+    EXPECT_TRUE(b.shape(0) == 100);
+    EXPECT_TRUE(c.dims() == 3);
+    EXPECT_TRUE(c.size() == 1000);
+    EXPECT_TRUE(c.shape(0) == 5);
+    EXPECT_TRUE(c.shape(1) == 10);
+    EXPECT_TRUE(c.shape(2) == 20);
+    EXPECT_TRUE(d.dims() == 3);
+    EXPECT_TRUE(d.size() == 1000);
+    EXPECT_TRUE(d.shape(0) == 5);
+    EXPECT_TRUE(d.shape(1) == 10);
+    EXPECT_TRUE(d.shape(2) == 20);
+    
+    // Test that the numbers generated don't match (there is a very slim chance that this will fail!)
+    bool random_double_correct = true;
+    for( auto c_it = c.begin(), d_it = d.begin(), c_end = c.end(); c_it != c_end; ++c_it, ++d_it){
+        if( *c_it == *d_it ) random_double_correct = false;
+    }
+    EXPECT_TRUE(random_double_correct);
+    
+    // Test that they can be used in arithmetic (nothing to EXPECT_TRUE here, only that it doesn't break)
+    Array<double> e = (a + b + random(std::uniform_real_distribution<double>(0,5),100)) * random(std::uniform_int_distribution<int>(0,100),100);
+    EXPECT_TRUE(e.dims() == 1);
+    EXPECT_TRUE(e.size() == 100);
+    EXPECT_TRUE(e.shape(0) == 100);
+}
+

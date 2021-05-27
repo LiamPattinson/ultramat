@@ -10,7 +10,6 @@
 
 ### Expressions
 
-    * Rework Generator expressions
     * Methods to broadcast scalars.
         * scalar_as_dense function that returns fixed-size Array<T,1>;
         * May just require a _lot_ of function overloading.
