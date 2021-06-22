@@ -10,10 +10,9 @@
 
 ### Expressions
 
-    * Try performing expressions on views -- will allow automatic broadcasting, but may be slower for common use cases.
     * Methods to broadcast scalars.
-        * scalar_as_dense function that returns fixed-size Array<T,1>;
-        * May just require a _lot_ of function overloading.
+        * Create ScalarExpression, which must be given a shape. Acts as constant generator.
+        * Requires a _lot_ of function overloading. Make good use of macros.
     * Take views, reshapes, permutations, transposes from expressions.
         * implement as ReinterpretExpression. Perform eval, then apply function.
 

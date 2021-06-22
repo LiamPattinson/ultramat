@@ -14,557 +14,196 @@ namespace ultra {
 
 // Functors
 
-struct Negate     { template<class T> decltype(auto) operator()( const T& t) const { return -t; }};
-struct Plus       { template<class L,class R> decltype(auto) operator()( const L& l, const R& r) const { return l + r; }};
-struct Minus      { template<class L,class R> decltype(auto) operator()( const L& l, const R& r) const { return l - r; }};
-struct Multiplies { template<class L,class R> decltype(auto) operator()( const L& l, const R& r) const { return l * r; }};
-struct Divides    { template<class L,class R> decltype(auto) operator()( const L& l, const R& r) const { return l / r; }};
+#define DENSE_MATH_UNARY_OPERATOR( Name, Op) \
+                                                                                                    \
+    struct Name { template<class T> decltype(auto) operator()( const T& t) const { return Op t; }}; \
+                                                                                                    \
+    template<class T> using Name##DenseExpression = ElementWiseDenseExpression< Name, T>;           \
+                                                                                                    \
+    template<class T>                                                                               \
+    decltype(auto) operator Op ( const DenseExpression<T>& t){                                     \
+        return Name##DenseExpression(static_cast<const T&>(t));                                     \
+    }                                                                                               \
+                                                                                                    \
+    template<class T>                                                                               \
+    decltype(auto) operator Op ( DenseExpression<T>&& t){                                          \
+        return Name##DenseExpression(static_cast<T&&>(t));                                          \
+    }                                                                                               
 
-// DenseExpressions
+DENSE_MATH_UNARY_OPERATOR( Negate, -)
+DENSE_MATH_UNARY_OPERATOR( LogicalNot, !)
 
-template<class T>         using NegateDenseExpression     = ElementWiseDenseExpression<Negate,T>;
-template<class L,class R> using PlusDenseExpression       = ElementWiseDenseExpression<Plus,L,R>;
-template<class L,class R> using MinusDenseExpression      = ElementWiseDenseExpression<Minus,L,R>;
-template<class L,class R> using MultipliesDenseExpression = ElementWiseDenseExpression<Multiplies,L,R>;
-template<class L,class R> using DividesDenseExpression    = ElementWiseDenseExpression<Divides,L,R>;
+#define DENSE_MATH_BINARY_OPERATOR( Name, Op) \
+                                                                                                                           \
+    struct Name { template<class L, class R> decltype(auto) operator()( const L& l, const R& r) const { return l Op r; }}; \
+                                                                                                                           \
+    template<class L,class R> using Name##DenseExpression = ElementWiseDenseExpression< Name, L, R>;                       \
+                                                                                                                           \
+    template<class L, class R>                                                                                             \
+    decltype(auto) operator Op ( const DenseExpression<L>& l, const DenseExpression<R>& r){                               \
+        return Name##DenseExpression(static_cast<const L&>(l),static_cast<const R&>(r));                                   \
+    }                                                                                                                      \
+                                                                                                                           \
+    template<class L, class R>                                                                                             \
+    decltype(auto) operator Op ( const DenseExpression<L>& l, DenseExpression<R>&& r){                                    \
+        return Name##DenseExpression(static_cast<const L&>(l),static_cast<R&&>(r));                                        \
+    }                                                                                                                      \
+                                                                                                                           \
+    template<class L, class R>                                                                                             \
+    decltype(auto) operator Op ( DenseExpression<L>&& l, const DenseExpression<R>& r){                                    \
+        return Name##DenseExpression(static_cast<L&&>(l),static_cast<const R&>(r));                                        \
+    }                                                                                                                      \
+                                                                                                                           \
+    template<class L, class R>                                                                                             \
+    decltype(auto) operator Op ( DenseExpression<L>&& l, DenseExpression<R>&& r){                                         \
+        return Name##DenseExpression(static_cast<L&&>(l),static_cast<R&&>(r));                                             \
+    }
 
-// Operator overloads
-
-template<class T>
-decltype(auto) operator-( const DenseExpression<T>& t){
-    return NegateDenseExpression(static_cast<const T&>(t));
-}
-
-template<class T>
-decltype(auto) operator-( DenseExpression<T>&& t){
-    return NegateDenseExpression(static_cast<T&&>(t));
-}
-
-template<class L, class R>
-decltype(auto) operator+( const DenseExpression<L>& l, const DenseExpression<R>& r){
-    return PlusDenseExpression(static_cast<const L&>(l),static_cast<const R&>(r));
-}
-
-template<class L, class R>
-decltype(auto) operator+( const DenseExpression<L>& l, DenseExpression<R>&& r){
-    return PlusDenseExpression(static_cast<const L&>(l),static_cast<R&&>(r));
-}
-
-template<class L, class R>
-decltype(auto) operator+( DenseExpression<L>&& l, const DenseExpression<R>& r){
-    return PlusDenseExpression(static_cast<L&&>(l),static_cast<const R&>(r));
-}
-
-template<class L, class R>
-decltype(auto) operator+( DenseExpression<L>&& l, DenseExpression<R>&& r){
-    return PlusDenseExpression(static_cast<L&&>(l),static_cast<R&&>(r));
-}
-
-template<class L, class R>
-decltype(auto) operator-( const DenseExpression<L>& l, const DenseExpression<R>& r){
-    return MinusDenseExpression(static_cast<const L&>(l),static_cast<const R&>(r));
-}
-
-template<class L, class R>
-decltype(auto) operator-( DenseExpression<L>&& l, const DenseExpression<R>& r){
-    return MinusDenseExpression(static_cast<L&&>(l),static_cast<const R&>(r));
-}
-
-template<class L, class R>
-decltype(auto) operator-( const DenseExpression<L>& l, DenseExpression<R>&& r){
-    return MinusDenseExpression(static_cast<const L&>(l),static_cast<R&&>(r));
-}
-
-template<class L, class R>
-decltype(auto) operator-( DenseExpression<L>&& l, DenseExpression<R>&& r){
-    return MinusDenseExpression(static_cast<L&&>(l),static_cast<R&&>(r));
-}
-
-template<class L, class R>
-decltype(auto) operator*( const DenseExpression<L>& l, const DenseExpression<R>& r){
-    return MultipliesDenseExpression(static_cast<const L&>(l),static_cast<const R&>(r));
-}
-
-template<class L, class R>
-decltype(auto) operator*( DenseExpression<L>&& l, const DenseExpression<R>& r){
-    return MultipliesDenseExpression(static_cast<L&&>(l),static_cast<const R&>(r));
-}
-
-template<class L, class R>
-decltype(auto) operator*( const DenseExpression<L>& l, DenseExpression<R>&& r){
-    return MultipliesDenseExpression(static_cast<const L&>(l),static_cast<R&&>(r));
-}
-
-template<class L, class R>
-decltype(auto) operator*( DenseExpression<L>&& l, DenseExpression<R>&& r){
-    return MultipliesDenseExpression(static_cast<L&&>(l),static_cast<R&&>(r));
-}
-
-template<class L, class R>
-decltype(auto) operator/( const DenseExpression<L>& l, const DenseExpression<R>& r){
-    return DividesDenseExpression(static_cast<const L&>(l),static_cast<const R&>(r));
-}
-
-template<class L, class R>
-decltype(auto) operator/( DenseExpression<L>&& l, const DenseExpression<R>& r){
-    return DividesDenseExpression(static_cast<L&&>(l),static_cast<const R&>(r));
-}
-
-template<class L, class R>
-decltype(auto) operator/( const DenseExpression<L>& l, DenseExpression<R>&& r){
-    return DividesDenseExpression(static_cast<const L&>(l),static_cast<R&&>(r));
-}
-
-template<class L, class R>
-decltype(auto) operator/( DenseExpression<L>&& l, DenseExpression<R>&& r){
-    return DividesDenseExpression(static_cast<L&&>(l),static_cast<R&&>(r));
-}
-
-// =========================
-// Boolean Logic
-
-// Functors
-
-struct LogicalNot { template<class T> decltype(auto) operator()( const T& t) const { return !t; }};
-struct LogicalAnd { template<class L,class R> decltype(auto) operator()( const L& l, const R& r) const { return l && r; }};
-struct LogicalOr  { template<class L,class R> decltype(auto) operator()( const L& l, const R& r) const { return l || r; }};
-struct LogicalEq  { template<class L,class R> decltype(auto) operator()( const L& l, const R& r) const { return l == r; }};
-struct LogicalNeq { template<class L,class R> decltype(auto) operator()( const L& l, const R& r) const { return l != r; }};
-struct LogicalGt  { template<class L,class R> decltype(auto) operator()( const L& l, const R& r) const { return l > r;  }};
-struct LogicalLt  { template<class L,class R> decltype(auto) operator()( const L& l, const R& r) const { return l < r;  }};
-struct LogicalGe  { template<class L,class R> decltype(auto) operator()( const L& l, const R& r) const { return l >= r; }};
-struct LogicalLe  { template<class L,class R> decltype(auto) operator()( const L& l, const R& r) const { return l <= r; }};
-
-// DenseExpressions
-
-template<class T>         using LogicalNotDenseExpression = ElementWiseDenseExpression<LogicalNot,T>;
-template<class L,class R> using LogicalAndDenseExpression = ElementWiseDenseExpression<LogicalAnd,L,R>;
-template<class L,class R> using LogicalOrDenseExpression  = ElementWiseDenseExpression<LogicalOr,L,R>;
-template<class L,class R> using LogicalEqDenseExpression  = ElementWiseDenseExpression<LogicalEq,L,R>;
-template<class L,class R> using LogicalNeqDenseExpression = ElementWiseDenseExpression<LogicalNeq,L,R>;
-template<class L,class R> using LogicalGtDenseExpression  = ElementWiseDenseExpression<LogicalGt,L,R>;
-template<class L,class R> using LogicalLtDenseExpression  = ElementWiseDenseExpression<LogicalLt,L,R>;
-template<class L,class R> using LogicalGeDenseExpression  = ElementWiseDenseExpression<LogicalGe,L,R>;
-template<class L,class R> using LogicalLeDenseExpression  = ElementWiseDenseExpression<LogicalLe,L,R>;
-
-// Operator overloads
-
-template<class T>
-decltype(auto) operator!( const DenseExpression<T>& t){
-    return LogicalNotDenseExpression(static_cast<const T&>(t));
-}
-
-template<class T>
-decltype(auto) operator!( DenseExpression<T>&& t){
-    return LogicalNotDenseExpression(static_cast<T&&>(t));
-}
-
-template<class L, class R>
-decltype(auto) operator&&( const DenseExpression<L>& l, const DenseExpression<R>& r){
-    return LogicalAndDenseExpression(static_cast<const L&>(l),static_cast<const R&>(r));
-}
-
-template<class L, class R>
-decltype(auto) operator&&( const DenseExpression<L>& l, DenseExpression<R>&& r){
-    return LogicalAndDenseExpression(static_cast<const L&>(l),static_cast<R&&>(r));
-}
-
-template<class L, class R>
-decltype(auto) operator&&( DenseExpression<L>&& l, const DenseExpression<R>& r){
-    return LogicalAndDenseExpression(static_cast<L&&>(l),static_cast<const R&>(r));
-}
-
-template<class L, class R>
-decltype(auto) operator&&( DenseExpression<L>&& l, DenseExpression<R>&& r){
-    return LogicalAndDenseExpression(static_cast<L&&>(l),static_cast<R&&>(r));
-}
-
-template<class L, class R>
-decltype(auto) operator||( const DenseExpression<L>& l, const DenseExpression<R>& r){
-    return LogicalOrDenseExpression(static_cast<const L&>(l),static_cast<const R&>(r));
-}
-
-template<class L, class R>
-decltype(auto) operator||( const DenseExpression<L>& l, DenseExpression<R>&& r){
-    return LogicalOrDenseExpression(static_cast<const L&>(l),static_cast<R&&>(r));
-}
-
-template<class L, class R>
-decltype(auto) operator||( DenseExpression<L>&& l, const DenseExpression<R>& r){
-    return LogicalOrDenseExpression(static_cast<L&&>(l),static_cast<const R&>(r));
-}
-
-template<class L, class R>
-decltype(auto) operator||( DenseExpression<L>&& l, DenseExpression<R>&& r){
-    return LogicalOrDenseExpression(static_cast<L&&>(l),static_cast<R&&>(r));
-}
-
-template<class L, class R>
-decltype(auto) operator==( const DenseExpression<L>& l, const DenseExpression<R>& r){
-    return LogicalEqDenseExpression(static_cast<const L&>(l),static_cast<const R&>(r));
-}
-
-template<class L, class R>
-decltype(auto) operator==( const DenseExpression<L>& l, DenseExpression<R>&& r){
-    return LogicalEqDenseExpression(static_cast<const L&>(l),static_cast<R&&>(r));
-}
-
-template<class L, class R>
-decltype(auto) operator==( DenseExpression<L>&& l, const DenseExpression<R>& r){
-    return LogicalEqDenseExpression(static_cast<L&&>(l),static_cast<const R&>(r));
-}
-
-template<class L, class R>
-decltype(auto) operator==( DenseExpression<L>&& l, DenseExpression<R>&& r){
-    return LogicalEqDenseExpression(static_cast<L&&>(l),static_cast<R&&>(r));
-}
-
-template<class L, class R>
-decltype(auto) operator!=( const DenseExpression<L>& l, const DenseExpression<R>& r){
-    return LogicalNeqDenseExpression(static_cast<const L&>(l),static_cast<const R&>(r));
-}
-
-template<class L, class R>
-decltype(auto) operator!=( const DenseExpression<L>& l, DenseExpression<R>&& r){
-    return LogicalNeqDenseExpression(static_cast<const L&>(l),static_cast<R&&>(r));
-}
-
-template<class L, class R>
-decltype(auto) operator!=( DenseExpression<L>&& l, const DenseExpression<R>& r){
-    return LogicalNeqDenseExpression(static_cast<L&&>(l),static_cast<const R&>(r));
-}
-
-template<class L, class R>
-decltype(auto) operator!=( DenseExpression<L>&& l, DenseExpression<R>&& r){
-    return LogicalNeqDenseExpression(static_cast<L&&>(l),static_cast<R&&>(r));
-}
-
-template<class L, class R>
-decltype(auto) operator>( const DenseExpression<L>& l, const DenseExpression<R>& r){
-    return LogicalGtDenseExpression(static_cast<const L&>(l),static_cast<const R&>(r));
-}
-
-template<class L, class R>
-decltype(auto) operator>( const DenseExpression<L>& l, DenseExpression<R>&& r){
-    return LogicalGtDenseExpression(static_cast<const L&>(l),static_cast<R&&>(r));
-}
-
-template<class L, class R>
-decltype(auto) operator>( DenseExpression<L>&& l, const DenseExpression<R>& r){
-    return LogicalGtDenseExpression(static_cast<L&&>(l),static_cast<const R&>(r));
-}
-
-template<class L, class R>
-decltype(auto) operator>( DenseExpression<L>&& l, DenseExpression<R>&& r){
-    return LogicalGtDenseExpression(static_cast<L&&>(l),static_cast<R&&>(r));
-}
-
-template<class L, class R>
-decltype(auto) operator<( const DenseExpression<L>& l, const DenseExpression<R>& r){
-    return LogicalLtDenseExpression(static_cast<const L&>(l),static_cast<const R&>(r));
-}
-
-template<class L, class R>
-decltype(auto) operator<( const DenseExpression<L>& l, DenseExpression<R>&& r){
-    return LogicalLtDenseExpression(static_cast<const L&>(l),static_cast<R&&>(r));
-}
-
-template<class L, class R>
-decltype(auto) operator<( DenseExpression<L>&& l, const DenseExpression<R>& r){
-    return LogicalLtDenseExpression(static_cast<L&&>(l),static_cast<const R&>(r));
-}
-
-template<class L, class R>
-decltype(auto) operator<( DenseExpression<L>&& l, DenseExpression<R>&& r){
-    return LogicalLtDenseExpression(static_cast<L&&>(l),static_cast<R&&>(r));
-}
-
-template<class L, class R>
-decltype(auto) operator>=( const DenseExpression<L>& l, const DenseExpression<R>& r){
-    return LogicalGeDenseExpression(static_cast<const L&>(l),static_cast<const R&>(r));
-}
-
-template<class L, class R>
-decltype(auto) operator>=( const DenseExpression<L>& l, DenseExpression<R>&& r){
-    return LogicalGeDenseExpression(static_cast<const L&>(l),static_cast<R&&>(r));
-}
-
-template<class L, class R>
-decltype(auto) operator>=( DenseExpression<L>&& l, const DenseExpression<R>& r){
-    return LogicalGeDenseExpression(static_cast<L&&>(l),static_cast<const R&>(r));
-}
-
-template<class L, class R>
-decltype(auto) operator>=( DenseExpression<L>&& l, DenseExpression<R>&& r){
-    return LogicalGeDenseExpression(static_cast<L&&>(l),static_cast<R&&>(r));
-}
-
-template<class L, class R>
-decltype(auto) operator<=( const DenseExpression<L>& l, const DenseExpression<R>& r){
-    return LogicalLeDenseExpression(static_cast<const L&>(l),static_cast<const R&>(r));
-}
-
-template<class L, class R>
-decltype(auto) operator<=( const DenseExpression<L>& l, DenseExpression<R>&& r){
-    return LogicalLeDenseExpression(static_cast<const L&>(l),static_cast<R&&>(r));
-}
-
-template<class L, class R>
-decltype(auto) operator<=( DenseExpression<L>&& l, const DenseExpression<R>& r){
-    return LogicalLeDenseExpression(static_cast<L&&>(l),static_cast<const R&>(r));
-}
-
-template<class L, class R>
-decltype(auto) operator<=( DenseExpression<L>&& l, DenseExpression<R>&& r){
-    return LogicalLeDenseExpression(static_cast<L&&>(l),static_cast<R&&>(r));
-}
+DENSE_MATH_BINARY_OPERATOR( Plus, +)
+DENSE_MATH_BINARY_OPERATOR( Minus, -)
+DENSE_MATH_BINARY_OPERATOR( Multiplies, *)
+DENSE_MATH_BINARY_OPERATOR( Divides, /)
+DENSE_MATH_BINARY_OPERATOR( LogicalAnd, &&)
+DENSE_MATH_BINARY_OPERATOR( LogicalOr, ||)
+DENSE_MATH_BINARY_OPERATOR( LogicalEq, ==)
+DENSE_MATH_BINARY_OPERATOR( LogicalNeq, !=)
+DENSE_MATH_BINARY_OPERATOR( LogicalGt, >)
+DENSE_MATH_BINARY_OPERATOR( LogicalLt, <)
+DENSE_MATH_BINARY_OPERATOR( LogicalGe, >=)
+DENSE_MATH_BINARY_OPERATOR( LogicalLe, <=)
 
 // =========================
 // Unary Functions
 
-// Functors
+#define DENSE_MATH_UNARY_FUNCTION( Name, Func ) \
+                                                                                                            \
+    struct Name { template<class T> decltype(auto) operator()( const T& t) const { return std::Func(t); }}; \
+                                                                                                            \
+    template<class T> using Name##DenseExpression = ElementWiseDenseExpression< Name, T>;                   \
+                                                                                                            \
+    template<class T>                                                                                       \
+    decltype(auto) Func ( const DenseExpression<T>& t){                                                     \
+        return Name##DenseExpression(static_cast<const T&>(t));                                             \
+    }                                                                                                       \
+                                                                                                            \
+    template<class T>                                                                                       \
+    decltype(auto) Func ( DenseExpression<T>&& t){                                                          \
+        return Name##DenseExpression(static_cast<T&&>(t));                                                  \
+    }                                                                                               
 
-struct    Abs { template<class T> decltype(auto) operator()( const T& t) const { return std::abs(t);}};
-struct    Sin { template<class T> decltype(auto) operator()( const T& t) const { return std::sin(t);}};
-struct    Cos { template<class T> decltype(auto) operator()( const T& t) const { return std::cos(t);}};
-struct    Tan { template<class T> decltype(auto) operator()( const T& t) const { return std::tan(t);}};
-struct   Asin { template<class T> decltype(auto) operator()( const T& t) const { return std::asin(t);}};
-struct   Acos { template<class T> decltype(auto) operator()( const T& t) const { return std::acos(t);}};
-struct   Atan { template<class T> decltype(auto) operator()( const T& t) const { return std::atan(t);}};
-struct   Sinh { template<class T> decltype(auto) operator()( const T& t) const { return std::sinh(t);}};
-struct   Cosh { template<class T> decltype(auto) operator()( const T& t) const { return std::cosh(t);}};
-struct   Tanh { template<class T> decltype(auto) operator()( const T& t) const { return std::tanh(t);}};
-struct  Asinh { template<class T> decltype(auto) operator()( const T& t) const { return std::asinh(t);}};
-struct  Acosh { template<class T> decltype(auto) operator()( const T& t) const { return std::acosh(t);}};
-struct  Atanh { template<class T> decltype(auto) operator()( const T& t) const { return std::atanh(t);}};
-struct   Sqrt { template<class T> decltype(auto) operator()( const T& t) const { return std::sqrt(t);}};
-struct   Cbrt { template<class T> decltype(auto) operator()( const T& t) const { return std::cbrt(t);}};
-struct    Exp { template<class T> decltype(auto) operator()( const T& t) const { return std::exp(t);}};
-struct   Exp2 { template<class T> decltype(auto) operator()( const T& t) const { return std::exp2(t);}};
-struct  Expm1 { template<class T> decltype(auto) operator()( const T& t) const { return std::expm1(t);}};
-struct    Log { template<class T> decltype(auto) operator()( const T& t) const { return std::log(t);}};
-struct   Log2 { template<class T> decltype(auto) operator()( const T& t) const { return std::log2(t);}};
-struct  Log10 { template<class T> decltype(auto) operator()( const T& t) const { return std::log10(t);}};
-struct  Log1p { template<class T> decltype(auto) operator()( const T& t) const { return std::log1p(t);}};
-struct   Ceil { template<class T> decltype(auto) operator()( const T& t) const { return std::ceil(t);}};
-struct  Floor { template<class T> decltype(auto) operator()( const T& t) const { return std::floor(t);}};
-struct  Round { template<class T> decltype(auto) operator()( const T& t) const { return std::round(t);}};
-struct    Erf { template<class T> decltype(auto) operator()( const T& t) const { return std::erf(t);}};
-struct   Erfc { template<class T> decltype(auto) operator()( const T& t) const { return std::erfc(t);}};
-struct Tgamma { template<class T> decltype(auto) operator()( const T& t) const { return std::tgamma(t);}};
-struct Lgamma { template<class T> decltype(auto) operator()( const T& t) const { return std::lgamma(t);}};
-
-// DenseExpressions
-
-template<class T> using    AbsDenseExpression = ElementWiseDenseExpression<   Abs,T>;
-template<class T> using    SinDenseExpression = ElementWiseDenseExpression<   Sin,T>;
-template<class T> using    CosDenseExpression = ElementWiseDenseExpression<   Cos,T>;
-template<class T> using    TanDenseExpression = ElementWiseDenseExpression<   Tan,T>;
-template<class T> using   AsinDenseExpression = ElementWiseDenseExpression<  Asin,T>;
-template<class T> using   AcosDenseExpression = ElementWiseDenseExpression<  Acos,T>;
-template<class T> using   AtanDenseExpression = ElementWiseDenseExpression<  Atan,T>;
-template<class T> using   SinhDenseExpression = ElementWiseDenseExpression<  Sinh,T>;
-template<class T> using   CoshDenseExpression = ElementWiseDenseExpression<  Cosh,T>;
-template<class T> using   TanhDenseExpression = ElementWiseDenseExpression<  Tanh,T>;
-template<class T> using  AsinhDenseExpression = ElementWiseDenseExpression< Asinh,T>;
-template<class T> using  AcoshDenseExpression = ElementWiseDenseExpression< Acosh,T>;
-template<class T> using  AtanhDenseExpression = ElementWiseDenseExpression< Atanh,T>;
-template<class T> using   SqrtDenseExpression = ElementWiseDenseExpression<  Sqrt,T>;
-template<class T> using   CbrtDenseExpression = ElementWiseDenseExpression<  Cbrt,T>;
-template<class T> using    ExpDenseExpression = ElementWiseDenseExpression<   Exp,T>;
-template<class T> using   Exp2DenseExpression = ElementWiseDenseExpression<  Exp2,T>;
-template<class T> using  Expm1DenseExpression = ElementWiseDenseExpression< Expm1,T>;
-template<class T> using    LogDenseExpression = ElementWiseDenseExpression<   Log,T>;
-template<class T> using   Log2DenseExpression = ElementWiseDenseExpression<  Log2,T>;
-template<class T> using  Log10DenseExpression = ElementWiseDenseExpression< Log10,T>;
-template<class T> using  Log1pDenseExpression = ElementWiseDenseExpression< Log1p,T>;
-template<class T> using   CeilDenseExpression = ElementWiseDenseExpression<  Ceil,T>;
-template<class T> using  FloorDenseExpression = ElementWiseDenseExpression< Floor,T>;
-template<class T> using  RoundDenseExpression = ElementWiseDenseExpression< Round,T>;
-template<class T> using    ErfDenseExpression = ElementWiseDenseExpression<   Erf,T>;
-template<class T> using   ErfcDenseExpression = ElementWiseDenseExpression<  Erfc,T>;
-template<class T> using TgammaDenseExpression = ElementWiseDenseExpression<Tgamma,T>;
-template<class T> using LgammaDenseExpression = ElementWiseDenseExpression<Lgamma,T>;
-
-// Functions
-
-template<class T> decltype(auto)    abs( const DenseExpression<T>& t){ return    AbsDenseExpression(static_cast<const T&>(t));}
-template<class T> decltype(auto)    sin( const DenseExpression<T>& t){ return    SinDenseExpression(static_cast<const T&>(t));}
-template<class T> decltype(auto)    cos( const DenseExpression<T>& t){ return    CosDenseExpression(static_cast<const T&>(t));}
-template<class T> decltype(auto)    tan( const DenseExpression<T>& t){ return    TanDenseExpression(static_cast<const T&>(t));}
-template<class T> decltype(auto)   asin( const DenseExpression<T>& t){ return   AsinDenseExpression(static_cast<const T&>(t));}
-template<class T> decltype(auto)   acos( const DenseExpression<T>& t){ return   AcosDenseExpression(static_cast<const T&>(t));}
-template<class T> decltype(auto)   atan( const DenseExpression<T>& t){ return   AtanDenseExpression(static_cast<const T&>(t));}
-template<class T> decltype(auto)   sinh( const DenseExpression<T>& t){ return   SinhDenseExpression(static_cast<const T&>(t));}
-template<class T> decltype(auto)   cosh( const DenseExpression<T>& t){ return   CoshDenseExpression(static_cast<const T&>(t));}
-template<class T> decltype(auto)   tanh( const DenseExpression<T>& t){ return   TanhDenseExpression(static_cast<const T&>(t));}
-template<class T> decltype(auto)  asinh( const DenseExpression<T>& t){ return  AsinhDenseExpression(static_cast<const T&>(t));}
-template<class T> decltype(auto)  acosh( const DenseExpression<T>& t){ return  AcoshDenseExpression(static_cast<const T&>(t));}
-template<class T> decltype(auto)  atanh( const DenseExpression<T>& t){ return  AtanhDenseExpression(static_cast<const T&>(t));}
-template<class T> decltype(auto)   sqrt( const DenseExpression<T>& t){ return   SqrtDenseExpression(static_cast<const T&>(t));}
-template<class T> decltype(auto)   cbrt( const DenseExpression<T>& t){ return   CbrtDenseExpression(static_cast<const T&>(t));}
-template<class T> decltype(auto)    exp( const DenseExpression<T>& t){ return    ExpDenseExpression(static_cast<const T&>(t));}
-template<class T> decltype(auto)   exp2( const DenseExpression<T>& t){ return   Exp2DenseExpression(static_cast<const T&>(t));}
-template<class T> decltype(auto)  expm1( const DenseExpression<T>& t){ return  Expm1DenseExpression(static_cast<const T&>(t));}
-template<class T> decltype(auto)    log( const DenseExpression<T>& t){ return    LogDenseExpression(static_cast<const T&>(t));}
-template<class T> decltype(auto)   log2( const DenseExpression<T>& t){ return   Log2DenseExpression(static_cast<const T&>(t));}
-template<class T> decltype(auto)  log10( const DenseExpression<T>& t){ return  Log10DenseExpression(static_cast<const T&>(t));}
-template<class T> decltype(auto)  log1p( const DenseExpression<T>& t){ return  Log1pDenseExpression(static_cast<const T&>(t));}
-template<class T> decltype(auto)   ceil( const DenseExpression<T>& t){ return   CeilDenseExpression(static_cast<const T&>(t));}
-template<class T> decltype(auto)  floor( const DenseExpression<T>& t){ return  FloorDenseExpression(static_cast<const T&>(t));}
-template<class T> decltype(auto)  round( const DenseExpression<T>& t){ return  RoundDenseExpression(static_cast<const T&>(t));}
-template<class T> decltype(auto)    erf( const DenseExpression<T>& t){ return    ErfDenseExpression(static_cast<const T&>(t));}
-template<class T> decltype(auto)   erfc( const DenseExpression<T>& t){ return   ErfcDenseExpression(static_cast<const T&>(t));}
-template<class T> decltype(auto) tgamma( const DenseExpression<T>& t){ return TgammaDenseExpression(static_cast<const T&>(t));}
-template<class T> decltype(auto) lgamma( const DenseExpression<T>& t){ return LgammaDenseExpression(static_cast<const T&>(t));}
-
-template<class T> decltype(auto)    abs( DenseExpression<T>&& t){ return    AbsDenseExpression(static_cast<T&&>(t));}
-template<class T> decltype(auto)    sin( DenseExpression<T>&& t){ return    SinDenseExpression(static_cast<T&&>(t));}
-template<class T> decltype(auto)    cos( DenseExpression<T>&& t){ return    CosDenseExpression(static_cast<T&&>(t));}
-template<class T> decltype(auto)    tan( DenseExpression<T>&& t){ return    TanDenseExpression(static_cast<T&&>(t));}
-template<class T> decltype(auto)   asin( DenseExpression<T>&& t){ return   AsinDenseExpression(static_cast<T&&>(t));}
-template<class T> decltype(auto)   acos( DenseExpression<T>&& t){ return   AcosDenseExpression(static_cast<T&&>(t));}
-template<class T> decltype(auto)   atan( DenseExpression<T>&& t){ return   AtanDenseExpression(static_cast<T&&>(t));}
-template<class T> decltype(auto)   sinh( DenseExpression<T>&& t){ return   SinhDenseExpression(static_cast<T&&>(t));}
-template<class T> decltype(auto)   cosh( DenseExpression<T>&& t){ return   CoshDenseExpression(static_cast<T&&>(t));}
-template<class T> decltype(auto)   tanh( DenseExpression<T>&& t){ return   TanhDenseExpression(static_cast<T&&>(t));}
-template<class T> decltype(auto)  asinh( DenseExpression<T>&& t){ return  AsinhDenseExpression(static_cast<T&&>(t));}
-template<class T> decltype(auto)  acosh( DenseExpression<T>&& t){ return  AcoshDenseExpression(static_cast<T&&>(t));}
-template<class T> decltype(auto)  atanh( DenseExpression<T>&& t){ return  AtanhDenseExpression(static_cast<T&&>(t));}
-template<class T> decltype(auto)   sqrt( DenseExpression<T>&& t){ return   SqrtDenseExpression(static_cast<T&&>(t));}
-template<class T> decltype(auto)   cbrt( DenseExpression<T>&& t){ return   CbrtDenseExpression(static_cast<T&&>(t));}
-template<class T> decltype(auto)    exp( DenseExpression<T>&& t){ return    ExpDenseExpression(static_cast<T&&>(t));}
-template<class T> decltype(auto)   exp2( DenseExpression<T>&& t){ return   Exp2DenseExpression(static_cast<T&&>(t));}
-template<class T> decltype(auto)  expm1( DenseExpression<T>&& t){ return  Expm1DenseExpression(static_cast<T&&>(t));}
-template<class T> decltype(auto)    log( DenseExpression<T>&& t){ return    LogDenseExpression(static_cast<T&&>(t));}
-template<class T> decltype(auto)   log2( DenseExpression<T>&& t){ return   Log2DenseExpression(static_cast<T&&>(t));}
-template<class T> decltype(auto)  log10( DenseExpression<T>&& t){ return  Log10DenseExpression(static_cast<T&&>(t));}
-template<class T> decltype(auto)  log1p( DenseExpression<T>&& t){ return  Log1pDenseExpression(static_cast<T&&>(t));}
-template<class T> decltype(auto)   ceil( DenseExpression<T>&& t){ return   CeilDenseExpression(static_cast<T&&>(t));}
-template<class T> decltype(auto)  floor( DenseExpression<T>&& t){ return  FloorDenseExpression(static_cast<T&&>(t));}
-template<class T> decltype(auto)  round( DenseExpression<T>&& t){ return  RoundDenseExpression(static_cast<T&&>(t));}
-template<class T> decltype(auto)    erf( DenseExpression<T>&& t){ return    ErfDenseExpression(static_cast<T&&>(t));}
-template<class T> decltype(auto)   erfc( DenseExpression<T>&& t){ return   ErfcDenseExpression(static_cast<T&&>(t));}
-template<class T> decltype(auto) tgamma( DenseExpression<T>&& t){ return TgammaDenseExpression(static_cast<T&&>(t));}
-template<class T> decltype(auto) lgamma( DenseExpression<T>&& t){ return LgammaDenseExpression(static_cast<T&&>(t));}
+DENSE_MATH_UNARY_FUNCTION( Abs, abs )
+DENSE_MATH_UNARY_FUNCTION( Sin, sin )
+DENSE_MATH_UNARY_FUNCTION( Cos, cos )
+DENSE_MATH_UNARY_FUNCTION( Tan, tan )
+DENSE_MATH_UNARY_FUNCTION( Asin, asin )
+DENSE_MATH_UNARY_FUNCTION( Acos, acos )
+DENSE_MATH_UNARY_FUNCTION( Atan, atan )
+DENSE_MATH_UNARY_FUNCTION( Sinh, sinh )
+DENSE_MATH_UNARY_FUNCTION( Cosh, cosh )
+DENSE_MATH_UNARY_FUNCTION( Tanh, tanh )
+DENSE_MATH_UNARY_FUNCTION( Asinh, asinh )
+DENSE_MATH_UNARY_FUNCTION( Acosh, acosh )
+DENSE_MATH_UNARY_FUNCTION( Atanh, atanh )
+DENSE_MATH_UNARY_FUNCTION( Sqrt, sqrt )
+DENSE_MATH_UNARY_FUNCTION( Cbrt, cbrt )
+DENSE_MATH_UNARY_FUNCTION( Exp, exp )
+DENSE_MATH_UNARY_FUNCTION( Exp2, exp2 )
+DENSE_MATH_UNARY_FUNCTION( Expm1, expm1 )
+DENSE_MATH_UNARY_FUNCTION( Log, log )
+DENSE_MATH_UNARY_FUNCTION( Log2, log2 )
+DENSE_MATH_UNARY_FUNCTION( Log10, log10 )
+DENSE_MATH_UNARY_FUNCTION( Log1p, log1p )
+DENSE_MATH_UNARY_FUNCTION( Ceil, ceil )
+DENSE_MATH_UNARY_FUNCTION( Floor, floor )
+DENSE_MATH_UNARY_FUNCTION( Round, round )
+DENSE_MATH_UNARY_FUNCTION( Erf, erf )
+DENSE_MATH_UNARY_FUNCTION( Erfc, erfc )
+DENSE_MATH_UNARY_FUNCTION( Tgamma, tgamma )
+DENSE_MATH_UNARY_FUNCTION( Lgamma, lgamma )
 
 // =========================
-// Binary/Ternary Functions
+// Binary Functions
 
-// Functors
+#define DENSE_MATH_BINARY_FUNCTION( Name, Func) \
+                                                                                                                                   \
+    struct Name { template<class L, class R> decltype(auto) operator()( const L& l, const R& r) const { return std::Func(l,r); }}; \
+                                                                                                                                   \
+    template<class L,class R> using Name##DenseExpression = ElementWiseDenseExpression< Name, L, R>;                               \
+                                                                                                                                   \
+    template<class L, class R>                                                                                                     \
+    decltype(auto) Func ( const DenseExpression<L>& l, const DenseExpression<R>& r){                                               \
+        return Name##DenseExpression(static_cast<const L&>(l),static_cast<const R&>(r));                                           \
+    }                                                                                                                              \
+                                                                                                                                   \
+    template<class L, class R>                                                                                                     \
+    decltype(auto) Func ( const DenseExpression<L>& l, DenseExpression<R>&& r){                                                    \
+        return Name##DenseExpression(static_cast<const L&>(l),static_cast<R&&>(r));                                                \
+    }                                                                                                                              \
+                                                                                                                                   \
+    template<class L, class R>                                                                                                     \
+    decltype(auto) Func ( DenseExpression<L>&& l, const DenseExpression<R>& r){                                                    \
+        return Name##DenseExpression(static_cast<L&&>(l),static_cast<const R&>(r));                                                \
+    }                                                                                                                              \
+                                                                                                                                   \
+    template<class L, class R>                                                                                                     \
+    decltype(auto) Func ( DenseExpression<L>&& l, DenseExpression<R>&& r){                                                         \
+        return Name##DenseExpression(static_cast<L&&>(l),static_cast<R&&>(r));                                                     \
+    }
 
-struct Pow    { template<class X,class Y> decltype(auto) operator()( const X& x, const Y& y) const { return std::pow(x,y);}};
-struct Atan2  { template<class X,class Y> decltype(auto) operator()( const X& x, const Y& y) const { return std::atan2(x,y);}};
-struct Hypot  { template<class X,class Y> decltype(auto) operator()( const X& x, const Y& y) const { return std::hypot(x,y);}
-                template<class X,class Y,class Z> decltype(auto) operator()( const X& x, const Y& y, const Z& z) const { return std::hypot(x,y,z);}};
+DENSE_MATH_BINARY_FUNCTION(Pow,pow)
+DENSE_MATH_BINARY_FUNCTION(Atan2,atan2)
+DENSE_MATH_BINARY_FUNCTION(Hypot2,hypot)
 
-// DenseExpressions
+// =========================
+// Ternary Function(s)
 
-template<class X,class Y> using   PowDenseExpression = ElementWiseDenseExpression<  Pow,X,Y>;
-template<class X,class Y> using Atan2DenseExpression = ElementWiseDenseExpression<Atan2,X,Y>;
-template<class... Xs>     using HypotDenseExpression = ElementWiseDenseExpression<Hypot,Xs...>;
+#define DENSE_MATH_TERNARY_FUNCTION( Name, Func) \
+                                                                                                                                                          \
+    struct Name { template<class X, class Y, class Z> decltype(auto) operator()( const X& x, const Y& y, const Z& z) const { return std::Func(x,y,z); }}; \
+                                                                                                                                                          \
+    template<class X,class Y,class Z> using Name##DenseExpression = ElementWiseDenseExpression< Name, X, Y, Z>;                                           \
+                                                                                                                                                          \
+    template<class X, class Y,class Z>                                                                                                                    \
+    decltype(auto) Func ( const DenseExpression<X>& x, const DenseExpression<Y>& y, const DenseExpression<Z>& z){                                         \
+        return Name##DenseExpression(static_cast<const X&>(x),static_cast<const Y&>(y),static_cast<const Z&>(z));                                         \
+    }                                                                                                                                                     \
+                                                                                                                                                          \
+    template<class X, class Y,class Z>                                                                                                                    \
+    decltype(auto) Func ( DenseExpression<X>&& x, const DenseExpression<Y>& y, const DenseExpression<Z>& z){                                              \
+        return Name##DenseExpression(static_cast<X&&>(x),static_cast<const Y&>(y),static_cast<const Z&>(z));                                              \
+    }                                                                                                                                                     \
+                                                                                                                                                          \
+    template<class X, class Y,class Z>                                                                                                                    \
+    decltype(auto) Func ( const DenseExpression<X>& x, DenseExpression<Y>&& y, const DenseExpression<Z>& z){                                              \
+        return Name##DenseExpression(static_cast<const X&>(x),static_cast<Y&&>(y),static_cast<const Z&>(z));                                              \
+    }                                                                                                                                                     \
+                                                                                                                                                          \
+    template<class X, class Y,class Z>                                                                                                                    \
+    decltype(auto) Func ( const DenseExpression<X>& x, const DenseExpression<Y>& y, DenseExpression<Z>&& z){                                              \
+        return Name##DenseExpression(static_cast<const X&>(x),static_cast<const Y&>(y),static_cast<Z&&>(z));                                              \
+    }                                                                                                                                                     \
+                                                                                                                                                          \
+    template<class X, class Y,class Z>                                                                                                                    \
+    decltype(auto) Func ( DenseExpression<X>&& x, DenseExpression<Y>&& y, const DenseExpression<Z>& z){                                                   \
+        return Name##DenseExpression(static_cast<X&>(x),static_cast<Y&&>(y),static_cast<const Z&>(z));                                                    \
+    }                                                                                                                                                     \
+                                                                                                                                                          \
+    template<class X, class Y,class Z>                                                                                                                    \
+    decltype(auto) Func ( DenseExpression<X>&& x, const DenseExpression<Y>& y, DenseExpression<Z>&& z){                                                   \
+        return Name##DenseExpression(static_cast<X&&>(x),static_cast<const Y&>(y),static_cast<Z&&>(z));                                                   \
+    }                                                                                                                                                     \
+                                                                                                                                                          \
+    template<class X, class Y,class Z>                                                                                                                    \
+    decltype(auto) Func ( const DenseExpression<X>& x, DenseExpression<Y>&& y, DenseExpression<Z>&& z){                                                   \
+        return Name##DenseExpression(static_cast<const X&>(x),static_cast<Y&&>(y),static_cast<Z&&>(z));                                                   \
+    }                                                                                                                                                     \
+                                                                                                                                                          \
+    template<class X, class Y,class Z>                                                                                                                    \
+    decltype(auto) Func ( DenseExpression<X>&& x, DenseExpression<Y>&& y, DenseExpression<Z>&& z){                                                        \
+        return Name##DenseExpression(static_cast<X&&>(x),static_cast<Y&&>(y),static_cast<Z&&>(z));                                                        \
+    }                                                                                                                                                     \
 
-// DenseExpressions
-
-template<class X,class Y>
-decltype(auto) pow( const DenseExpression<X>& x, const DenseExpression<Y>& y){
-    return PowDenseExpression(static_cast<const X&>(x),static_cast<const Y&>(y));
-}
-
-template<class X,class Y>
-decltype(auto) pow( DenseExpression<X>&& x, const DenseExpression<Y>& y){
-    return PowDenseExpression(static_cast<X&&>(x),static_cast<const Y&>(y));
-}
-
-template<class X,class Y>
-decltype(auto) pow( const DenseExpression<X>& x, DenseExpression<Y>&& y){
-    return PowDenseExpression(static_cast<const X&>(x),static_cast<Y&&>(y));
-}
-
-template<class X,class Y>
-decltype(auto) pow( DenseExpression<X>&& x, DenseExpression<Y>&& y){
-    return PowDenseExpression(static_cast<X&&>(x),static_cast<Y&&>(y));
-}
-
-template<class X,class Y>
-decltype(auto) atan2( const DenseExpression<X>& x, const DenseExpression<Y>& y){
-    return Atan2DenseExpression(static_cast<const X&>(x),static_cast<const Y&>(y));
-}
-
-template<class X,class Y>
-decltype(auto) atan2( DenseExpression<X>&& x, const DenseExpression<Y>& y){
-    return Atan2DenseExpression(static_cast<X&&>(x),static_cast<const Y&>(y));
-}
-
-template<class X,class Y>
-decltype(auto) atan2( const DenseExpression<X>& x, DenseExpression<Y>&& y){
-    return Atan2DenseExpression(static_cast<const X&>(x),static_cast<Y&&>(y));
-}
-
-template<class X,class Y>
-decltype(auto) atan2( DenseExpression<X>&& x, DenseExpression<Y>&& y){
-    return Atan2DenseExpression(static_cast<X&&>(x),static_cast<Y&&>(y));
-}
-
-template<class X,class Y>
-decltype(auto) hypot( const DenseExpression<X>& x, const DenseExpression<Y>& y){
-    return HypotDenseExpression(static_cast<const X&>(x),static_cast<const Y&>(y));
-}
-
-template<class X,class Y>
-decltype(auto) hypot( DenseExpression<X>&& x, const DenseExpression<Y>& y){
-    return HypotDenseExpression(static_cast<X&&>(x),static_cast<const Y&>(y));
-}
-
-template<class X,class Y>
-decltype(auto) hypot( const DenseExpression<X>& x, DenseExpression<Y>&& y){
-    return HypotDenseExpression(static_cast<const X&>(x),static_cast<Y&&>(y));
-}
-
-template<class X,class Y>
-decltype(auto) hypot( DenseExpression<X>&& x, DenseExpression<Y>&& y){
-    return HypotDenseExpression(static_cast<X&&>(x),static_cast<Y&&>(y));
-}
-
-template<class X,class Y,class Z>
-decltype(auto) hypot( const DenseExpression<X>& x, const DenseExpression<Y>& y, const DenseExpression<Z>& z){
-    return HypotDenseExpression(static_cast<const X&>(x),static_cast<const Y&>(y),static_cast<const Z&>(z));
-}
-
-template<class X,class Y,class Z>
-decltype(auto) hypot( DenseExpression<X>&& x, const DenseExpression<Y>& y, const DenseExpression<Z>& z){
-    return HypotDenseExpression(static_cast<X&&>(x),static_cast<const Y&>(y),static_cast<const Z&>(z));
-}
-
-template<class X,class Y,class Z>
-decltype(auto) hypot( const DenseExpression<X>& x, DenseExpression<Y>&& y, const DenseExpression<Z>& z){
-    return HypotDenseExpression(static_cast<const X&>(x),static_cast<Y&&>(y),static_cast<const Z&>(z));
-}
-
-template<class X,class Y,class Z>
-decltype(auto) hypot( DenseExpression<X>&& x, DenseExpression<Y>&& y, const DenseExpression<Z>& z){
-    return HypotDenseExpression(static_cast<X&&>(x),static_cast<Y&&>(y),static_cast<const Z&>(z));
-}
-
-template<class X,class Y,class Z>
-decltype(auto) hypot( const DenseExpression<X>& x, const DenseExpression<Y>& y, DenseExpression<Z>&& z){
-    return HypotDenseExpression(static_cast<const X&>(x),static_cast<const Y&>(y),static_cast<Z&&>(z));
-}
-
-template<class X,class Y,class Z>
-decltype(auto) hypot( DenseExpression<X>&& x, const DenseExpression<Y>& y, DenseExpression<Z>&& z){
-    return HypotDenseExpression(static_cast<X&&>(x),static_cast<const Y&>(y),static_cast<Z&&>(z));
-}
-
-template<class X,class Y,class Z>
-decltype(auto) hypot( const DenseExpression<X>& x, DenseExpression<Y>&& y, DenseExpression<Z>&& z){
-    return HypotDenseExpression(static_cast<const X&>(x),static_cast<Y&&>(y),static_cast<Z&&>(z));
-}
-
-template<class X,class Y,class Z>
-decltype(auto) hypot( DenseExpression<X>&& x, DenseExpression<Y>&& y, DenseExpression<Z>&& z){
-    return HypotDenseExpression(static_cast<X&&>(x),static_cast<Y&&>(y),static_cast<Z&&>(z));
-}
+DENSE_MATH_TERNARY_FUNCTION(Hypot3,hypot)
 
 // =========================
 // Reductions / Folds / Accumulations
