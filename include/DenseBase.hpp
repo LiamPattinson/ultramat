@@ -9,12 +9,10 @@
 
 namespace ultra {
 
-// Declare DenseView class and StripeGenerator
+// Declare DenseView class and Stripe
 
 template<class T, ReadWrite rw=ReadWrite::writeable> class DenseView;
 template<class T, ReadWrite rw=ReadWrite::writeable> class DenseStripe;
-template<class T, ReadWrite rw=ReadWrite::writeable> class StripeGenerator;
-template<class T, ReadWrite rw=ReadWrite::writeable> class StripeGeneratorImpl;
 
 // CRTP Base Class
 template<class T,RCOrder Order>
@@ -322,11 +320,6 @@ class DenseBase : public DenseTag {
         return DenseStripe<T,ReadWrite::read_only>( derived().data()+jump_to_stripe(stripe_num,dim,order), stride(dim+(Order==RCOrder::row_major)), shape(dim));
     }
 
-    auto stripes( std::size_t dim ) { return StripeGeneratorImpl<T>(derived(),dim); }
-    auto stripes( std::size_t dim ) const { return StripeGeneratorImpl<T,ReadWrite::read_only>(derived(),dim); }
-    auto stripes() { return StripeGeneratorImpl<T>(derived()); }
-    auto stripes() const { return StripeGeneratorImpl<T,ReadWrite::read_only>(derived()); }
-
     decltype(auto) required_stripe_dim() const { return dims(); }
 
     // ===============================================
@@ -489,10 +482,10 @@ struct variadic_stride_impl< std::index_sequence<ShapeInt,ShapeInts...>, std::in
 
 template<std::size_t... ShapeInts>
 struct variadic_stride {
-    static constexpr decltype(auto) col_major = index_sequence_to_array(
+    static constexpr auto col_major = index_sequence_to_array(
         typename reverse_index_sequence<typename variadic_stride_impl<std::index_sequence<1,ShapeInts...>,std::index_sequence<>>::type>::type()
     );
-    static constexpr decltype(auto) row_major = index_sequence_to_array(
+    static constexpr auto row_major = index_sequence_to_array(
         typename variadic_stride_impl<typename reverse_index_sequence<std::index_sequence<ShapeInts...,1>>::type,std::index_sequence<>>::type()
     );
 };

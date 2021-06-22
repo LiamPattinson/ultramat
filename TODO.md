@@ -10,6 +10,7 @@
 
 ### Expressions
 
+    * Try performing expressions on views -- will allow automatic broadcasting, but may be slower for common use cases.
     * Methods to broadcast scalars.
         * scalar_as_dense function that returns fixed-size Array<T,1>;
         * May just require a _lot_ of function overloading.

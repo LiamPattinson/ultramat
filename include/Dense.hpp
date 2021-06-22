@@ -131,7 +131,6 @@ public:
     using DenseBase<ArrayImpl<T,Order>,Order>::t;
     using DenseBase<ArrayImpl<T,Order>,Order>::begin;
     using DenseBase<ArrayImpl<T,Order>,Order>::end;
-    using DenseBase<ArrayImpl<T,Order>,Order>::stripes;
     using DenseBase<ArrayImpl<T,Order>,Order>::num_stripes;
     using DenseBase<ArrayImpl<T,Order>,Order>::get_stripe;
     using DenseBase<ArrayImpl<T,Order>,Order>::required_stripe_dim;
@@ -219,7 +218,6 @@ public:
     using DenseBase<FixedArrayImpl<T,Order,Dims...>,Order>::t;
     using DenseBase<FixedArrayImpl<T,Order,Dims...>,Order>::begin;
     using DenseBase<FixedArrayImpl<T,Order,Dims...>,Order>::end;
-    using DenseBase<FixedArrayImpl<T,Order,Dims...>,Order>::stripes;
     using DenseBase<FixedArrayImpl<T,Order,Dims...>,Order>::num_stripes;
     using DenseBase<FixedArrayImpl<T,Order,Dims...>,Order>::get_stripe;
     using DenseBase<FixedArrayImpl<T,Order,Dims...>,Order>::required_stripe_dim;
