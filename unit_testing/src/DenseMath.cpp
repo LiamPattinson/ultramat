@@ -128,6 +128,27 @@ TEST(ArrayMathTest,InPlaceArithmetic){
 
 }
 
+TEST(ArrayMathTest,ScalarArithmetic){
+    auto shape = shape_vec{5};
+    Array<double>::col_major a(shape);
+    Array<int>::row_major b(shape);
+    int count;
+    count=0; for( auto&& x : a) x=count++;
+    count=0; for( auto&& x : b) x=count++;
+    count = 0; for( auto&& x : a ){ EXPECT_TRUE( x == count++ ); }
+    count = 0; for( auto&& x : b ){ EXPECT_TRUE( x == count++ ); }
+    std::cout << b(0) << ' ' <<  b(1) << ' ' << b(2) << std::endl;
+    //Array<double>::col_major c = 2+a;
+    Array<int>::row_major d = b + 0;
+    std::cout << d(0) << ' ' <<  d(1) << ' ' << d(2) << std::endl;
+    // Check that c and d are correct
+    bool c_correct = true, d_correct = true;
+    //count = 0; for( auto&& x : c ) if( x != 2+count++) c_correct=false;
+    count = 0; for( auto&& x : d ) if( x != count++) d_correct=false;
+    EXPECT_TRUE(c_correct);
+    EXPECT_TRUE(d_correct);
+}
+
 TEST(ArrayMathTest,Math){
     auto shape = shape_vec{5,10,20};
     Array<int>         a(shape);
@@ -153,6 +174,9 @@ TEST(ArrayMathTest,Math){
     bool lots_of_math_correct = true;
     for( auto&& x : f ) if( std::abs(x-answer) > 1e-5) lots_of_math_correct=false;
     EXPECT_TRUE(lots_of_math_correct);
+
+    // Check that calling ultra functions on arithmetic types works as expected
+    EXPECT_TRUE( std::sin(0.9) == ultra::sin(0.9) );
 }
 
 TEST(ArrayMathTest,Eval){
@@ -936,6 +960,15 @@ TEST(ArrayMathTest,Linspace){
     idx=0;
     for(auto&& x : a) if( std::abs(x - (idx++)*0.01) > 1e-5 ) linear_linspace_correct = false;
     EXPECT_TRUE(linear_linspace_correct);
+
+    Array<double> b = linspace(0,1,101) + linspace(0,1,101);
+    EXPECT_TRUE(b.dims() == 1);
+    EXPECT_TRUE(b.size() == 101);
+    EXPECT_TRUE(b.shape(0) == 101);
+    bool double_linspace_correct = true;
+    idx=0;
+    for(auto&& x : b) if( std::abs(x - (idx++)*0.02) > 1e-5 ) double_linspace_correct = false;
+    EXPECT_TRUE(double_linspace_correct);
 
 }
 

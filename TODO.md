@@ -5,16 +5,16 @@
 ### Containers
     
     * Vector class, including fixed variety.
-        * Must allow easy conversion to/from Arrays.
     * Matrix class, including fixed variety.
+    * Include matrix generators (eye)
+    * Must allow easy conversion to/from Arrays.
 
 ### Expressions
 
-    * Methods to broadcast scalars.
-        * Create ScalarExpression, which must be given a shape. Acts as constant generator.
-        * Requires a _lot_ of function overloading. Make good use of macros.
     * Take views, reshapes, permutations, transposes from expressions.
         * implement as ReinterpretExpression. Perform eval, then apply function.
+    * Easier random generation (random_uniform, random_normal/random_gaussian)
+    * arange/regspace
 
 ## Wishlist
 

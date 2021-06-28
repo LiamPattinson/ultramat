@@ -157,7 +157,9 @@ public:
 
 private:
     
-    using tuple_t = decltype(std::forward_as_tuple(std::declval<Args>()...));
+    // tuple type: If receiving 'Args&' or 'const Args&' as lvalue references, use this. Otherwise, if receiving rvalue reference,
+    //             store Args 'by-value'. This avoids dangling references when the user chooses to return an expression from a function.
+    using tuple_t = std::tuple< std::conditional_t< std::is_lvalue_reference<Args>::value, Args, std::remove_cvref_t<Args>>...>;
     tuple_t _args;
 
     template<std::size_t... I>
@@ -270,7 +272,82 @@ public:
     decltype(auto) get_stripe( std::size_t stripe_num, std::size_t dim, RCOrder order) const {
         return Stripe(std::move(apply_to_each(GetStripe{stripe_num,dim,order},_args)));
     }
+};
 
+// ScalarDenseExpression
+// Broadcast a scalar to a given shape, allowing it to take part in DenseExpressions.
+
+template<class T>
+class ScalarDenseExpression : public DenseExpression<ScalarDenseExpression<T>> {
+
+public:
+
+    using value_type = std::remove_cvref_t<T>;
+    static_assert( std::is_arithmetic<T>::value, "Ultramat: Cannot broadcast given type, must be arithmetic type");
+
+private:
+    
+    value_type               _scalar;
+    std::vector<std::size_t> _shape;
+    RCOrder                  _rc_order;
+
+public:
+
+    ScalarDenseExpression() = delete;
+    ScalarDenseExpression( const ScalarDenseExpression& ) = delete;
+    ScalarDenseExpression( ScalarDenseExpression&& ) = default;
+    ScalarDenseExpression& operator=( const ScalarDenseExpression& ) = delete;
+    ScalarDenseExpression& operator=( ScalarDenseExpression&& ) = default;
+
+    template<std::ranges::range Shape> requires ( std::is_integral<typename Shape::value_type>::value )
+    ScalarDenseExpression( T t, const Shape& shape, RCOrder rc_order) : _scalar(t), _shape(shape.size()), _rc_order(rc_order) {
+        std::ranges::copy(shape,_shape.begin());
+    }
+
+    decltype(auto) size() const { return std::accumulate(_shape.begin(),_shape.end(),1,std::multiplies<std::size_t>{}); }
+    decltype(auto) dims() const { return _shape.size(); }
+    decltype(auto) shape() const { return _shape; }
+    decltype(auto) shape(std::size_t ii) const { return _shape[ii]; }
+    decltype(auto) order() const noexcept { return _rc_order; }
+    decltype(auto) num_stripes(std::size_t dim) const { return size()/shape(dim); }
+    decltype(auto) required_stripe_dim() const { return dims(); }
+
+    constexpr bool is_contiguous() const noexcept { return true; }
+    constexpr bool is_omp_parallelisable() const noexcept { return true; }
+
+    // Define const_iterator class
+
+    class const_iterator {
+        
+        value_type _t;
+        
+        public:
+        
+        const_iterator( value_type t) : _t(t) {}
+        decltype(auto) operator*() { return _t; }
+        const_iterator& operator++() { /* Do nothing! */ return *this; }
+    };
+
+    const_iterator begin() const { return const_iterator(_scalar); }
+
+    // Define stripe class
+
+    class Stripe {
+        
+        value_type _t;
+
+        public:
+
+        Stripe( value_type t) : _t(t) {}
+        
+        // Borrow iterator type
+        using Iterator = const_iterator;
+        Iterator begin() const { return Iterator(_t); }
+    };
+
+    decltype(auto) get_stripe( std::size_t, std::size_t, RCOrder ) const {
+        return Stripe(_scalar);
+    }
 };
 
 // FoldDenseExpression
@@ -336,11 +413,12 @@ public:
 
 private:
 
-    using ref_t = decltype(std::forward<T>(std::declval<T>()));
+    using arg_t = std::conditional_t< std::is_lvalue_reference<T>::value, T, std::remove_cvref_t<T>>;
+    using ref_t = const std::remove_cvref_t<arg_t>&;
     using Stripe_t = decltype(std::declval<std::add_const_t<std::remove_cvref_t<T>>>().get_stripe(0,0,RCOrder::col_major));
 
     F           _f;
-    ref_t       _t;
+    arg_t       _t;
     std::size_t _fold_dim;
     std::size_t _fold_size;
 
@@ -406,7 +484,7 @@ public:
         const_iterator( const F& f, ref_t t, std::size_t stripe_dim, RCOrder order, std::size_t stripe_num, std::size_t stripe_inc, value_type start_val) :
             FoldPolicy<F,ValueType,T>(start_val),
             _f(f),
-            _t(std::forward<T>(t)),
+            _t(t),
             _stripe_dim(stripe_dim),
             _order(order),
             _stripe_num(stripe_num),
@@ -415,7 +493,7 @@ public:
 
         const_iterator( const F& f, ref_t t, std::size_t stripe_dim, RCOrder order, std::size_t stripe_num, std::size_t stripe_inc ) :
             _f(f),
-            _t(std::forward<T>(t)),
+            _t(t),
             _stripe_dim(stripe_dim),
             _order(order),
             _stripe_num(stripe_num),
@@ -423,11 +501,11 @@ public:
         {}
 
         const_iterator( const F& f, ref_t t, std::size_t stripe_dim, std::size_t stripe_num, std::size_t stripe_inc, value_type start_val) :
-            const_iterator(f,std::forward<T>(t),stripe_dim,t.order(),stripe_num,stripe_inc,start_val)
+            const_iterator(f,t,stripe_dim,t.order(),stripe_num,stripe_inc,start_val)
         {}
 
         const_iterator( const F& f, ref_t t, std::size_t stripe_dim, std::size_t stripe_num, std::size_t stripe_inc ) :
-            const_iterator(f,std::forward<T>(t),stripe_dim,t.order(),stripe_num,stripe_inc)
+            const_iterator(f,t,stripe_dim,t.order(),stripe_num,stripe_inc)
         {}
 
         decltype(auto) operator*() requires (is_general_fold) {
@@ -464,19 +542,19 @@ public:
     };
 
     const_iterator begin() const requires (is_general_fold) {
-        return const_iterator(_f,std::forward<T>(_t),_fold_dim,0,1,FoldPolicy<F,ValueType,T>::get());
+        return const_iterator(_f,_t,_fold_dim,0,1,FoldPolicy<F,ValueType,T>::get());
     }
     
     const_iterator end() const requires (is_general_fold) {
-        return const_iterator(_f,std::forward<T>(_t),_fold_dim,num_stripes(),1,FoldPolicy<F,ValueType,T>::get());
+        return const_iterator(_f,_t,_fold_dim,num_stripes(),1,FoldPolicy<F,ValueType,T>::get());
     }
 
     const_iterator begin() const requires (!is_general_fold) {
-        return const_iterator(_f,std::forward<T>(_t),_fold_dim,0,1);
+        return const_iterator(_f,_t,_fold_dim,0,1);
     }
 
     const_iterator end() const requires (!is_general_fold) {
-        return const_iterator(_f,std::forward<T>(_t),_fold_dim,num_stripes(),1);
+        return const_iterator(_f,_t,_fold_dim,num_stripes(),1);
     }
 
     // Define stripe class
@@ -498,7 +576,7 @@ public:
                 std::size_t start_stripe_num, std::size_t end_stripe_num, std::size_t stripe_num_inc):
             FoldPolicy<F,ValueType,T>(val),
             _f(f),
-            _t(std::forward<T>(t)),
+            _t(t),
             _fold_dim(fold_dim),
             _order(order),
             _start_stripe_num(start_stripe_num),
@@ -509,7 +587,7 @@ public:
         Stripe( const F& f, ref_t t, std::size_t fold_dim, RCOrder order,
                 std::size_t start_stripe_num, std::size_t end_stripe_num, std::size_t stripe_num_inc):
             _f(f),
-            _t(std::forward<T>(t)),
+            _t(t),
             _fold_dim(fold_dim),
             _order(order),
             _start_stripe_num(start_stripe_num),
@@ -521,19 +599,19 @@ public:
         using Iterator = const_iterator;
 
         Iterator begin() const requires (is_general_fold) {
-            return Iterator( _f, std::forward<T>(_t), _fold_dim, _order, _start_stripe_num, _stripe_num_inc, FoldPolicy<F,ValueType,T>::get());
+            return Iterator( _f, _t, _fold_dim, _order, _start_stripe_num, _stripe_num_inc, FoldPolicy<F,ValueType,T>::get());
         }
 
         Iterator begin() const requires (!is_general_fold) {
-            return Iterator( _f, std::forward<T>(_t), _fold_dim, _order, _start_stripe_num, _stripe_num_inc);
+            return Iterator( _f, _t, _fold_dim, _order, _start_stripe_num, _stripe_num_inc);
         }
 
         Iterator end() const requires (is_general_fold) {
-            return Iterator( _f, std::forward<T>(_t), _fold_dim, _order, _end_stripe_num, _stripe_num_inc, FoldPolicy<F,ValueType,T>::get());
+            return Iterator( _f, _t, _fold_dim, _order, _end_stripe_num, _stripe_num_inc, FoldPolicy<F,ValueType,T>::get());
         }
 
         Iterator end() const requires (!is_general_fold) {
-            return Iterator( _f, std::forward<T>(_t), _fold_dim, _order, _end_stripe_num, _stripe_num_inc);
+            return Iterator( _f, _t, _fold_dim, _order, _end_stripe_num, _stripe_num_inc);
         }
     };
 
@@ -561,13 +639,13 @@ public:
     decltype(auto) get_stripe( std::size_t stripe_num, std::size_t dim, RCOrder order) const requires (is_general_fold) {
         std::size_t start_stripe_num, end_stripe_num, stripe_num_inc;
         std::tie(start_stripe_num,end_stripe_num,stripe_num_inc) = get_stripe_info(stripe_num,dim,order);
-        return Stripe(_f,std::forward<T>(_t),_fold_dim,order,FoldPolicy<F,ValueType,T>::get(),start_stripe_num,end_stripe_num,stripe_num_inc);
+        return Stripe(_f,_t,_fold_dim,order,FoldPolicy<F,ValueType,T>::get(),start_stripe_num,end_stripe_num,stripe_num_inc);
     }
 
     decltype(auto) get_stripe( std::size_t stripe_num, std::size_t dim, RCOrder order) const requires (!is_general_fold) {
         std::size_t start_stripe_num, end_stripe_num, stripe_num_inc;
         std::tie(start_stripe_num,end_stripe_num,stripe_num_inc) = get_stripe_info(stripe_num,dim,order);
-        return Stripe(_f,std::forward<T>(_t),_fold_dim,order,start_stripe_num,end_stripe_num,stripe_num_inc);
+        return Stripe(_f,_t,_fold_dim,order,start_stripe_num,end_stripe_num,stripe_num_inc);
     }
 };
 
@@ -592,11 +670,11 @@ public:
 
 private:
 
-    using ref_t = decltype(std::forward<T>(std::declval<T>()));
+    using arg_t = std::conditional_t< std::is_lvalue_reference<T>::value, T, std::remove_cvref_t<T>>;
     using function_type = F;
 
     function_type _f;
-    ref_t         _t;
+    arg_t         _t;
     std::size_t   _dim;
 
 public:
@@ -693,36 +771,15 @@ public:
     const_iterator begin() const { return const_iterator(); }
 };
 
-// GeneratorExpression
-// Define policies:
-
-class ConstantGeneratorPolicy {
-
-public:
-    ConstantGeneratorPolicy() = default;
-    ConstantGeneratorPolicy( std::size_t ) {}
-    constexpr std::size_t get() const { return 0;}
-    ConstantGeneratorPolicy& operator++() { /* do nothing! */ return *this; }
-};
-
-class LinearGeneratorPolicy {
-    std::size_t _count;
-public:
-    LinearGeneratorPolicy() : _count(0) {}
-    LinearGeneratorPolicy( std::size_t count) : _count(count) {}
-    std::size_t get() const { return _count;}
-    LinearGeneratorPolicy& operator++() { ++_count; return *this; }
-};
-
 // Define GeneratorExpression:
 
-template<class F, class GeneratorPolicy>
-class GeneratorExpression : public DenseExpression<GeneratorExpression<F,GeneratorPolicy>> {
+template<class F>
+class GeneratorExpression : public DenseExpression<GeneratorExpression<F>> {
     
 public:
 
-    using value_type = decltype(std::declval<F>()(static_cast<std::size_t>(0)));
-    using function_type = F;
+    using function_type = std::remove_cvref_t<F>;
+    using value_type = decltype(std::declval<function_type>()(static_cast<std::size_t>(0)));
 
 private:
 
@@ -732,8 +789,14 @@ private:
 
 public:
 
+    GeneratorExpression() = delete;
+    GeneratorExpression( const GeneratorExpression& ) = delete;
+    GeneratorExpression( GeneratorExpression&& ) = default;
+    GeneratorExpression& operator=( const GeneratorExpression& ) = delete;
+    GeneratorExpression& operator=( GeneratorExpression&& ) = default;
+
     template<std::ranges::sized_range Shape>
-    GeneratorExpression(const function_type& f, const Shape& shape) : _f(f), _shape(shape.size()) {
+    GeneratorExpression( F&& f, const Shape& shape) : _f(std::forward<F>(f)), _shape(shape.size()) {
         std::ranges::copy( shape, _shape.begin());
         _size = std::accumulate( _shape.begin(), _shape.end(), 1, std::multiplies<std::size_t>() );
     }
@@ -751,18 +814,19 @@ public:
 
     // Define iterator class
 
-    class const_iterator : public GeneratorPolicy {
+    class const_iterator {
         
         function_type _f;
+        std::size_t   _count;
 
         public:
         
-        const_iterator( const function_type& f, std::size_t count) : GeneratorPolicy(count), _f(f) {}
-        decltype(auto) operator*() { return _f(GeneratorPolicy::get()); }
-        const_iterator& operator++() { GeneratorPolicy::operator++(); return *this; }
+        const_iterator( const function_type& f) : _f(f), _count(0) {}
+        decltype(auto) operator*() { return _f(_count); }
+        const_iterator& operator++() { ++_count; return *this; }
     };
 
-    const_iterator begin() const { return const_iterator(_f,0); }
+    const_iterator begin() const { return const_iterator(_f); }
 
     // Define stripe class
  
@@ -775,7 +839,7 @@ public:
         Stripe( const function_type& f) : _f(f) {}
 
         using Iterator = const_iterator;
-        const_iterator begin() const { return const_iterator(_f,0); }
+        const_iterator begin() const { return const_iterator(_f); }
     };
 
     // Get stripes from each Arg
