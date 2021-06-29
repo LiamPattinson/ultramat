@@ -89,7 +89,7 @@ class DenseBase : public DenseTag {
     struct DivEqual{ template<class U, class V> void operator()( U& u, const V& v) const { u /= v; }};
 
     template<class F, class E>
-    void accept_expression( const E& expression ){
+    void accept_expression( E&& expression ){
         F f{};
         if( derived().is_contiguous() && expression.is_contiguous() && expression.order() == Order ){
             auto expr_it = expression.begin();
@@ -108,46 +108,152 @@ class DenseBase : public DenseTag {
     }
 
     template<class U>
-    decltype(auto) operator=( const DenseExpression<U>& expression) {
-        check_expression(expression);
-        accept_expression<Equal>(expression);
-        return derived();
-    }
-
-    // Version without checking
-    // Useful for non-fixed arrays.
-    template<class U>
     decltype(auto) equal_expression( const DenseExpression<U>& expression) {
         accept_expression<Equal>(expression);
         return derived();
     }
 
     template<class U>
-    decltype(auto) operator+=( const DenseExpression<U>& expression ){
-        check_expression(expression);
+    decltype(auto) equal_expression( DenseExpression<U>&& expression) {
+        accept_expression<Equal>(std::move(expression));
+        return derived();
+    }
+
+    template<class U>
+    decltype(auto) add_equal_expression( const DenseExpression<U>& expression) {
         accept_expression<AddEqual>(expression);
         return derived();
     }
 
     template<class U>
-    decltype(auto) operator-=( const DenseExpression<U>& expression ){
-        check_expression(expression);
+    decltype(auto) add_equal_expression( DenseExpression<U>&& expression) {
+        accept_expression<AddEqual>(std::move(expression));
+        return derived();
+    }
+
+    template<class U>
+    decltype(auto) sub_equal_expression( const DenseExpression<U>& expression) {
         accept_expression<SubEqual>(expression);
         return derived();
     }
 
     template<class U>
-    decltype(auto) operator*=( const DenseExpression<U>& expression ){
-        check_expression(expression);
+    decltype(auto) sub_equal_expression( DenseExpression<U>&& expression) {
+        accept_expression<SubEqual>(std::move(expression));
+        return derived();
+    }
+
+    template<class U>
+    decltype(auto) mul_equal_expression( const DenseExpression<U>& expression) {
         accept_expression<MulEqual>(expression);
         return derived();
     }
-    
+
+    template<class U>
+    decltype(auto) mul_equal_expression( DenseExpression<U>&& expression) {
+        accept_expression<MulEqual>(std::move(expression));
+        return derived();
+    }
+
+    template<class U>
+    decltype(auto) div_equal_expression( const DenseExpression<U>& expression) {
+        accept_expression<DivEqual>(expression);
+        return derived();
+    }
+
+    template<class U>
+    decltype(auto) div_equal_expression( DenseExpression<U>&& expression) {
+        accept_expression<DivEqual>(std::move(expression));
+        return derived();
+    }
+
+    // In-place operators
+
+    template<class U>
+    decltype(auto) operator=( const DenseExpression<U>& expression) {
+        check_expression(expression);
+        return equal_expression(expression);
+    }
+
+    template<class U>
+    decltype(auto) operator=( DenseExpression<U>&& expression) {
+        check_expression(expression);
+        return equal_expression(std::move(expression));
+    }
+
+    template<class U>
+    decltype(auto) operator+=( const DenseExpression<U>& expression ){
+        check_expression(expression);
+        return add_equal_expression(expression);
+    }
+
+    template<class U>
+    decltype(auto) operator+=( DenseExpression<U>&& expression ){
+        check_expression(expression);
+        return add_equal_expression(std::move(expression));
+    }
+
+    template<class U>
+    decltype(auto) operator-=( const DenseExpression<U>& expression ){
+        check_expression(expression);
+        return sub_equal_expression(expression);
+    }
+
+    template<class U>
+    decltype(auto) operator-=( DenseExpression<U>&& expression ){
+        check_expression(expression);
+        return sub_equal_expression(std::move(expression));
+    }
+
+    template<class U>
+    decltype(auto) operator*=( const DenseExpression<U>& expression ){
+        check_expression(expression);
+        return mul_equal_expression(expression);
+    }
+
+    template<class U>
+    decltype(auto) operator*=( DenseExpression<U>&& expression ){
+        check_expression(expression);
+        return mul_equal_expression(std::move(expression));
+    }
+
     template<class U>
     decltype(auto) operator/=( const DenseExpression<U>& expression ){
         check_expression(expression);
-        accept_expression<DivEqual>(expression);
-        return derived();
+        return div_equal_expression(expression);
+    }
+    
+    template<class U>
+    decltype(auto) operator/=( DenseExpression<U>&& expression ){
+        check_expression(expression);
+        return div_equal_expression(std::move(expression));
+    }
+
+    // Scalar in-place updates
+
+    template<class U> requires ( std::is_arithmetic<U>::value)
+    decltype(auto) operator=( U u) {
+        return equal_expression(ScalarDenseExpression(u,shape(),order()));
+    }
+
+    template<class U> requires ( std::is_arithmetic<U>::value)
+    decltype(auto) operator+=( U u) {
+        return add_equal_expression(ScalarDenseExpression(u,shape(),order()));
+    }
+
+    template<class U> requires ( std::is_arithmetic<U>::value)
+    decltype(auto) operator-=( U u) {
+        return sub_equal_expression(ScalarDenseExpression(u,shape(),order()));
+    }
+
+    template<class U> requires ( std::is_arithmetic<U>::value)
+    decltype(auto) operator*=( U u) {
+        return mul_equal_expression(ScalarDenseExpression(u,shape(),order()));
+    }
+
+    template<class U> requires ( std::is_arithmetic<U>::value)
+    decltype(auto) operator/=( U u) {
+        return div_equal_expression(ScalarDenseExpression(u,shape(),order()));
     }
 
     // ===============================================

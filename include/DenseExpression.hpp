@@ -59,13 +59,27 @@ using eval_result = std::conditional_t<
 >;
 
 template<class T>
-decltype(auto) eval( DenseExpression<T>& t){
-    return eval_result<T>(static_cast<T&>(t));
+decltype(auto) eval( const DenseExpression<T>& t){
+    return eval_result<T>(static_cast<const T&>(t));
 }
 
 template<class T>
 decltype(auto) eval( DenseExpression<T>&& t){
     return eval_result<T>(static_cast<T&&>(t));
+}
+
+// reshape
+// Performs eval, then transforms.
+// Note: Other transforms, such as view/slice/permute/transpose must be performed on an lvalue, so cannot be used here.
+
+template<class T, std::ranges::range Shape> requires std::integral<typename Shape::value_type>
+decltype(auto) reshape( const DenseExpression<T>& t, const Shape& shape){
+    return eval(static_cast<const T&>(t)).reshape(shape);
+}
+
+template<class T, std::ranges::range Shape> requires std::integral<typename Shape::value_type>
+decltype(auto) reshape( DenseExpression<T>&& t, const Shape& shape){
+    return eval(static_cast<T&&>(t)).reshape(shape);
 }
 
 // Expressions utils

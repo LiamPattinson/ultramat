@@ -109,30 +109,30 @@ DENSE_MATH_BINARY_OPERATOR( LogicalLe, <=)
 // Unary Functions
 
 #define DENSE_MATH_UNARY_FUNCTION( Name, Func ) \
-                                                                                                            \
-    struct Name {                                                                                           \
-        template<class T>                                                                                   \
-        decltype(auto) operator()( const T& t) const {                                                      \
-            return std::Func(t);                                                                            \
-        }                                                                                                   \
-    };                                                                                                      \
-                                                                                                            \
-    template<class T>                                                                                       \
-    using Name##DenseExpression = ElementWiseDenseExpression< Name, T>;                                     \
-                                                                                                            \
-    template<class T>                                                                                       \
-    decltype(auto) Func ( const DenseExpression<T>& t){                                                     \
-        return Name##DenseExpression(static_cast<const T&>(t));                                             \
-    }                                                                                                       \
-                                                                                                            \
-    template<class T>                                                                                       \
-    decltype(auto) Func ( DenseExpression<T>&& t){                                                          \
-        return Name##DenseExpression(static_cast<T&&>(t));                                                  \
-    }                                                                                                       \
-                                                                                                            \
-    template<class T> requires ( std::is_arithmetic<T>::value )                                             \
-    decltype(auto) Func ( T t) {                                                                            \
-        return std::Func(t);                                                                                \
+                                                                        \
+    struct Name {                                                       \
+        template<class T>                                               \
+        decltype(auto) operator()( const T& t) const {                  \
+            return std::Func(t);                                        \
+        }                                                               \
+    };                                                                  \
+                                                                        \
+    template<class T>                                                   \
+    using Name##DenseExpression = ElementWiseDenseExpression< Name, T>; \
+                                                                        \
+    template<class T>                                                   \
+    decltype(auto) Func ( const DenseExpression<T>& t){                 \
+        return Name##DenseExpression(static_cast<const T&>(t));         \
+    }                                                                   \
+                                                                        \
+    template<class T>                                                   \
+    decltype(auto) Func ( DenseExpression<T>&& t){                      \
+        return Name##DenseExpression(static_cast<T&&>(t));              \
+    }                                                                   \
+                                                                        \
+    template<class T> requires ( std::is_arithmetic<T>::value )         \
+    decltype(auto) Func ( T t) {                                        \
+        return std::Func(t);                                            \
     }
 
 DENSE_MATH_UNARY_FUNCTION( Abs, abs )
@@ -541,6 +541,7 @@ decltype(auto) cumprod( DenseExpression<T>&& t, std::size_t dim){
 // Generators
 
 // Zeros/Ones
+// (Actually uses ScalarDenseExpression as opposed to Generators)
 
 template<std::ranges::sized_range Shape, class T=double>
 decltype(auto) zeros( const Shape& shape) {
@@ -563,6 +564,8 @@ decltype(auto) ones( std::size_t N) {
 }
 
 // linspace and logspace
+// Generate an evenly distributed set of values in the range [start,stop]
+// logspace calculates pow(10,linspace(start,stop,N))
 
 template<class T>
 class LinspaceFunctor {
@@ -590,6 +593,30 @@ decltype(auto) linspace( const T& start, const T& stop, std::size_t N) {
 template<class T>
 decltype(auto) logspace( const T& start, const T& stop, std::size_t N) {
     return pow(10,linspace<T>(start,stop,N));
+}
+
+// arange/regspace
+// Generate points distributed set of values in the range [start,stop) with a given step size
+
+template<class T>
+class ArangeFunctor {
+    T _start;
+    T _step;
+public:
+    ArangeFunctor( const T& start, const T& step ) : _start(start), _step(step) {}
+    T operator()( std::size_t idx) {
+        return _start + idx*_step;
+    }
+};
+
+template<class T>
+decltype(auto) arange( const T& start, const T& stop, const T& step) {
+    return GeneratorExpression( ArangeFunctor<T>(start,step), std::array<std::size_t,1>{std::floor(std::abs((stop-start)/step))});
+}
+
+template<class T>
+decltype(auto) regspace( const T& start, const T& stop, const T& step) {
+    return arange(start,stop,step);
 }
 
 // Random number generation
@@ -647,7 +674,56 @@ decltype(auto) random( const Dist& dist, const Range& range) {
 
 template<class Dist, std::uniform_random_bit_generator RNG = std::mt19937_64>
 decltype(auto) random( const Dist& dist, std::size_t N) {
-    return random(dist,std::array<std::size_t,1>{N});
+    return GeneratorExpression( RandomFunctor<Dist,RNG>(dist), std::array<std::size_t,1>{N});
+}
+
+// random_uniform
+// Floating point: produces values in the range [min,max)
+// Integrer: produces values in the range [min,max] (inclusive of max)
+
+template<class T, std::ranges::sized_range Range> requires std::floating_point<T> && std::integral<typename Range::value_type>
+decltype(auto) random_uniform( T min, T max, const Range& range) {
+    return random( std::uniform_real_distribution<T>(min,max), range);
+}
+
+template<class T, std::ranges::sized_range Range> requires std::integral<T> && std::integral<typename Range::value_type>
+decltype(auto) random_uniform( T min, T max, const Range& range) {
+    return random( std::uniform_int_distribution<T>(min,max), range);
+}
+
+template<class T> requires std::floating_point<T>
+decltype(auto) random_uniform( T min, T max, std::size_t N) {
+    return random( std::uniform_real_distribution<T>(min,max), N);
+}
+
+template<class T> requires std::integral<T>
+decltype(auto) random_uniform( T min, T max, std::size_t N) {
+    return random( std::uniform_int_distribution<T>(min,max), N);
+}
+
+// random_normal/random_gaussian (identical functions)
+// Produces random numbers according to:
+// f(x;\mu,\sigma) = \frac{1}{2\pi\sigma}\exp\left(-\frac{(x-\mu)^2}{2\sigma^2}\right)
+// where \mu is mean and \sigma is stddev
+
+template<class T, std::ranges::sized_range Range> requires std::floating_point<T> && std::integral<typename Range::value_type>
+decltype(auto) random_normal( T mean, T stddev, const Range& range) {
+    return random( std::normal_distribution<T>(mean,stddev), range);
+}
+
+template<class T, std::ranges::sized_range Range> requires std::floating_point<T> && std::integral<typename Range::value_type>
+decltype(auto) random_gaussian( T mean, T stddev, const Range& range) {
+    return random( std::normal_distribution<T>(mean,stddev), range);
+}
+
+template<class T> requires std::floating_point<T>
+decltype(auto) random_normal( T mean, T stddev, std::size_t N) {
+    return random( std::normal_distribution<T>(mean,stddev), N);
+}
+
+template<class T> requires std::floating_point<T>
+decltype(auto) random_gaussian( T mean, T stddev, std::size_t N) {
+    return random( std::normal_distribution<T>(mean,stddev), N);
 }
 
 } // namespace

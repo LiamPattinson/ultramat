@@ -99,6 +99,17 @@ public:
     }
 
     template<class U>
+    ArrayImpl( DenseExpression<U>&& expression) :
+        _shape(expression.dims()),
+        _stride(expression.dims()+1),
+        _data(expression.size())
+    {
+        for( std::size_t ii = 0; ii < dims(); ++ii) _shape[ii] = expression.shape(ii);
+        set_stride();
+        equal_expression(std::move(expression));
+    }
+
+    template<class U>
     ArrayImpl& operator=( const DenseExpression<U>& expression) {
         // check expression shape matches self. If not, resize and reshape in place
         try {
@@ -111,6 +122,21 @@ public:
             set_stride();
         }
         return equal_expression(expression);
+    }
+
+    template<class U>
+    ArrayImpl& operator=( DenseExpression<U>&& expression) {
+        // check expression shape matches self. If not, resize and reshape in place
+        try {
+            check_expression(expression);
+        } catch(const ExpressionException&) {
+            _shape.resize(expression.dims());
+            _stride.resize(expression.dims()+1);
+            _data.resize(expression.size());
+            for( std::size_t ii = 0; ii < dims(); ++ii) _shape[ii] = expression.shape(ii);
+            set_stride();
+        }
+        return equal_expression(std::move(expression));
     }
 
     // ===============================================
@@ -195,7 +221,9 @@ public:
 
     template<class U>
     FixedArrayImpl( const DenseExpression<U>& expression) { operator=(expression);}
-    
+
+    template<class U>
+    FixedArrayImpl( DenseExpression<U>&& expression) { operator=(std::move(expression));}
 
     // Swap
     constexpr void swap( FixedArrayImpl& other) noexcept { _data.swap(other._data); }

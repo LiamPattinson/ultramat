@@ -2,19 +2,19 @@
 
 ## Upcoming
 
+### General
+
+    * unit test in-place scalar update
+    * unit test reshape from expression
+    * unit test new random generators
+    * unit test arange/regspace
+
 ### Containers
     
     * Vector class, including fixed variety.
     * Matrix class, including fixed variety.
     * Include matrix generators (eye)
     * Must allow easy conversion to/from Arrays.
-
-### Expressions
-
-    * Take views, reshapes, permutations, transposes from expressions.
-        * implement as ReinterpretExpression. Perform eval, then apply function.
-    * Easier random generation (random_uniform, random_normal/random_gaussian)
-    * arange/regspace
 
 ## Wishlist
 
