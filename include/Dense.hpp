@@ -162,6 +162,7 @@ public:
     using DenseBase<ArrayImpl<T,Order>,Order>::required_stripe_dim;
     using DenseBase<ArrayImpl<T,Order>,Order>::operator();
     using DenseBase<ArrayImpl<T,Order>,Order>::operator[];
+    using DenseBase<ArrayImpl<T,Order>,Order>::operator=;
     using DenseBase<ArrayImpl<T,Order>,Order>::operator+=;
     using DenseBase<ArrayImpl<T,Order>,Order>::operator-=;
     using DenseBase<ArrayImpl<T,Order>,Order>::operator*=;

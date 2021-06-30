@@ -48,15 +48,9 @@ class ExpressionException : public std::runtime_error {
 
 // eval
 // Forces evaluation of an expession to a temporary, and returns it.
-// When applied to a container such as an array, it does not store a temporary, but rather provides
-// perfect forwarding of that container.
 
 template<class T>
-using eval_result = std::conditional_t< 
-    types<std::remove_cvref_t<T>>::is_dense,
-    decltype(std::forward<T>(std::declval<T>())),
-    Array<typename std::remove_cvref_t<T>::value_type>
->;
+using eval_result = Array<typename std::remove_cvref_t<T>::value_type>;
 
 template<class T>
 decltype(auto) eval( const DenseExpression<T>& t){
@@ -73,12 +67,12 @@ decltype(auto) eval( DenseExpression<T>&& t){
 // Note: Other transforms, such as view/slice/permute/transpose must be performed on an lvalue, so cannot be used here.
 
 template<class T, std::ranges::range Shape> requires std::integral<typename Shape::value_type>
-decltype(auto) reshape( const DenseExpression<T>& t, const Shape& shape){
+eval_result<T> reshape( const DenseExpression<T>& t, const Shape& shape){
     return eval(static_cast<const T&>(t)).reshape(shape);
 }
 
 template<class T, std::ranges::range Shape> requires std::integral<typename Shape::value_type>
-decltype(auto) reshape( DenseExpression<T>&& t, const Shape& shape){
+eval_result<T> reshape( DenseExpression<T>&& t, const Shape& shape){
     return eval(static_cast<T&&>(t)).reshape(shape);
 }
 

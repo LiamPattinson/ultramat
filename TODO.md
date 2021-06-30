@@ -2,13 +2,6 @@
 
 ## Upcoming
 
-### General
-
-    * unit test in-place scalar update
-    * unit test reshape from expression
-    * unit test new random generators
-    * unit test arange/regspace
-
 ### Containers
     
     * Vector class, including fixed variety.

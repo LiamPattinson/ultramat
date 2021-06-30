@@ -309,7 +309,7 @@ class DenseBase : public DenseTag {
 
     template<std::ranges::range Shape>
     requires std::integral<typename Shape::value_type>
-    T& reshape( const Shape& shape ){
+    decltype(auto) reshape( const Shape& shape ){
         // Ensure this is contiguous
         if( !derived().is_contiguous() ) throw std::runtime_error("Ultramat: Cannot reshape a non-contiguous array");
         // Ensure that the new shape has the correct size.
@@ -325,7 +325,7 @@ class DenseBase : public DenseTag {
     }
 
     template<std::integral... Ints>
-    T& reshape( Ints... shape){
+    decltype(auto) reshape( Ints... shape){
         return reshape(std::array<std::size_t,sizeof...(Ints)>{{shape...}});
     }
 

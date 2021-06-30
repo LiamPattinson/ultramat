@@ -129,24 +129,40 @@ TEST(ArrayMathTest,InPlaceArithmetic){
 }
 
 TEST(ArrayMathTest,ScalarArithmetic){
-    auto shape = shape_vec{5};
-    Array<double>::col_major a(shape);
-    Array<int>::row_major b(shape);
+    auto shape = shape_vec{5,10,20};
+    Array<float>::col_major a(shape);
+    Array<long>::row_major b(shape);
     int count;
     count=0; for( auto&& x : a) x=count++;
     count=0; for( auto&& x : b) x=count++;
     count = 0; for( auto&& x : a ){ EXPECT_TRUE( x == count++ ); }
     count = 0; for( auto&& x : b ){ EXPECT_TRUE( x == count++ ); }
-    std::cout << b(0) << ' ' <<  b(1) << ' ' << b(2) << std::endl;
-    //Array<double>::col_major c = 2+a;
-    Array<int>::row_major d = b + 0;
-    std::cout << d(0) << ' ' <<  d(1) << ' ' << d(2) << std::endl;
+    Array<double>::col_major c = 2+a;
+    Array<int>::row_major d = b * 3;
+    Array<int>::row_major e = 2 * d + b * 3;
     // Check that c and d are correct
-    bool c_correct = true, d_correct = true;
-    //count = 0; for( auto&& x : c ) if( x != 2+count++) c_correct=false;
-    count = 0; for( auto&& x : d ) if( x != count++) d_correct=false;
+    bool c_correct = true, d_correct = true, e_correct = true;
+    count = 0; for( auto&& x : c ) if( x != 2+count++) c_correct=false;
+    count = 0; for( auto&& x : d ) if( x != 3*count++) d_correct=false;
+    count = 0; for( auto&& x : e ) if( x != 9*count++) e_correct=false;
     EXPECT_TRUE(c_correct);
     EXPECT_TRUE(d_correct);
+    EXPECT_TRUE(e_correct);
+
+    // Test in-place
+    a = 13;
+    c += 3;
+    d *= 2;
+    e /= 3;
+    bool in_place_a_correct = true, in_place_c_correct = true, in_place_d_correct = true, in_place_e_correct = true;
+    for( auto&& x : a ) if( x != 13) in_place_a_correct=false;
+    count = 0; for( auto&& x : c ) if( x != 5+count++) in_place_c_correct=false;
+    count = 0; for( auto&& x : d ) if( x != 6*count++) in_place_d_correct=false;
+    count = 0; for( auto&& x : e ) if( x != 3*count++) in_place_e_correct=false;
+    EXPECT_TRUE(in_place_a_correct);
+    EXPECT_TRUE(in_place_c_correct);
+    EXPECT_TRUE(in_place_d_correct);
+    EXPECT_TRUE(in_place_e_correct);
 }
 
 TEST(ArrayMathTest,Math){
@@ -216,7 +232,18 @@ TEST(ArrayMathTest,Eval){
         if( *e_it != *f_it) correct=false;
     }
     EXPECT_TRUE(correct);
- 
+
+    // Evaluating reshape
+    Array<float> g = reshape( a*b + c, shape_vec{50,2,5,2});
+    EXPECT_TRUE( g.dims() == 4 );
+    EXPECT_TRUE( g.size() == 1000 );
+    EXPECT_TRUE( g.shape(0) == 50 );
+    EXPECT_TRUE( g.shape(1) == 2 );
+    EXPECT_TRUE( g.shape(2) == 5 );
+    EXPECT_TRUE( g.shape(3) == 2 );
+    bool g_correct=true;
+    for( auto&& x : g ) if( x != -19.5 ) g_correct = false;
+    EXPECT_TRUE(g_correct);
 }
 
 TEST(ArrayMathTest,CumulativeSum){
@@ -972,6 +999,60 @@ TEST(ArrayMathTest,Linspace){
 
 }
 
+TEST(ArrayMathTest,Arange){
+    int count;
+    Array<int> int_a = arange(0,100,3);
+    Array<int> int_b = arange(0,100,4);
+    EXPECT_TRUE(int_a.dims() == 1);
+    EXPECT_TRUE(int_b.dims() == 1);
+    EXPECT_TRUE(int_a.size() == 34);
+    EXPECT_TRUE(int_b.size() == 25);
+    bool int_a_correct = true, int_b_correct = true;
+    count=0; for(auto&& x : int_a) if( x != 3*count++ ) int_a_correct = false;
+    count=0; for(auto&& x : int_b) if( x != 4*count++ ) int_b_correct = false;
+    EXPECT_TRUE(int_a_correct);
+    EXPECT_TRUE(int_b_correct);
+
+    // test reverse steps
+    Array<int> int_c = arange(100,0,-3);
+    Array<int> int_d = arange(100,0,-4);
+    EXPECT_TRUE(int_c.dims() == 1);
+    EXPECT_TRUE(int_d.dims() == 1);
+    EXPECT_TRUE(int_c.size() == 34);
+    EXPECT_TRUE(int_d.size() == 25);
+    bool int_c_correct = true, int_d_correct = true;
+    count=0; for(auto&& x : int_c) if( x != 100-3*count++ ) int_c_correct = false;
+    count=0; for(auto&& x : int_d) if( x != 100-4*count++ ) int_d_correct = false;
+    EXPECT_TRUE(int_c_correct);
+    EXPECT_TRUE(int_d_correct);
+
+    // repeat with floats
+    Array<float> float_a = arange(0.,100,3);
+    Array<float> float_b = arange(0.,100,4);
+    EXPECT_TRUE(float_a.dims() == 1);
+    EXPECT_TRUE(float_b.dims() == 1);
+    EXPECT_TRUE(float_a.size() == 34);
+    EXPECT_TRUE(float_b.size() == 25);
+    bool float_a_correct = true, float_b_correct = true;
+    count=0; for(auto&& x : float_a) if( x != 3*count++ ) float_a_correct = false;
+    count=0; for(auto&& x : float_b) if( x != 4*count++ ) float_b_correct = false;
+    EXPECT_TRUE(float_a_correct);
+    EXPECT_TRUE(float_b_correct);
+
+    // test reverse steps
+    Array<float> float_c = arange(100,0,-3.);
+    Array<float> float_d = arange(100,0,-4.);
+    EXPECT_TRUE(float_c.dims() == 1);
+    EXPECT_TRUE(float_d.dims() == 1);
+    EXPECT_TRUE(float_c.size() == 34);
+    EXPECT_TRUE(float_d.size() == 25);
+    bool float_c_correct = true, float_d_correct = true;
+    count=0; for(auto&& x : float_c) if( x != 100-3*count++ ) float_c_correct = false;
+    count=0; for(auto&& x : float_d) if( x != 100-4*count++ ) float_d_correct = false;
+    EXPECT_TRUE(float_c_correct);
+    EXPECT_TRUE(float_d_correct);
+
+}
 
 TEST(ArrayMathTest,Logspace){
     Array<double> a = logspace(-2,2,5);
@@ -1017,10 +1098,33 @@ TEST(ArrayMathTest,Random){
     }
     EXPECT_TRUE(random_double_correct);
     
-    // Test that they can be used in arithmetic (nothing to EXPECT_TRUE here, only that it doesn't break)
-    Array<double> e = (a + b + random(std::uniform_real_distribution<double>(0,5),100)) * random(std::uniform_int_distribution<int>(0,100),100);
+    // Test that they can be used in arithmetic. Using simplified version (first one will be an int distribution, second real).
+    Array<double> e = (a + b + random_uniform(0,5,100)) * random_uniform(0.,100,100);
     EXPECT_TRUE(e.dims() == 1);
     EXPECT_TRUE(e.size() == 100);
     EXPECT_TRUE(e.shape(0) == 100);
+    bool e_correct = true;
+    for( auto&& x : e ) if ( x < 0 || x > 700 ) e_correct = false;
+    EXPECT_TRUE( e_correct );
+
+    // Test Gaussian
+    std::size_t num_vals = 10000;
+    Array<double> normal = random_normal(10,2,num_vals);
+    EXPECT_TRUE(normal.dims() == 1);
+    EXPECT_TRUE(normal.size() == num_vals);
+    EXPECT_TRUE(normal.shape(0) == num_vals);
+    int within_1_stddev = 0, within_2_stddev = 0;
+    for( auto&& x : normal ){
+        if( x > 6 && x < 14 ){
+            within_2_stddev++;
+            if( x > 8 && x < 12 ){
+                within_1_stddev++;
+            }
+        }
+    }
+    double percent_within_1_stddev = (100.*within_1_stddev) / num_vals;
+    double percent_within_2_stddev = (100.*within_2_stddev) / num_vals;
+    EXPECT_TRUE( std::fabs(percent_within_1_stddev-68.27) < 0.5 );
+    EXPECT_TRUE( std::fabs(percent_within_2_stddev-95.45) < 0.5 );
 }
 

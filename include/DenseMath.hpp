@@ -580,19 +580,19 @@ public:
     }
 };
 
-template<class T> requires ( !std::is_integral<T>::value )
-decltype(auto) linspace( const T& start, const T& stop, std::size_t N) {
-    return GeneratorExpression( LinspaceFunctor<T>(start,stop,N), std::array<std::size_t,1>{N});
+template<class T1, class T2> requires (!std::is_integral<decltype(T1()*T2())>::value)
+decltype(auto) linspace( const T1& start, const T2& stop, std::size_t N) {
+    return GeneratorExpression( LinspaceFunctor<decltype(T1()*T2())>(start,stop,N), std::array<std::size_t,1>{N});
 }
 
-template<class T> requires ( std::is_integral<T>::value )
-decltype(auto) linspace( const T& start, const T& stop, std::size_t N) {
+template<class T1, class T2> requires std::integral<decltype(T1()*T2())>
+decltype(auto) linspace( const T1& start, const T2& stop, std::size_t N) {
     return linspace<double>(start,stop,N);
 }
 
-template<class T>
-decltype(auto) logspace( const T& start, const T& stop, std::size_t N) {
-    return pow(10,linspace<T>(start,stop,N));
+template<class T1,class T2>
+decltype(auto) logspace( const T1& start, const T2& stop, std::size_t N) {
+    return pow(10,linspace(start,stop,N));
 }
 
 // arange/regspace
@@ -609,13 +609,17 @@ public:
     }
 };
 
-template<class T>
-decltype(auto) arange( const T& start, const T& stop, const T& step) {
-    return GeneratorExpression( ArangeFunctor<T>(start,step), std::array<std::size_t,1>{std::floor(std::abs((stop-start)/step))});
+template<class T1,class T2,class T3>
+decltype(auto) arange( const T1& start, const T2& stop, const T3& step) {
+    std::size_t num_vals = std::ceil((0.+stop-start)/step);
+    if( num_vals <= 0 ){
+        throw std::runtime_error("Ultra: arange, stop must be greater than start for positive step, or less than start for negative step");
+    }
+    return GeneratorExpression( ArangeFunctor<decltype(T1()*T2()*T3())>(start,step), std::array<std::size_t,1>{num_vals});
 }
 
-template<class T>
-decltype(auto) regspace( const T& start, const T& stop, const T& step) {
+template<class T1, class T2, class T3>
+decltype(auto) regspace( const T1& start, const T2& stop, const T3& step) {
     return arange(start,stop,step);
 }
 
@@ -681,24 +685,21 @@ decltype(auto) random( const Dist& dist, std::size_t N) {
 // Floating point: produces values in the range [min,max)
 // Integrer: produces values in the range [min,max] (inclusive of max)
 
-template<class T, std::ranges::sized_range Range> requires std::floating_point<T> && std::integral<typename Range::value_type>
-decltype(auto) random_uniform( T min, T max, const Range& range) {
-    return random( std::uniform_real_distribution<T>(min,max), range);
+template<class T1, class T2, std::ranges::sized_range Range>
+requires std::integral<typename Range::value_type> && std::floating_point<decltype(T1()*T2())>
+decltype(auto) random_uniform( T1 min, T2 max, const Range& range) {
+    return random( std::uniform_real_distribution<decltype(T1()*T2())>(min,max), range);
 }
 
-template<class T, std::ranges::sized_range Range> requires std::integral<T> && std::integral<typename Range::value_type>
-decltype(auto) random_uniform( T min, T max, const Range& range) {
-    return random( std::uniform_int_distribution<T>(min,max), range);
+template<class T1, class T2, std::ranges::sized_range Range>
+requires std::integral<typename Range::value_type> && std::integral<T1> && std::integral<T2>
+decltype(auto) random_uniform( T1 min, T2 max, const Range& range) {
+    return random( std::uniform_int_distribution<decltype(T1()*T2())>(min,max), range);
 }
 
-template<class T> requires std::floating_point<T>
-decltype(auto) random_uniform( T min, T max, std::size_t N) {
-    return random( std::uniform_real_distribution<T>(min,max), N);
-}
-
-template<class T> requires std::integral<T>
-decltype(auto) random_uniform( T min, T max, std::size_t N) {
-    return random( std::uniform_int_distribution<T>(min,max), N);
+template<class T1, class T2> requires (std::is_arithmetic<T1>::value && std::is_arithmetic<T2>::value)
+decltype(auto) random_uniform( T1 min, T2 max, std::size_t N) {
+    return random_uniform( min, max, std::array<std::size_t,1>{N});
 }
 
 // random_normal/random_gaussian (identical functions)
@@ -706,24 +707,27 @@ decltype(auto) random_uniform( T min, T max, std::size_t N) {
 // f(x;\mu,\sigma) = \frac{1}{2\pi\sigma}\exp\left(-\frac{(x-\mu)^2}{2\sigma^2}\right)
 // where \mu is mean and \sigma is stddev
 
-template<class T, std::ranges::sized_range Range> requires std::floating_point<T> && std::integral<typename Range::value_type>
-decltype(auto) random_normal( T mean, T stddev, const Range& range) {
-    return random( std::normal_distribution<T>(mean,stddev), range);
+template<class T1, class T2, std::ranges::sized_range Range>
+requires (std::is_arithmetic<T1>::value && std::is_arithmetic<T2>::value) && std::integral<typename Range::value_type>
+decltype(auto) random_normal( T1 mean, T2 stddev, const Range& range) {
+    using real_t = std::conditional_t< std::is_floating_point<decltype(T1()*T2())>::value, decltype(T1()*T2()), double>;
+    return random( std::normal_distribution<real_t>(mean,stddev), range);
 }
 
-template<class T, std::ranges::sized_range Range> requires std::floating_point<T> && std::integral<typename Range::value_type>
-decltype(auto) random_gaussian( T mean, T stddev, const Range& range) {
-    return random( std::normal_distribution<T>(mean,stddev), range);
+template<class T1, class T2, std::ranges::sized_range Range>
+requires (std::is_arithmetic<T1>::value && std::is_arithmetic<T2>::value) && std::integral<typename Range::value_type>
+decltype(auto) random_gaussian( T1 mean, T2 stddev, const Range& range) {
+    return random_normal( mean, stddev, range);
 }
 
-template<class T> requires std::floating_point<T>
-decltype(auto) random_normal( T mean, T stddev, std::size_t N) {
-    return random( std::normal_distribution<T>(mean,stddev), N);
+template<class T1, class T2> requires (std::is_arithmetic<T1>::value && std::is_arithmetic<T2>::value)
+decltype(auto) random_normal( T1 mean, T2 stddev, std::size_t N) {
+    return random_normal( mean, stddev, std::array<std::size_t,1>{N});
 }
 
-template<class T> requires std::floating_point<T>
-decltype(auto) random_gaussian( T mean, T stddev, std::size_t N) {
-    return random( std::normal_distribution<T>(mean,stddev), N);
+template<class T1, class T2> requires (std::is_arithmetic<T1>::value && std::is_arithmetic<T2>::value)
+decltype(auto) random_gaussian( T1 mean, T2 stddev, std::size_t N) {
+    return random_gaussian( mean, stddev, std::array<std::size_t,1>{N});
 }
 
 } // namespace
