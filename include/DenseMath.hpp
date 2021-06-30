@@ -545,7 +545,7 @@ decltype(auto) cumprod( DenseExpression<T>&& t, std::size_t dim){
 
 template<std::ranges::sized_range Shape, class T=double>
 decltype(auto) zeros( const Shape& shape) {
-    return ScalarDenseExpression(0,shape,default_rc_order);
+    return ScalarDenseExpression(0,shape,default_order);
 }
 
 template<class T=double>
@@ -555,7 +555,7 @@ decltype(auto) zeros( std::size_t N) {
 
 template<std::ranges::sized_range Shape, class T=double>
 decltype(auto) ones( const Shape& shape) {
-    return ScalarDenseExpression(1,shape,default_rc_order);
+    return ScalarDenseExpression(1,shape,default_order);
 }
 
 template<class T=double>

@@ -8,7 +8,7 @@
 // Expressions are used to represent complex computations and to
 // avoid unnecessary allocations and copies.
 
-#include "Utils.hpp"
+#include "DenseUtils.hpp"
 
 namespace ultra {
 
@@ -17,25 +17,26 @@ namespace ultra {
 // Additionally requires that T is iterable and 'stripeable'.
 
 template<class T>
-struct DenseExpression {
-
+class DenseExpression {
     constexpr T& derived() noexcept { return static_cast<T&>(*this); }
     constexpr const T& derived() const noexcept { return static_cast<const T&>(*this); }
+    
+    public:
 
-    decltype(auto) size() const { return derived().size(); }
-    decltype(auto) dims() const { return derived().dims(); }
-    decltype(auto) shape() const { return derived().shape(); }
-    decltype(auto) shape(std::size_t ii) const { return derived().shape(ii); }
-    decltype(auto) order() const { return derived().order(); }
+    constexpr decltype(auto) size() const { return derived().size(); }
+    constexpr decltype(auto) dims() const { return derived().dims(); }
+    constexpr decltype(auto) shape() const { return derived().shape(); }
+    constexpr decltype(auto) shape(std::size_t ii) const { return derived().shape(ii); }
+    constexpr decltype(auto) order() const { return derived().order(); }
 
     constexpr bool is_contiguous() const noexcept { return derived().is_contiguous(); }
     constexpr bool is_omp_parallelisable() const noexcept { return derived().is_omp_parallelisable(); }
 
-    decltype(auto) begin() { return derived().begin(); }
-    decltype(auto) begin() const { return derived().begin(); }
+    constexpr decltype(auto) begin() { return derived().begin(); }
+    constexpr decltype(auto) begin() const { return derived().begin(); }
 
-    decltype(auto) get_stripe(std::size_t stripe, std::size_t dim, RCOrder order) { return derived().get_stripe(stripe,dim,order); }
-    decltype(auto) get_stripe(std::size_t stripe, std::size_t dim, RCOrder order) const { return derived().get_stripe(stripe,dim,order); }
+    decltype(auto) get_stripe(std::size_t stripe, std::size_t dim, DenseOrder order) { return derived().get_stripe(stripe,dim,order); }
+    decltype(auto) get_stripe(std::size_t stripe, std::size_t dim, DenseOrder order) const { return derived().get_stripe(stripe,dim,order); }
     decltype(auto) num_stripes(std::size_t dim) const { return derived().num_stripes(dim); }
     decltype(auto) required_stripe_dim() const { return derived().required_stripe_dim(); } // simply return dims() if no preference.
 };
@@ -88,7 +89,7 @@ struct IsOmpParallelisable { template<class T> bool operator()( T&& t) { return 
 
 struct GetStripe {
     std::size_t _stripe, _dim;
-    RCOrder _order;
+    DenseOrder _order;
     template<class T>
     decltype(auto) operator()( T&& t) { return t.get_stripe(_stripe,_dim,_order); }
 };
@@ -133,22 +134,22 @@ constexpr bool any_of_tuple(Tuple&& t){
 }
 
 // get_common_order
-// for a tuple of RCOrder, return row_major if all row_major, col_major if all col_major, and mixed_order otherwise.
+// for a tuple of DenseOrder, return row_major if all row_major, col_major if all col_major, and mixed otherwise.
 
 template<std::size_t N, class Tuple>
 struct GetCommonOrderImpl {
-    RCOrder operator()( Tuple&& t) const noexcept {
-        RCOrder order = std::get<N>(std::forward<Tuple>(t)).order();
-        return (order  == GetCommonOrderImpl<N-1,Tuple>{}(std::forward<Tuple>(t)) ? order : RCOrder::mixed_order);
+    DenseOrder operator()( Tuple&& t) const noexcept {
+        DenseOrder order = std::get<N>(std::forward<Tuple>(t)).order();
+        return (order  == GetCommonOrderImpl<N-1,Tuple>{}(std::forward<Tuple>(t)) ? order : DenseOrder::mixed);
     }
 };
 
 template<class Tuple> struct GetCommonOrderImpl<0,Tuple>{
-    RCOrder operator()( Tuple&& t) const noexcept{ return std::get<0>(std::forward<Tuple>(t)).order();}
+    DenseOrder operator()( Tuple&& t) const noexcept{ return std::get<0>(std::forward<Tuple>(t)).order();}
 };
 
 template<class Tuple>
-RCOrder get_common_order(Tuple&& t){
+DenseOrder get_common_order(Tuple&& t){
     return GetCommonOrderImpl<std::tuple_size<std::remove_cvref_t<Tuple>>::value-1,Tuple>{}(std::forward<Tuple>(t));
 }
 
@@ -245,7 +246,7 @@ public:
  
     class Stripe {
         
-        using StripeTuple = std::tuple< decltype(std::declval<std::add_const_t<std::remove_cvref_t<Args>>>().get_stripe(0,0,RCOrder::col_major)) ...>;
+        using StripeTuple = std::tuple< decltype(std::declval<std::add_const_t<std::remove_cvref_t<Args>>>().get_stripe(0,0,DenseOrder::col_major)) ...>;
 
         StripeTuple _stripes;
 
@@ -261,7 +262,7 @@ public:
 
         class Iterator {
             
-            using ItTuple = std::tuple<typename decltype(std::declval<std::add_const_t<std::remove_cvref_t<Args>>>().get_stripe(0,0,RCOrder::col_major))::Iterator ...>;
+            using ItTuple = std::tuple<typename decltype(std::declval<std::add_const_t<std::remove_cvref_t<Args>>>().get_stripe(0,0,DenseOrder::col_major))::Iterator ...>;
             
             F       _f;
             ItTuple _its;
@@ -277,7 +278,7 @@ public:
     };
 
     // Get stripes from each Arg
-    decltype(auto) get_stripe( std::size_t stripe_num, std::size_t dim, RCOrder order) const {
+    decltype(auto) get_stripe( std::size_t stripe_num, std::size_t dim, DenseOrder order) const {
         return Stripe(std::move(apply_to_each(GetStripe{stripe_num,dim,order},_args)));
     }
 };
@@ -297,7 +298,7 @@ private:
     
     value_type               _scalar;
     std::vector<std::size_t> _shape;
-    RCOrder                  _rc_order;
+    DenseOrder               _order;
 
 public:
 
@@ -308,7 +309,7 @@ public:
     ScalarDenseExpression& operator=( ScalarDenseExpression&& ) = default;
 
     template<std::ranges::range Shape> requires ( std::is_integral<typename Shape::value_type>::value )
-    ScalarDenseExpression( T t, const Shape& shape, RCOrder rc_order) : _scalar(t), _shape(shape.size()), _rc_order(rc_order) {
+    ScalarDenseExpression( T t, const Shape& shape, DenseOrder order) : _scalar(t), _shape(shape.size()), _order(order) {
         std::ranges::copy(shape,_shape.begin());
     }
 
@@ -316,7 +317,7 @@ public:
     decltype(auto) dims() const { return _shape.size(); }
     decltype(auto) shape() const { return _shape; }
     decltype(auto) shape(std::size_t ii) const { return _shape[ii]; }
-    decltype(auto) order() const noexcept { return _rc_order; }
+    decltype(auto) order() const noexcept { return _order; }
     decltype(auto) num_stripes(std::size_t dim) const { return size()/shape(dim); }
     decltype(auto) required_stripe_dim() const { return dims(); }
 
@@ -353,7 +354,7 @@ public:
         Iterator begin() const { return Iterator(_t); }
     };
 
-    decltype(auto) get_stripe( std::size_t, std::size_t, RCOrder ) const {
+    decltype(auto) get_stripe( std::size_t, std::size_t, DenseOrder ) const {
         return Stripe(_scalar);
     }
 };
@@ -423,7 +424,7 @@ private:
 
     using arg_t = std::conditional_t< std::is_lvalue_reference<T>::value, T, std::remove_cvref_t<T>>;
     using ref_t = const std::remove_cvref_t<arg_t>&;
-    using Stripe_t = decltype(std::declval<std::add_const_t<std::remove_cvref_t<T>>>().get_stripe(0,0,RCOrder::col_major));
+    using Stripe_t = decltype(std::declval<std::add_const_t<std::remove_cvref_t<T>>>().get_stripe(0,0,DenseOrder::col_major));
 
     F           _f;
     arg_t       _t;
@@ -483,13 +484,13 @@ public:
         F           _f;
         ref_t       _t;
         std::size_t _stripe_dim;
-        RCOrder     _order;
+        DenseOrder     _order;
         std::size_t _stripe_num;
         std::size_t _stripe_inc;
         
         public:
         
-        const_iterator( const F& f, ref_t t, std::size_t stripe_dim, RCOrder order, std::size_t stripe_num, std::size_t stripe_inc, value_type start_val) :
+        const_iterator( const F& f, ref_t t, std::size_t stripe_dim, DenseOrder order, std::size_t stripe_num, std::size_t stripe_inc, value_type start_val) :
             FoldPolicy<F,ValueType,T>(start_val),
             _f(f),
             _t(t),
@@ -499,7 +500,7 @@ public:
             _stripe_inc(stripe_inc)
         {}
 
-        const_iterator( const F& f, ref_t t, std::size_t stripe_dim, RCOrder order, std::size_t stripe_num, std::size_t stripe_inc ) :
+        const_iterator( const F& f, ref_t t, std::size_t stripe_dim, DenseOrder order, std::size_t stripe_num, std::size_t stripe_inc ) :
             _f(f),
             _t(t),
             _stripe_dim(stripe_dim),
@@ -572,7 +573,7 @@ public:
         F           _f;
         ref_t       _t;
         std::size_t _fold_dim;
-        RCOrder     _order;
+        DenseOrder     _order;
 
         std::size_t _start_stripe_num;
         std::size_t _end_stripe_num;
@@ -580,7 +581,7 @@ public:
 
         public:
         
-        Stripe( const F& f, ref_t t, std::size_t fold_dim, RCOrder order,  const value_type& val,
+        Stripe( const F& f, ref_t t, std::size_t fold_dim, DenseOrder order,  const value_type& val,
                 std::size_t start_stripe_num, std::size_t end_stripe_num, std::size_t stripe_num_inc):
             FoldPolicy<F,ValueType,T>(val),
             _f(f),
@@ -592,7 +593,7 @@ public:
             _stripe_num_inc(stripe_num_inc)
         {}
 
-        Stripe( const F& f, ref_t t, std::size_t fold_dim, RCOrder order,
+        Stripe( const F& f, ref_t t, std::size_t fold_dim, DenseOrder order,
                 std::size_t start_stripe_num, std::size_t end_stripe_num, std::size_t stripe_num_inc):
             _f(f),
             _t(t),
@@ -624,12 +625,12 @@ public:
     };
 
     // Stripe start/end/inc helper
-    decltype(auto) get_stripe_info( std::size_t stripe_num, std::size_t dim, RCOrder order) const {
+    decltype(auto) get_stripe_info( std::size_t stripe_num, std::size_t dim, DenseOrder order) const {
         std::size_t start_stripe_num, end_stripe_num, stripe_num_inc;
-        std::size_t first_dim = ( order == RCOrder::col_major ? 0 : dims()-1);
+        std::size_t first_dim = ( order == DenseOrder::col_major ? 0 : dims()-1);
         // Get increment first
         stripe_num_inc = 1;
-        for(std::size_t ii=first_dim; ii != dim; ii += (order==RCOrder::col_major ? 1 : -1)){
+        for(std::size_t ii=first_dim; ii != dim; ii += (order==DenseOrder::col_major ? 1 : -1)){
             stripe_num_inc *= shape(ii);
         }
         // Get start stripe number
@@ -644,13 +645,13 @@ public:
     }
 
     // Get stripe from _t
-    decltype(auto) get_stripe( std::size_t stripe_num, std::size_t dim, RCOrder order) const requires (is_general_fold) {
+    decltype(auto) get_stripe( std::size_t stripe_num, std::size_t dim, DenseOrder order) const requires (is_general_fold) {
         std::size_t start_stripe_num, end_stripe_num, stripe_num_inc;
         std::tie(start_stripe_num,end_stripe_num,stripe_num_inc) = get_stripe_info(stripe_num,dim,order);
         return Stripe(_f,_t,_fold_dim,order,FoldPolicy<F,ValueType,T>::get(),start_stripe_num,end_stripe_num,stripe_num_inc);
     }
 
-    decltype(auto) get_stripe( std::size_t stripe_num, std::size_t dim, RCOrder order) const requires (!is_general_fold) {
+    decltype(auto) get_stripe( std::size_t stripe_num, std::size_t dim, DenseOrder order) const requires (!is_general_fold) {
         std::size_t start_stripe_num, end_stripe_num, stripe_num_inc;
         std::tie(start_stripe_num,end_stripe_num,stripe_num_inc) = get_stripe_info(stripe_num,dim,order);
         return Stripe(_f,_t,_fold_dim,order,start_stripe_num,end_stripe_num,stripe_num_inc);
@@ -721,7 +722,7 @@ public:
 
     class Stripe {
         
-        using Stripe_t = decltype(std::declval<std::add_const_t<std::remove_cvref_t<T>>>().get_stripe(0,0,RCOrder::col_major));
+        using Stripe_t = decltype(std::declval<std::add_const_t<std::remove_cvref_t<T>>>().get_stripe(0,0,DenseOrder::col_major));
 
         function_type     _f;
         Stripe_t          _stripe;
@@ -734,7 +735,7 @@ public:
 
         class Iterator {
             
-            using It_t = typename decltype(std::declval<std::add_const_t<std::remove_cvref_t<T>>>().get_stripe(0,0,RCOrder::col_major))::Iterator;
+            using It_t = typename decltype(std::declval<std::add_const_t<std::remove_cvref_t<T>>>().get_stripe(0,0,DenseOrder::col_major))::Iterator;
             
             function_type _f;
             It_t          _it;
@@ -760,7 +761,7 @@ public:
     };
 
     // Get stripe from _t
-    decltype(auto) get_stripe( std::size_t stripe_num, std::size_t dim, RCOrder order) const {
+    decltype(auto) get_stripe( std::size_t stripe_num, std::size_t dim, DenseOrder order) const {
         if( dim != _dim ){
             std::string err = "Ultramat: CumulativeDenseExpressions may only be striped in the direction specified upon their creation.";
             err += " get_stripe was given dim of " + std::to_string(dim) + ", but expected " + std::to_string(_dim) + '.';
@@ -813,7 +814,7 @@ public:
     decltype(auto) dims() const { return _shape.size(); }
     decltype(auto) shape() const { return _shape; }
     decltype(auto) shape(std::size_t ii) const { return _shape[ii]; }
-    decltype(auto) order() const noexcept { return default_rc_order; }
+    decltype(auto) order() const noexcept { return default_order; }
     decltype(auto) num_stripes(std::size_t dim) const { return _size/_shape[dim]; }
     decltype(auto) required_stripe_dim() const { return dims(); }
 
@@ -851,7 +852,7 @@ public:
     };
 
     // Get stripes from each Arg
-    decltype(auto) get_stripe( std::size_t, std::size_t, RCOrder) const {
+    decltype(auto) get_stripe( std::size_t, std::size_t, DenseOrder) const {
         return Stripe(_f);
     }
 };

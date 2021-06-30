@@ -8,14 +8,14 @@
 // writeable or read-only, contiguous or non-contiguous.
 // Copies/moves in constant time.
 
-#include "DenseBase.hpp"
+#include "DenseImpl.hpp"
 
 namespace ultra {
 
 template<class T, ReadWrite rw>
-class DenseView : public DenseExpression<DenseView<T,rw>>, public DenseBase<DenseView<T,rw>,T::rc_order> {
+class DenseView : public DenseExpression<DenseView<T,rw>>, public DenseImpl<DenseView<T,rw>,T::order()> {
 
-    friend DenseBase<DenseView<T,rw>,T::rc_order>;
+    friend DenseImpl<DenseView<T,rw>,T::order()>;
 
     static constexpr ReadWrite other_rw = (rw == ReadWrite::read_only ? ReadWrite::writeable : ReadWrite::read_only);
     friend DenseView<T,other_rw>;
@@ -28,7 +28,8 @@ public:
     using reference = std::conditional_t<rw==ReadWrite::writeable,value_type&,const value_type&>;
     using shape_type = std::vector<std::size_t>;
     using stride_type = std::vector<std::ptrdiff_t>;
-    static constexpr RCOrder rc_order = T::rc_order;
+    static constexpr DenseOrder Order = T::order();
+    static constexpr DenseOrder order() { return Order; }
 
 protected:
 
@@ -85,23 +86,22 @@ public:
     // Pull methods from base
     // Some methods are shadowed, as the default behaviour is not appropriate
 
-    using DenseBase<DenseView<T,rw>,T::rc_order>::dims;
-    using DenseBase<DenseView<T,rw>,T::rc_order>::shape;
-    using DenseBase<DenseView<T,rw>,T::rc_order>::stride;
-    using DenseBase<DenseView<T,rw>,T::rc_order>::order;
-    using DenseBase<DenseView<T,rw>,T::rc_order>::fill;
-    using DenseBase<DenseView<T,rw>,T::rc_order>::num_stripes;
-    using DenseBase<DenseView<T,rw>,T::rc_order>::get_stripe;
-    using DenseBase<DenseView<T,rw>,T::rc_order>::reshape;
-    using DenseBase<DenseView<T,rw>,T::rc_order>::operator();
-    using DenseBase<DenseView<T,rw>,T::rc_order>::operator[];
-    using DenseBase<DenseView<T,rw>,T::rc_order>::operator=;
-    using DenseBase<DenseView<T,rw>,T::rc_order>::operator+=;
-    using DenseBase<DenseView<T,rw>,T::rc_order>::operator-=;
-    using DenseBase<DenseView<T,rw>,T::rc_order>::operator*=;
-    using DenseBase<DenseView<T,rw>,T::rc_order>::operator/=;
-    using DenseBase<DenseView<T,rw>,T::rc_order>::check_expression;
-    using DenseBase<DenseView<T,rw>,T::rc_order>::is_omp_parallelisable;
+    using DenseImpl<DenseView<T,rw>,Order>::dims;
+    using DenseImpl<DenseView<T,rw>,Order>::shape;
+    using DenseImpl<DenseView<T,rw>,Order>::stride;
+    using DenseImpl<DenseView<T,rw>,Order>::fill;
+    using DenseImpl<DenseView<T,rw>,Order>::num_stripes;
+    using DenseImpl<DenseView<T,rw>,Order>::get_stripe;
+    using DenseImpl<DenseView<T,rw>,Order>::reshape;
+    using DenseImpl<DenseView<T,rw>,Order>::operator();
+    using DenseImpl<DenseView<T,rw>,Order>::operator[];
+    using DenseImpl<DenseView<T,rw>,Order>::operator=;
+    using DenseImpl<DenseView<T,rw>,Order>::operator+=;
+    using DenseImpl<DenseView<T,rw>,Order>::operator-=;
+    using DenseImpl<DenseView<T,rw>,Order>::operator*=;
+    using DenseImpl<DenseView<T,rw>,Order>::operator/=;
+    using DenseImpl<DenseView<T,rw>,Order>::check_expression;
+    using DenseImpl<DenseView<T,rw>,Order>::is_omp_parallelisable;
 
     std::size_t size() const noexcept { return _size;}
     pointer data() const noexcept { return _data; }
@@ -109,7 +109,7 @@ public:
 
     bool is_contiguous() const noexcept { return _is_contiguous; }
 
-    bool test_contiguous() const noexcept requires (rc_order==RCOrder::row_major) {
+    bool test_contiguous() const noexcept requires (Order==DenseOrder::row_major) {
         ptrdiff_t stride = 1;
         if( stride != _stride[dims()]) return false;
         for( std::size_t ii=dims(); ii != 0; --ii){
@@ -119,7 +119,7 @@ public:
         return true;
     }
 
-    bool test_contiguous() const noexcept requires (rc_order==RCOrder::col_major) {
+    bool test_contiguous() const noexcept requires (Order==DenseOrder::col_major) {
         ptrdiff_t stride = 1;
         if( stride != _stride[0]) return false;
         for( std::size_t ii=0; ii != dims(); ++ii){
@@ -159,11 +159,11 @@ public:
     }
     
     iterator end() {
-        return iterator(data() + _stride[rc_order==RCOrder::col_major? dims() : 0],_shape,_stride,true);
+        return iterator(data() + _stride[Order==DenseOrder::col_major? dims() : 0],_shape,_stride,true);
     }
     
     const_iterator end() const {
-        return const_iterator(data() + _stride[rc_order==RCOrder::col_major? dims() : 0],_shape,_stride,true);
+        return const_iterator(data() + _stride[Order==DenseOrder::col_major? dims() : 0],_shape,_stride,true);
     }
 
     // ===============================================
@@ -178,17 +178,17 @@ public:
     }
 
     auto end_stripe( std::size_t stripe, std::size_t dim) {
-         return _data + jump_to_stripe(stride,dim) + _shape[dim] * _stride[dim+(rc_order==RCOrder::row_major)];
+         return _data + jump_to_stripe(stride,dim) + _shape[dim] * _stride[dim+(Order==DenseOrder::row_major)];
     }
 
     auto end_stripe( std::size_t stripe, std::size_t dim) const {
-         return _data + jump_to_stripe(stride,dim) + _shape[dim] * _stride[dim+(rc_order==RCOrder::row_major)];
+         return _data + jump_to_stripe(stride,dim) + _shape[dim] * _stride[dim+(Order==DenseOrder::row_major)];
     }
 
-    auto begin_stripe( std::size_t stripe) { return begin_stripe(stripe,(dims()-1)*(rc_order == RCOrder::row_major)); }
-    auto begin_stripe( std::size_t stripe) const { return begin_stripe(stripe,(dims()-1)*(rc_order == RCOrder::row_major)); }
-    auto end_stripe( std::size_t stripe) { return end_stripe(stripe,(dims()-1)*(rc_order == RCOrder::row_major)); }
-    auto end_stripe( std::size_t stripe) const { return end_stripe(stripe,(dims()-1)*(rc_order == RCOrder::row_major)); }
+    auto begin_stripe( std::size_t stripe) { return begin_stripe(stripe,(dims()-1)*(Order == DenseOrder::row_major)); }
+    auto begin_stripe( std::size_t stripe) const { return begin_stripe(stripe,(dims()-1)*(Order == DenseOrder::row_major)); }
+    auto end_stripe( std::size_t stripe) { return end_stripe(stripe,(dims()-1)*(Order == DenseOrder::row_major)); }
+    auto end_stripe( std::size_t stripe) const { return end_stripe(stripe,(dims()-1)*(Order == DenseOrder::row_major)); }
     
     // ===============================================
     // Special view methods:
@@ -200,7 +200,7 @@ public:
     DenseView slice( const Slices& slices ) const {
         // Create copy to work with
         DenseView result(*this);
-        std::size_t stride_offset = ( rc_order == RCOrder::row_major );
+        std::size_t stride_offset = ( Order == DenseOrder::row_major );
         for( std::size_t ii=0; ii<dims(); ++ii){
             // if not enough slices provided, assume start=all, end=all, step=1
             Slice slice = ( ii < slices.size() ? slices[ii] : Slice{Slice::all,Slice::all,1});
@@ -228,7 +228,7 @@ public:
         }
         // Set remaining info and return
         result._size = std::accumulate( result._shape.begin(), result._shape.end(), 1, std::multiplies<std::size_t>());
-        if( rc_order == RCOrder::row_major ){
+        if( Order == DenseOrder::row_major ){
             result._stride[0] = result._stride[1] * result._shape[0];
         } else {
             result._stride[dims()] = result._stride[dims()-1] * result._shape[dims()-1];
@@ -259,7 +259,7 @@ public:
     }
 
     template<std::ranges::range... Shapes>
-    requires (( !std::is_base_of<DenseTag,Shapes>::value && std::integral<typename Shapes::value_type>) && ... )
+    requires (( !is_dense<Shapes>::value && std::integral<typename Shapes::value_type>) && ... )
     DenseView<T,ReadWrite::read_only> broadcast( const Shapes&... shapes) const {
         static const std::string err = "Ultramat: Cannot broadcast to given shape";
         auto bcast_shape = get_broadcast_shape(_shape,shapes...);
@@ -285,7 +285,7 @@ public:
         // - If _shape[ii] == 1 and bcast_shape[ii] > 1, stride=0
         // - If ii > dims(), stride=0
         // - If _shape[ii] == bcast_shape[ii], stride[ii] = _stride[ii]
-        if( rc_order == RCOrder::col_major ){
+        if( Order == DenseOrder::col_major ){
             for( std::size_t ii=0; ii<bcast_shape.size(); ++ii){
                 bcast_view._stride[ii] = ( (_shape[ii]==1 && bcast_shape[ii]>1) || ii>dims() ? 0 : _stride[ii]); 
             }
@@ -301,7 +301,7 @@ public:
         return bcast_view;
     }
 
-    template<class... Denses> requires ( std::is_base_of<DenseTag,Denses>::value && ... )
+    template<class... Denses> requires ( is_dense<Denses>::value && ... )
     DenseView<T,ReadWrite::read_only> broadcast( const Denses&... denses) const {
         return broadcast(denses.shape()...);
     }
@@ -323,7 +323,7 @@ public:
         auto copy(*this);
         for( std::size_t ii=0; ii<dims(); ++ii){
             copy._shape[ii] = _shape[permutations[ii]];
-            copy._stride[ii + (rc_order==RCOrder::row_major)] = _stride[permutations[ii] + (rc_order==RCOrder::row_major)];
+            copy._stride[ii + (Order==DenseOrder::row_major)] = _stride[permutations[ii] + (Order==DenseOrder::row_major)];
         }
         return copy;
     }
@@ -358,7 +358,7 @@ public:
     using stride_type       = DenseView<T,rw>::stride_type;
     using pointer           = DenseView<T,rw>::pointer;
     using reference         = DenseView<T,rw>::reference;
-    static constexpr RCOrder rc_order = DenseView<T,rw>::rc_order;
+    static constexpr DenseOrder Order = DenseView<T,rw>::Order;
 
 private:
 
@@ -384,7 +384,7 @@ public:
         _stride(stride),
         _pos(stride.size(),0)
     {
-        _pos[rc_order==RCOrder::row_major ? stride.size()-1 : 0] = end;
+        _pos[Order==DenseOrder::row_major ? stride.size()-1 : 0] = end;
     }
 
     // Construct with explicit pos. Used to convert between iterator types, not recommended otherwise
@@ -409,7 +409,7 @@ public:
     reference operator*() const { return *_ptr; }
     
     // Increment/decrement
-    iterator_impl<constness>& operator++() requires ( rc_order == RCOrder::col_major ) {
+    iterator_impl<constness>& operator++() requires ( Order == DenseOrder::col_major ) {
         std::size_t idx = 0;
         _ptr += _stride[idx];
         ++_pos[idx];
@@ -426,7 +426,7 @@ public:
         return *this;
     }
 
-    iterator_impl<constness>& operator++() requires ( rc_order == RCOrder::row_major ) {
+    iterator_impl<constness>& operator++() requires ( Order == DenseOrder::row_major ) {
         std::size_t idx = _shape.size();
         _ptr += _stride[idx];
         ++_pos[idx];
@@ -443,7 +443,7 @@ public:
         return *this;
     }
     
-    iterator_impl<constness>& operator--() requires ( rc_order == RCOrder::col_major ) {
+    iterator_impl<constness>& operator--() requires ( Order == DenseOrder::col_major ) {
         std::size_t idx = 0;
         _ptr -= _stride[idx];
         --_pos[idx];
@@ -460,7 +460,7 @@ public:
         return *this; 
     }
 
-    iterator_impl<constness>& operator--() requires ( rc_order == RCOrder::row_major ) {
+    iterator_impl<constness>& operator--() requires ( Order == DenseOrder::row_major ) {
         std::size_t idx = _shape.size();
         _ptr -= _stride[idx];
         --_pos[idx];
@@ -486,7 +486,7 @@ public:
     }
 
     // Random-access
-    iterator_impl<constness>& operator+=( difference_type diff) requires ( rc_order == RCOrder::col_major ) {
+    iterator_impl<constness>& operator+=( difference_type diff) requires ( Order == DenseOrder::col_major ) {
         // If diff is less than 0, call the in-place subtract method instead
         if( diff < 0){
             return (*this -= (-diff));
@@ -507,7 +507,7 @@ public:
         }
     }
 
-    iterator_impl<constness>& operator+=( difference_type diff) requires ( rc_order == RCOrder::row_major ) {
+    iterator_impl<constness>& operator+=( difference_type diff) requires ( Order == DenseOrder::row_major ) {
         // If diff is less than 0, call the in-place subtract method instead
         if( diff < 0){
             return (*this -= (-diff));
@@ -529,7 +529,7 @@ public:
         }
     }
 
-    iterator_impl<constness>& operator-=( difference_type diff) requires (rc_order == RCOrder::col_major ) {
+    iterator_impl<constness>& operator-=( difference_type diff) requires (Order == DenseOrder::col_major ) {
         // If diff is less than 0, call the in-place add method instead
         if( diff < 0){
             return (*this += (-diff));
@@ -551,7 +551,7 @@ public:
         }
     }
 
-    iterator_impl<constness>& operator-=( difference_type diff) requires (rc_order == RCOrder::row_major ) {
+    iterator_impl<constness>& operator-=( difference_type diff) requires (Order == DenseOrder::row_major ) {
         // If diff is less than 0, call the in-place add method instead
         if( diff < 0){
             return (*this += (-diff));
@@ -592,7 +592,7 @@ public:
         // Assumes both pointers are looking at the same thing. If not, the results are undefined.
         std::ptrdiff_t distance = 0;
         std::size_t shape_cum_prod = 1;
-        if( rc_order == RCOrder::col_major ){
+        if( Order == DenseOrder::col_major ){
             for( std::size_t ii = 0; ii != _shape.size(); ++ii){
                 distance += shape_cum_prod*(_pos[ii] - it_r._pos[ii]);
                 shape_cum_prod *= _shape[ii];
@@ -615,7 +615,7 @@ public:
     }
 
     template<bool constness_r>
-    auto operator<=>( const iterator_impl<constness_r>& it_r) const requires ( rc_order == RCOrder::row_major ) {
+    auto operator<=>( const iterator_impl<constness_r>& it_r) const requires ( Order == DenseOrder::row_major ) {
         for( std::size_t ii=0; ii<_pos.size(); ++ii ){
             if( _pos[ii] == it_r._pos[ii] ) continue;
             return ( _pos[ii] < it_r._pos[ii] ? std::strong_ordering::less : std::strong_ordering::greater );
@@ -624,7 +624,7 @@ public:
     }
 
     template<bool constness_r>
-    auto operator<=>( const iterator_impl<constness_r>& it_r) const requires ( rc_order == RCOrder::col_major ) {
+    auto operator<=>( const iterator_impl<constness_r>& it_r) const requires ( Order == DenseOrder::col_major ) {
         for( int ii=_pos.size()-1; ii>=0; --ii ){
             if( _pos[ii] == it_r._pos[ii] ) continue;
             return ( _pos[ii] < it_r._pos[ii] ? std::strong_ordering::less : std::strong_ordering::greater );

@@ -4,10 +4,16 @@
 
 ### Containers
     
-    * Vector class, including fixed variety.
-    * Matrix class, including fixed variety.
-    * Include matrix generators (eye)
-    * Must allow easy conversion to/from Arrays.
+Implement Vectors and Matrices as additional aliases to Dense and FixedDense
+Method 1:
+    * Template Dense over enum class DenseType{ ND, Vec, Mat }
+    * Change shape type and stride type depending on DenseType
+    * Any functions that only work on some of ND, Vec or Mat: set using 'requires'.
+Method 2 (preferred):
+    * Introduce DenseDynamicPolicy as another set of CRTP classes
+    * Define here any variants on common functions, plus shape and stride
+Also implement  matrix generators (such as 'eye')
+Consider removing ReadWrite as an enum class, and instead implement it as a policy class.
 
 ## Wishlist
 

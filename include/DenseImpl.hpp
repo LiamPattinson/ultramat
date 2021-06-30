@@ -1,7 +1,7 @@
 #ifndef __ULTRA_DENSE_BASE_HPP
 #define __ULTRA_DENSE_BASE_HPP
 
-// DenseBase.hpp
+// DenseImpl.hpp
 //
 // Defines a base class for all dense array-like objects, including Arrays, Vectors, Matrices, and their fixed-size counterparts.
 
@@ -15,16 +15,13 @@ template<class T, ReadWrite rw=ReadWrite::writeable> class DenseView;
 template<class T, ReadWrite rw=ReadWrite::writeable> class DenseStripe;
 
 // CRTP Base Class
-template<class T,RCOrder Order>
-class DenseBase : public DenseTag {
-    static_assert(Order != RCOrder::mixed_order);
-
-    protected:
-
-    // Helper functions
-
+template<class T,DenseOrder Order>
+class DenseImpl {
+    static_assert(Order != DenseOrder::mixed);
     constexpr T& derived() noexcept { return static_cast<T&>(*this); }
     constexpr const T& derived() const noexcept { return static_cast<const T&>(*this); }
+
+    protected:
 
     // ===============================================
     // Attributes
@@ -35,7 +32,7 @@ class DenseBase : public DenseTag {
     constexpr auto stride( std::size_t dim) const noexcept { return derived()._stride[dim]; }
     constexpr const auto& shape() const noexcept { return derived()._shape; }
     constexpr const auto& stride() const noexcept { return derived()._stride; }
-    constexpr const RCOrder order() const noexcept { return Order; }
+    static constexpr DenseOrder order() { return Order; }
 
     // ===============================================
     // Data access
@@ -68,14 +65,14 @@ class DenseBase : public DenseTag {
     template<std::ranges::range Coords> requires std::integral<typename Coords::value_type>
     auto operator()( const Coords& coords) const {
         return derived()._data[
-            std::inner_product(coords.begin(),coords.end(),derived()._stride.begin()+(Order==RCOrder::row_major),0)
+            std::inner_product(coords.begin(),coords.end(),derived()._stride.begin()+(Order==DenseOrder::row_major),0)
         ];
     }
 
     template<std::ranges::range Coords> requires std::integral<typename Coords::value_type>
     auto& operator()( const Coords& coords) {
         return derived()._data[
-            std::inner_product(coords.begin(),coords.end(),derived()._stride.begin()+(Order==RCOrder::row_major),0)
+            std::inner_product(coords.begin(),coords.end(),derived()._stride.begin()+(Order==DenseOrder::row_major),0)
         ];
     }
 
@@ -96,7 +93,7 @@ class DenseBase : public DenseTag {
             for(auto it=begin(), it_end=end(); it != it_end; ++it, ++expr_it) f(*it,*expr_it);
         } else {
             std::size_t stripe_dim = expression.required_stripe_dim();
-            if( stripe_dim == dims() ) stripe_dim = ( Order == RCOrder::row_major ? dims()-1 : 0 );
+            if( stripe_dim == dims() ) stripe_dim = ( Order == DenseOrder::row_major ? dims()-1 : 0 );
             std::size_t stripes = num_stripes(stripe_dim);
             for( std::size_t stripe_num=0; stripe_num != stripes; ++stripe_num){
                 auto stripe = get_stripe(stripe_num,stripe_dim,Order);
@@ -333,12 +330,12 @@ class DenseBase : public DenseTag {
     // Broadcasting
 
     template<std::ranges::range... Shapes>
-    requires (( !std::is_base_of<DenseTag,Shapes>::value &&  std::integral<typename Shapes::value_type>) && ... )
+    requires (( !is_dense<Shapes>::value &&  std::integral<typename Shapes::value_type>) && ... )
     auto broadcast( const Shapes&... shapes) const {
         return derived().view().broadcast(shapes...);
     }
 
-    template<class... Denses> requires ( std::is_base_of<DenseTag,Denses>::value && ... )
+    template<class... Denses> requires ( is_dense<Denses>::value && ... )
     auto broadcast( const Denses&... denses) const {
         return derived().view().broadcast(denses...);
     }
@@ -396,34 +393,34 @@ class DenseBase : public DenseTag {
         return std::accumulate(derived()._shape.begin(),derived()._shape.end(),1,std::multiplies<std::size_t>{}) / derived()._shape[dim];
     }
 
-    std::size_t num_stripes() const { return num_stripes((derived().dims()-1)*(Order == RCOrder::row_major)); }
+    std::size_t num_stripes() const { return num_stripes((derived().dims()-1)*(Order == DenseOrder::row_major)); }
 
-    std::ptrdiff_t jump_to_stripe( std::size_t stripe, std::size_t dim, RCOrder order) const {
+    std::ptrdiff_t jump_to_stripe( std::size_t stripe, std::size_t dim, DenseOrder order) const {
         std::ptrdiff_t result=0;
-        if( order == RCOrder::col_major){
+        if( order == DenseOrder::col_major){
             for(std::size_t ii=0; ii!=dims(); ++ii){
                 if( ii == dim ) continue;
                 if( !stripe ) break;
-                result += ( stripe % derived()._shape[ii]) * derived()._stride[ii+(Order==RCOrder::row_major)];
+                result += ( stripe % derived()._shape[ii]) * derived()._stride[ii+(Order==DenseOrder::row_major)];
                 stripe /= derived()._shape[ii];
             }
         } else {
             for(std::size_t ii=dims(); ii!=0; --ii){
                 if( ii-1 == dim ) continue;
                 if( !stripe ) break;
-                result += ( stripe % derived()._shape[ii-1]) * derived()._stride[ii-1+(Order==RCOrder::row_major)];
+                result += ( stripe % derived()._shape[ii-1]) * derived()._stride[ii-1+(Order==DenseOrder::row_major)];
                 stripe /= derived()._shape[ii-1];
             }
         }
         return result;
     }
 
-    auto get_stripe( std::size_t stripe_num, std::size_t dim, RCOrder order){
-        return DenseStripe<T,ReadWrite::writeable>( derived().data()+jump_to_stripe(stripe_num,dim,order), stride(dim+(Order==RCOrder::row_major)), shape(dim));
+    auto get_stripe( std::size_t stripe_num, std::size_t dim, DenseOrder order){
+        return DenseStripe<T,ReadWrite::writeable>( derived().data()+jump_to_stripe(stripe_num,dim,order), stride(dim+(Order==DenseOrder::row_major)), shape(dim));
     }
 
-    auto get_stripe( std::size_t stripe_num, std::size_t dim, RCOrder order) const {
-        return DenseStripe<T,ReadWrite::read_only>( derived().data()+jump_to_stripe(stripe_num,dim,order), stride(dim+(Order==RCOrder::row_major)), shape(dim));
+    auto get_stripe( std::size_t stripe_num, std::size_t dim, DenseOrder order) const {
+        return DenseStripe<T,ReadWrite::read_only>( derived().data()+jump_to_stripe(stripe_num,dim,order), stride(dim+(Order==DenseOrder::row_major)), shape(dim));
     }
 
     decltype(auto) required_stripe_dim() const { return dims(); }
@@ -465,14 +462,14 @@ class DenseBase : public DenseTag {
     // set_stride
     // Use shape to populate stride via a cumulative product, starting with 1.
 
-    void set_stride() noexcept requires (Order == RCOrder::row_major) {
+    void set_stride() noexcept requires (Order == DenseOrder::row_major) {
         derived()._stride[dims()] = 1;
         for( std::size_t ii=dims(); ii!=0; --ii){
             derived()._stride[ii-1] = derived()._stride[ii] * derived()._shape[ii-1];            
         }
     }
 
-    void set_stride() noexcept requires (Order == RCOrder::col_major) {
+    void set_stride() noexcept requires (Order == DenseOrder::col_major) {
         derived()._stride[0] = 1;
         for( std::size_t ii=0; ii!=dims(); ++ii){
             derived()._stride[ii+1] = derived()._stride[ii] * derived()._shape[ii];
@@ -510,7 +507,7 @@ class DenseBase : public DenseTag {
     template<std::integral... Ints>
     constexpr decltype(auto) variadic_memjump( Ints... coords) const noexcept {
         // if row major, must skip first element of stride
-        return variadic_memjump_impl<(Order==RCOrder::row_major?1:0),Ints...>(coords...);
+        return variadic_memjump_impl<(Order==DenseOrder::row_major?1:0),Ints...>(coords...);
     }
 
 };

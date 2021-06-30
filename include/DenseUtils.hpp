@@ -1,10 +1,9 @@
-#ifndef __ULTRA_UTILS_HPP
-#define __ULTRA_UTILS_HPP
+#ifndef __ULTRA_DENSE_UTILS_HPP
+#define __ULTRA_DENSE_UTILS_HPP
 
-// Utils.hpp
+// DenseUtils.hpp
 //
 // Defines any utility functions/structs deemed useful.
-// Mostly a lot of template hacking.
 
 #include <cstdlib>
 #include <cmath>
@@ -26,34 +25,29 @@
 
 namespace ultra {
 
-// Tag declarations
-
-class DenseTag{};
-
-// Type determination
-
-template<class T>
-struct types {
-    static const bool is_dense = std::is_base_of<DenseTag,T>::value;
-};
-
 // Define row/col order enum class
 
-enum class RCOrder { row_major, col_major, mixed_order };
-const RCOrder default_rc_order = RCOrder::row_major;
-
-
-// Declare Array types and preferred interface
-
-template<class T, RCOrder Order> class ArrayImpl;
-template<class T, RCOrder Order, std::size_t... Dims> class FixedArrayImpl;
-
-template<class T,std::size_t... Dims>
-using Array = std::conditional_t<sizeof...(Dims),FixedArrayImpl<T,default_rc_order,Dims...>,ArrayImpl<T,default_rc_order>>;
+enum class DenseOrder { row_major, col_major, mixed };
+const DenseOrder default_order = DenseOrder::row_major;
 
 // Define read-only enum class
 
 enum class ReadWrite { writeable, read_only };
+
+// Declare Array types and preferred interface
+
+template<class, DenseOrder> class Dense;
+template<class, DenseOrder, std::size_t...> class DenseFixed;
+template<class, ReadWrite> class DenseView;
+
+template<class T,std::size_t... Dims>
+using Array = std::conditional_t<sizeof...(Dims),DenseFixed<T,default_order,Dims...>,Dense<T,default_order>>;
+
+// is_dense type trait
+template<class T> struct is_dense { static constexpr bool value = false; };
+template<class T, DenseOrder Order> struct is_dense<Dense<T,Order>> { static constexpr bool value = true; };
+template<class T, DenseOrder Order, std::size_t... dims> struct is_dense<DenseFixed<T,Order,dims...>> { static constexpr bool value = true; };
+template<class T, ReadWrite RW> struct is_dense<DenseView<T,RW>> { static constexpr bool value = true; };
 
 // Define slice : a tool for generating views of Arrays and related objects.
 // Is an 'aggregate'/'pod' type, so should have a relatively intuitive interface by default.
@@ -66,7 +60,7 @@ struct Slice {
 };
 
 // Bool class
-// Looks like a bool, acts like a bool. Used in place of regular bool to avoid the horrors of std::vector<bool>
+// Looks like a bool, acts like a bool. Used in place of regular bool in dynamic dense objects to avoid the horrors of std::vector<bool>
 
 class Bool {
     bool _x;
