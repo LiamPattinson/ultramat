@@ -15,9 +15,8 @@ template<class T, ReadWrite rw=ReadWrite::writeable> class DenseView;
 template<class T, ReadWrite rw=ReadWrite::writeable> class DenseStripe;
 
 // CRTP Base Class
-template<class T,DenseOrder Order>
+template<class T>
 class DenseImpl {
-    static_assert(Order != DenseOrder::mixed);
     constexpr T& derived() noexcept { return static_cast<T&>(*this); }
     constexpr const T& derived() const noexcept { return static_cast<const T&>(*this); }
 
@@ -32,7 +31,8 @@ class DenseImpl {
     constexpr auto stride( std::size_t dim) const noexcept { return derived()._stride[dim]; }
     constexpr const auto& shape() const noexcept { return derived()._shape; }
     constexpr const auto& stride() const noexcept { return derived()._stride; }
-    static constexpr DenseOrder order() { return Order; }
+    static constexpr DenseOrder order() { return T::order(); }
+    static constexpr DenseOrder Order = order();
 
     // ===============================================
     // Data access

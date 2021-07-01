@@ -30,22 +30,33 @@ namespace ultra {
 enum class DenseOrder { row_major, col_major, mixed };
 const DenseOrder default_order = DenseOrder::row_major;
 
+// Define 'DenseType' enum class.
+// Used by Dense to determine whether to store shape/stride as std::vector or std::array, and whether to restrict reshaping
+
+enum class DenseType : std::size_t { vec=1, mat=2, nd=0 };
+
 // Define read-only enum class
 
 enum class ReadWrite { writeable, read_only };
 
 // Declare Array types and preferred interface
 
-template<class, DenseOrder> class Dense;
+template<class, DenseType, DenseOrder> class Dense;
 template<class, DenseOrder, std::size_t...> class DenseFixed;
 template<class, ReadWrite> class DenseView;
 
 template<class T,std::size_t... Dims>
-using Array = std::conditional_t<sizeof...(Dims),DenseFixed<T,default_order,Dims...>,Dense<T,default_order>>;
+using Array = std::conditional_t<sizeof...(Dims),DenseFixed<T,default_order,Dims...>,Dense<T,DenseType::nd,default_order>>;
+
+template<class T,std::size_t... Dims> requires ( sizeof...(Dims) == 0 || sizeof...(Dims) == 1)
+using Vector = std::conditional_t<sizeof...(Dims),DenseFixed<T,default_order,Dims...>,Dense<T,DenseType::vec,default_order>>;
+
+template<class T,std::size_t... Dims> requires ( sizeof...(Dims) == 0 || sizeof...(Dims) == 2)
+using Matrix = std::conditional_t<sizeof...(Dims),DenseFixed<T,default_order,Dims...>,Dense<T,DenseType::mat,default_order>>;
 
 // is_dense type trait
 template<class T> struct is_dense { static constexpr bool value = false; };
-template<class T, DenseOrder Order> struct is_dense<Dense<T,Order>> { static constexpr bool value = true; };
+template<class T, DenseType Type, DenseOrder Order> struct is_dense<Dense<T,Type,Order>> { static constexpr bool value = true; };
 template<class T, DenseOrder Order, std::size_t... dims> struct is_dense<DenseFixed<T,Order,dims...>> { static constexpr bool value = true; };
 template<class T, ReadWrite RW> struct is_dense<DenseView<T,RW>> { static constexpr bool value = true; };
 

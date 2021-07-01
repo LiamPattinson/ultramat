@@ -4,18 +4,30 @@
 
 ### Containers
     
-Implement Vectors and Matrices as additional aliases to Dense and FixedDense
-Method 1:
-    * Template Dense over enum class DenseType{ ND, Vec, Mat }
-    * Change shape type and stride type depending on DenseType
-    * Any functions that only work on some of ND, Vec or Mat: set using 'requires'.
-Method 2 (preferred):
-    * Introduce DenseDynamicPolicy as another set of CRTP classes
-    * Define here any variants on common functions, plus shape and stride
-Also implement  matrix generators (such as 'eye')
-Consider removing ReadWrite as an enum class, and instead implement it as a policy class.
+    * Unit test vectors and matrices
+    * Find a way around the issue of reshaping dynamic vectors and matrices
+    * Implement  matrix generators (such as 'eye')
+    * Consider removing ReadWrite as an enum class, and instead implement it as a policy class.
 
-## Wishlist
+### More Expressions
+
+    * where( condition, left_expression, right_expression)
+        * Evaluate condition.
+        * If it returns true, evaluate and return left expression.
+        * If it returns false, return right expression
+    * is_nan/is_finite etc.
+    * square/cube
+    * reciprocal
+    * to_radians/to_degrees
+    * signbit/copysign
+    * trunc (like ceil and floor, always towards zero)
+    * include mathematical constants
+
+### Special consideration for std::complex
+
+    * need new type trait to fill the role of is_arithmetic. is_scalar?
+    * new expressions: real, imag, arg, norm, conj
+    * hermitian transpose (will need an eval)
 
 ### LinearAlgebra
 
@@ -24,6 +36,8 @@ Consider removing ReadWrite as an enum class, and instead implement it as a poli
     * LU factorisation
     * Set BLAS/LAPACK usage at compile time
     * This list will go MUCH deeper as time goes on...
+
+## Wishlist
 
 ### OpenMP
 
@@ -36,17 +50,6 @@ Consider removing ReadWrite as an enum class, and instead implement it as a poli
       their own parallelisation strategy, and therefore this would interfere. However, signpost it
       well!
 
-### WhereExpression
-
-    * where( left_expression, right_expression, default_val)
-        * Evaluate left expression.
-        * If it returns true, evaluate and return right expression.
-        * If it returns false, return default_val
-
-### ForEachExpression
-
-    * apply function to each arg in turn
-
 ### FFT
 
     * Optional functionality if fftw3 is installed
@@ -55,6 +58,10 @@ Consider removing ReadWrite as an enum class, and instead implement it as a poli
 
     * compressed sparse row/col mainly
     * not technically 'sparse' but consider types for packed and banded matrices
+
+### Automatic Broadcasting
+
+    * Requires a complete rethink of striped iteration to do this efficiently
 
 ### Distributed
 

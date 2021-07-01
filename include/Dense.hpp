@@ -10,29 +10,37 @@
 
 namespace ultra {
 
-// Definitions
+template<class T, DenseType Type, DenseOrder Order>
+class Dense : public DenseExpression<Dense<T,Type,Order>>, public DenseImpl<Dense<T,Type,Order>> {
 
-template<class T, DenseOrder Order>
-class Dense : public DenseExpression<Dense<T,Order>>, public DenseImpl<Dense<T,Order>,Order> {
+    friend DenseImpl<Dense<T,Type,Order>>;
 
-    friend DenseImpl<Dense<T,Order>,Order>;
+    static constexpr bool is_nd = ( Type == DenseType::nd );
+    static constexpr std::size_t fixed_dims = static_cast<std::size_t>(Type);
+
+    void test_fixed_dims( std::size_t d ) const {
+        if( d != dims() ){
+            if( fixed_dims==1 ) throw std::runtime_error("Ultra: Tried to construct Vector with shape of size " + std::to_string(d) + '.');
+            if( fixed_dims==2 ) throw std::runtime_error("Ultra: Tried to construct Matrix with shape of size " + std::to_string(d) + '.');
+        }
+    }
 
 public:
 
     using value_type = std::conditional_t<std::is_same<T,bool>::value,Bool,T>;
-    using shape_type = std::vector<std::size_t>;
-    using stride_type = std::vector<std::size_t>;
+    using shape_type = std::conditional_t<is_nd,std::vector<std::size_t>,std::array<std::size_t,fixed_dims>>;
+    using stride_type = std::conditional_t<is_nd,std::vector<std::size_t>,std::array<std::size_t,fixed_dims+1>>;
     using data_type = std::vector<value_type>;
     using iterator = data_type::iterator;
     using const_iterator = data_type::const_iterator;
     static constexpr DenseOrder order() { return Order; }
 
     // For convenience, specify row/col major via Array<T>::row/col_major
-    using row_major = Dense<T,DenseOrder::row_major>;
-    using col_major = Dense<T,DenseOrder::col_major>;
+    using row_major = Dense<T,Type,DenseOrder::row_major>;
+    using col_major = Dense<T,Type,DenseOrder::col_major>;
 
     // View of self
-    using View = DenseView<Dense<T,Order>>;
+    using View = DenseView<Dense<T,Type,Order>>;
 
 protected:  
 
@@ -61,8 +69,7 @@ public:
     friend void swap( Dense& a, Dense& b) noexcept { a.swap(b); }
 
     // Construct from shape
-    template<std::ranges::range Shape>
-    requires std::integral<typename Shape::value_type>
+    template<std::ranges::sized_range Shape> requires ( is_nd ) && std::integral<typename Shape::value_type>
     Dense( const Shape& shape ) :
         _shape(shape.size()),
         _stride(shape.size()+1),
@@ -72,21 +79,50 @@ public:
         set_stride();
     }
 
-    // Construct from shape with fill
-    template<std::ranges::range Shape>
-    requires std::integral<typename Shape::value_type>
-    Dense( const Shape& shape, const value_type& val) :
+    template<std::ranges::range Shape> requires ( is_nd ) && std::integral<typename Shape::value_type>
+    Dense( const Shape& shape, const value_type& fill) :
         _shape(shape.size()),
         _stride(shape.size()+1),
-        _data(std::accumulate(shape.begin(),shape.end(),1,std::multiplies<typename Shape::value_type>{}),val)
+        _data(std::accumulate(shape.begin(),shape.end(),1,std::multiplies<typename Shape::value_type>{}),fill)
     {
         std::ranges::copy( shape, _shape.begin());
         set_stride();
     }
 
+    template<std::ranges::sized_range Shape> requires ( !is_nd ) && std::integral<typename Shape::value_type>
+    Dense( const Shape& shape ) :
+        _data(std::accumulate(shape.begin(),shape.end(),1,std::multiplies<typename Shape::value_type>{}))
+    {
+        test_fixed_dims(shape.size());
+        std::ranges::copy( shape, _shape.begin());
+        set_stride();
+    }
+
+    template<std::ranges::range Shape> requires ( !is_nd ) && std::integral<typename Shape::value_type>
+    Dense( const Shape& shape, const value_type& fill) :
+        _data(std::accumulate(shape.begin(),shape.end(),1,std::multiplies<typename Shape::value_type>{}),fill)
+    {
+        test_fixed_dims(shape.size());
+        std::ranges::copy( shape, _shape.begin());
+        set_stride();
+    }
+
+    Dense( std::size_t size ) requires ( !is_nd && fixed_dims == 1 ) : _shape{size}, _stride{1,size}, _data(size) {}
+    
+    Dense( std::size_t size, const value_type& fill ) requires ( !is_nd && fixed_dims == 1 ) : _shape{size}, _stride{1,size}, _data(size,fill) {}
+
+    Dense( std::size_t rows, std::size_t cols ) requires ( !is_nd && fixed_dims == 2 ) : _shape{rows,cols}, _data(rows*cols) { set_stride(); }
+    
+    Dense( std::size_t rows, std::size_t cols, const value_type& fill ) requires ( !is_nd && fixed_dims == 2 ) :
+        _shape{rows,cols},
+        _data(rows*cols,fill) 
+    {
+        set_stride();
+    }
+
     // Construct from an expression
 
-    template<class U>
+    template<class U> requires ( is_nd )
     Dense( const DenseExpression<U>& expression) :
         _shape(expression.dims()),
         _stride(expression.dims()+1),
@@ -97,7 +133,7 @@ public:
         equal_expression(expression);
     }
 
-    template<class U>
+    template<class U> requires ( is_nd )
     Dense( DenseExpression<U>&& expression) :
         _shape(expression.dims()),
         _stride(expression.dims()+1),
@@ -108,7 +144,27 @@ public:
         equal_expression(std::move(expression));
     }
 
-    template<class U>
+    template<class U> requires ( !is_nd )
+    Dense( const DenseExpression<U>& expression) :
+        _data(expression.size())
+    {
+        test_fixed_dims(shape.size());
+        for( std::size_t ii = 0; ii < dims(); ++ii) _shape[ii] = expression.shape(ii);
+        set_stride();
+        equal_expression(expression);
+    }
+
+    template<class U> requires ( !is_nd )
+    Dense( DenseExpression<U>&& expression) :
+        _data(expression.size())
+    {
+        test_fixed_dims(shape.size());
+        for( std::size_t ii = 0; ii < dims(); ++ii) _shape[ii] = expression.shape(ii);
+        set_stride();
+        equal_expression(std::move(expression));
+    }
+
+    template<class U> requires ( is_nd )
     Dense& operator=( const DenseExpression<U>& expression) {
         // check expression shape matches self. If not, resize and reshape in place
         try {
@@ -123,7 +179,7 @@ public:
         return equal_expression(expression);
     }
 
-    template<class U>
+    template<class U> requires ( is_nd )
     Dense& operator=( DenseExpression<U>&& expression) {
         // check expression shape matches self. If not, resize and reshape in place
         try {
@@ -138,44 +194,72 @@ public:
         return equal_expression(std::move(expression));
     }
 
+    template<class U> requires ( !is_nd )
+    Dense& operator=( const DenseExpression<U>& expression) {
+        // check expression shape matches self. If not, resize and reshape in place
+        try {
+            check_expression(expression);
+        } catch(const ExpressionException&) {
+            test_fixed_dims(expression.dims());
+            _data.resize(expression.size());
+            for( std::size_t ii = 0; ii < dims(); ++ii) _shape[ii] = expression.shape(ii);
+            set_stride();
+        }
+        return equal_expression(expression);
+    }
+
+    template<class U> requires ( !is_nd )
+    Dense& operator=( DenseExpression<U>&& expression) {
+        // check expression shape matches self. If not, resize and reshape in place
+        try {
+            check_expression(expression);
+        } catch(const ExpressionException&) {
+            test_fixed_dims(expression.dims());
+            _data.resize(expression.size());
+            for( std::size_t ii = 0; ii < dims(); ++ii) _shape[ii] = expression.shape(ii);
+            set_stride();
+        }
+        return equal_expression(std::move(expression));
+    }
+
     // ===============================================
     // Pull in methods from base class
 
-    using DenseImpl<Dense<T,Order>,Order>::dims;
-    using DenseImpl<Dense<T,Order>,Order>::size;
-    using DenseImpl<Dense<T,Order>,Order>::shape;
-    using DenseImpl<Dense<T,Order>,Order>::stride;
-    using DenseImpl<Dense<T,Order>,Order>::data;
-    using DenseImpl<Dense<T,Order>,Order>::fill;
-    using DenseImpl<Dense<T,Order>,Order>::view;
-    using DenseImpl<Dense<T,Order>,Order>::reshape;
-    using DenseImpl<Dense<T,Order>,Order>::broadcast;
-    using DenseImpl<Dense<T,Order>,Order>::permute;
-    using DenseImpl<Dense<T,Order>,Order>::transpose;
-    using DenseImpl<Dense<T,Order>,Order>::t;
-    using DenseImpl<Dense<T,Order>,Order>::begin;
-    using DenseImpl<Dense<T,Order>,Order>::end;
-    using DenseImpl<Dense<T,Order>,Order>::num_stripes;
-    using DenseImpl<Dense<T,Order>,Order>::get_stripe;
-    using DenseImpl<Dense<T,Order>,Order>::required_stripe_dim;
-    using DenseImpl<Dense<T,Order>,Order>::operator();
-    using DenseImpl<Dense<T,Order>,Order>::operator[];
-    using DenseImpl<Dense<T,Order>,Order>::operator=;
-    using DenseImpl<Dense<T,Order>,Order>::operator+=;
-    using DenseImpl<Dense<T,Order>,Order>::operator-=;
-    using DenseImpl<Dense<T,Order>,Order>::operator*=;
-    using DenseImpl<Dense<T,Order>,Order>::operator/=;
-    using DenseImpl<Dense<T,Order>,Order>::equal_expression;
-    using DenseImpl<Dense<T,Order>,Order>::check_expression;
-    using DenseImpl<Dense<T,Order>,Order>::set_stride;
-    using DenseImpl<Dense<T,Order>,Order>::is_contiguous;
-    using DenseImpl<Dense<T,Order>,Order>::is_omp_parallelisable;
+    using DenseImpl<Dense<T,Type,Order>>::dims;
+    using DenseImpl<Dense<T,Type,Order>>::size;
+    using DenseImpl<Dense<T,Type,Order>>::shape;
+    using DenseImpl<Dense<T,Type,Order>>::stride;
+    using DenseImpl<Dense<T,Type,Order>>::data;
+    using DenseImpl<Dense<T,Type,Order>>::fill;
+    using DenseImpl<Dense<T,Type,Order>>::view;
+    using DenseImpl<Dense<T,Type,Order>>::reshape;
+    using DenseImpl<Dense<T,Type,Order>>::broadcast;
+    using DenseImpl<Dense<T,Type,Order>>::permute;
+    using DenseImpl<Dense<T,Type,Order>>::transpose;
+    using DenseImpl<Dense<T,Type,Order>>::t;
+    using DenseImpl<Dense<T,Type,Order>>::begin;
+    using DenseImpl<Dense<T,Type,Order>>::end;
+    using DenseImpl<Dense<T,Type,Order>>::num_stripes;
+    using DenseImpl<Dense<T,Type,Order>>::get_stripe;
+    using DenseImpl<Dense<T,Type,Order>>::required_stripe_dim;
+    using DenseImpl<Dense<T,Type,Order>>::operator();
+    using DenseImpl<Dense<T,Type,Order>>::operator[];
+    using DenseImpl<Dense<T,Type,Order>>::operator=;
+    using DenseImpl<Dense<T,Type,Order>>::operator+=;
+    using DenseImpl<Dense<T,Type,Order>>::operator-=;
+    using DenseImpl<Dense<T,Type,Order>>::operator*=;
+    using DenseImpl<Dense<T,Type,Order>>::operator/=;
+    using DenseImpl<Dense<T,Type,Order>>::equal_expression;
+    using DenseImpl<Dense<T,Type,Order>>::check_expression;
+    using DenseImpl<Dense<T,Type,Order>>::set_stride;
+    using DenseImpl<Dense<T,Type,Order>>::is_contiguous;
+    using DenseImpl<Dense<T,Type,Order>>::is_omp_parallelisable;
 };
 
 template<class T, DenseOrder Order, std::size_t... Dims>
-class DenseFixed : public DenseExpression<DenseFixed<T,Order,Dims...>>, public DenseImpl<DenseFixed<T,Order,Dims...>,Order> {
+class DenseFixed : public DenseExpression<DenseFixed<T,Order,Dims...>>, public DenseImpl<DenseFixed<T,Order,Dims...>> {
 
-    friend DenseImpl<DenseFixed<T,Order,Dims...>,Order>;
+    friend DenseImpl<DenseFixed<T,Order,Dims...>>;
 
     static constexpr std::size_t _dims = sizeof...(Dims);
     static constexpr std::size_t _size = variadic_product<Dims...>::value;
@@ -231,32 +315,32 @@ public:
 
     // Pull in methods from CRTP base
 
-    using DenseImpl<DenseFixed<T,Order,Dims...>,Order>::dims;
-    using DenseImpl<DenseFixed<T,Order,Dims...>,Order>::size;
-    using DenseImpl<DenseFixed<T,Order,Dims...>,Order>::shape;
-    using DenseImpl<DenseFixed<T,Order,Dims...>,Order>::stride;
-    using DenseImpl<DenseFixed<T,Order,Dims...>,Order>::data;
-    using DenseImpl<DenseFixed<T,Order,Dims...>,Order>::fill;
-    using DenseImpl<DenseFixed<T,Order,Dims...>,Order>::view;
-    using DenseImpl<DenseFixed<T,Order,Dims...>,Order>::broadcast;
-    using DenseImpl<DenseFixed<T,Order,Dims...>,Order>::permute;
-    using DenseImpl<DenseFixed<T,Order,Dims...>,Order>::transpose;
-    using DenseImpl<DenseFixed<T,Order,Dims...>,Order>::t;
-    using DenseImpl<DenseFixed<T,Order,Dims...>,Order>::begin;
-    using DenseImpl<DenseFixed<T,Order,Dims...>,Order>::end;
-    using DenseImpl<DenseFixed<T,Order,Dims...>,Order>::num_stripes;
-    using DenseImpl<DenseFixed<T,Order,Dims...>,Order>::get_stripe;
-    using DenseImpl<DenseFixed<T,Order,Dims...>,Order>::required_stripe_dim;
-    using DenseImpl<DenseFixed<T,Order,Dims...>,Order>::operator();
-    using DenseImpl<DenseFixed<T,Order,Dims...>,Order>::operator[];
-    using DenseImpl<DenseFixed<T,Order,Dims...>,Order>::operator=;
-    using DenseImpl<DenseFixed<T,Order,Dims...>,Order>::operator+=;
-    using DenseImpl<DenseFixed<T,Order,Dims...>,Order>::operator-=;
-    using DenseImpl<DenseFixed<T,Order,Dims...>,Order>::operator*=;
-    using DenseImpl<DenseFixed<T,Order,Dims...>,Order>::operator/=;
-    using DenseImpl<DenseFixed<T,Order,Dims...>,Order>::check_expression;
-    using DenseImpl<DenseFixed<T,Order,Dims...>,Order>::is_contiguous;
-    using DenseImpl<DenseFixed<T,Order,Dims...>,Order>::is_omp_parallelisable;
+    using DenseImpl<DenseFixed<T,Order,Dims...>>::dims;
+    using DenseImpl<DenseFixed<T,Order,Dims...>>::size;
+    using DenseImpl<DenseFixed<T,Order,Dims...>>::shape;
+    using DenseImpl<DenseFixed<T,Order,Dims...>>::stride;
+    using DenseImpl<DenseFixed<T,Order,Dims...>>::data;
+    using DenseImpl<DenseFixed<T,Order,Dims...>>::fill;
+    using DenseImpl<DenseFixed<T,Order,Dims...>>::view;
+    using DenseImpl<DenseFixed<T,Order,Dims...>>::broadcast;
+    using DenseImpl<DenseFixed<T,Order,Dims...>>::permute;
+    using DenseImpl<DenseFixed<T,Order,Dims...>>::transpose;
+    using DenseImpl<DenseFixed<T,Order,Dims...>>::t;
+    using DenseImpl<DenseFixed<T,Order,Dims...>>::begin;
+    using DenseImpl<DenseFixed<T,Order,Dims...>>::end;
+    using DenseImpl<DenseFixed<T,Order,Dims...>>::num_stripes;
+    using DenseImpl<DenseFixed<T,Order,Dims...>>::get_stripe;
+    using DenseImpl<DenseFixed<T,Order,Dims...>>::required_stripe_dim;
+    using DenseImpl<DenseFixed<T,Order,Dims...>>::operator();
+    using DenseImpl<DenseFixed<T,Order,Dims...>>::operator[];
+    using DenseImpl<DenseFixed<T,Order,Dims...>>::operator=;
+    using DenseImpl<DenseFixed<T,Order,Dims...>>::operator+=;
+    using DenseImpl<DenseFixed<T,Order,Dims...>>::operator-=;
+    using DenseImpl<DenseFixed<T,Order,Dims...>>::operator*=;
+    using DenseImpl<DenseFixed<T,Order,Dims...>>::operator/=;
+    using DenseImpl<DenseFixed<T,Order,Dims...>>::check_expression;
+    using DenseImpl<DenseFixed<T,Order,Dims...>>::is_contiguous;
+    using DenseImpl<DenseFixed<T,Order,Dims...>>::is_omp_parallelisable;
 };
 
 } // namespace

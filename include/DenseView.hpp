@@ -13,9 +13,9 @@
 namespace ultra {
 
 template<class T, ReadWrite rw>
-class DenseView : public DenseExpression<DenseView<T,rw>>, public DenseImpl<DenseView<T,rw>,T::order()> {
+class DenseView : public DenseExpression<DenseView<T,rw>>, public DenseImpl<DenseView<T,rw>> {
 
-    friend DenseImpl<DenseView<T,rw>,T::order()>;
+    friend DenseImpl<DenseView<T,rw>>;
 
     static constexpr ReadWrite other_rw = (rw == ReadWrite::read_only ? ReadWrite::writeable : ReadWrite::read_only);
     friend DenseView<T,other_rw>;
@@ -86,22 +86,22 @@ public:
     // Pull methods from base
     // Some methods are shadowed, as the default behaviour is not appropriate
 
-    using DenseImpl<DenseView<T,rw>,Order>::dims;
-    using DenseImpl<DenseView<T,rw>,Order>::shape;
-    using DenseImpl<DenseView<T,rw>,Order>::stride;
-    using DenseImpl<DenseView<T,rw>,Order>::fill;
-    using DenseImpl<DenseView<T,rw>,Order>::num_stripes;
-    using DenseImpl<DenseView<T,rw>,Order>::get_stripe;
-    using DenseImpl<DenseView<T,rw>,Order>::reshape;
-    using DenseImpl<DenseView<T,rw>,Order>::operator();
-    using DenseImpl<DenseView<T,rw>,Order>::operator[];
-    using DenseImpl<DenseView<T,rw>,Order>::operator=;
-    using DenseImpl<DenseView<T,rw>,Order>::operator+=;
-    using DenseImpl<DenseView<T,rw>,Order>::operator-=;
-    using DenseImpl<DenseView<T,rw>,Order>::operator*=;
-    using DenseImpl<DenseView<T,rw>,Order>::operator/=;
-    using DenseImpl<DenseView<T,rw>,Order>::check_expression;
-    using DenseImpl<DenseView<T,rw>,Order>::is_omp_parallelisable;
+    using DenseImpl<DenseView<T,rw>>::dims;
+    using DenseImpl<DenseView<T,rw>>::shape;
+    using DenseImpl<DenseView<T,rw>>::stride;
+    using DenseImpl<DenseView<T,rw>>::fill;
+    using DenseImpl<DenseView<T,rw>>::num_stripes;
+    using DenseImpl<DenseView<T,rw>>::get_stripe;
+    using DenseImpl<DenseView<T,rw>>::reshape;
+    using DenseImpl<DenseView<T,rw>>::operator();
+    using DenseImpl<DenseView<T,rw>>::operator[];
+    using DenseImpl<DenseView<T,rw>>::operator=;
+    using DenseImpl<DenseView<T,rw>>::operator+=;
+    using DenseImpl<DenseView<T,rw>>::operator-=;
+    using DenseImpl<DenseView<T,rw>>::operator*=;
+    using DenseImpl<DenseView<T,rw>>::operator/=;
+    using DenseImpl<DenseView<T,rw>>::check_expression;
+    using DenseImpl<DenseView<T,rw>>::is_omp_parallelisable;
 
     std::size_t size() const noexcept { return _size;}
     pointer data() const noexcept { return _data; }
