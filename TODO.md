@@ -4,12 +4,11 @@
 
 ### More Expressions
 
-    * mean/average
-    * stddev/var
-
     * unit testing:
         * where
         * math constants
+        * mean
+        * stddev
 
 ### Special consideration for std::complex
 
@@ -18,6 +17,7 @@
     * complex sqrt, complex log, complex pow, complex acos/asin/atanh
         * std:: already deals with most complex variants on cmath functions. However, this deals only
           with the case f(Complex) -> Complex. Special versions are necessary when f(Real) -> Complex.
+    * include abs in var/stddev
     * hermitian transpose (will need an eval)
 
 ### Linear algebra
@@ -42,6 +42,11 @@
     * Do not have this switched on by default. The end user may wish to use this library alongside
       their own parallelisation strategy, and therefore this would interfere. However, signpost it
       well!
+
+### Improve expressions
+
+    * Implement pairwise summation, Kahan summation, and apply to sum
+        * perhaps have pairwise as default and kahan as a high-precision version
 
 ### Further linear algebra
 

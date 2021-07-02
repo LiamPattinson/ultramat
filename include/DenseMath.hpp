@@ -199,8 +199,20 @@ T to_degrees_internal( const T& t){
     return t*factor;
 }
 
+template<class T>
+T square_internal( const T& t){
+    return t*t;
+}
+
+template<class T>
+T cube_internal( const T& t){
+    return t*t*t;
+}
+
 DENSE_MATH_UNARY_FUNCTION(  ToRadians, to_radians , to_radians_internal )
 DENSE_MATH_UNARY_FUNCTION(  ToDegrees, to_degress , to_degrees_internal )
+DENSE_MATH_UNARY_FUNCTION(  Square, square , square_internal )
+DENSE_MATH_UNARY_FUNCTION(  Cube, cube , cube_internal )
 
 // =========================
 // Binary Functions
@@ -503,6 +515,37 @@ decltype(auto) max( const DenseExpression<T>& t, std::size_t dim){
 template<class T>
 decltype(auto) max( DenseExpression<T>&& t, std::size_t dim){
     return accumulate(Max{},static_cast<T&&>(t),dim);
+}
+
+template<class T>
+decltype(auto) mean( const DenseExpression<T>& t, std::size_t dim){
+    return sum(static_cast<const T&>(t),dim) / t.shape(dim);
+}
+
+template<class T>
+decltype(auto) mean( DenseExpression<T>&& t, std::size_t dim){
+    return sum(static_cast<T&&>(t),dim) / t.shape(dim);
+}
+
+template<class T>
+decltype(auto) average( const DenseExpression<T>& t, std::size_t dim){
+    return mean(static_cast<const T&>(t),dim);
+}
+
+template<class T>
+decltype(auto) average( DenseExpression<T>&& t, std::size_t dim){
+    return mean(static_cast<T&&>(t),dim);
+}
+
+template<class T>
+decltype(auto) var( const DenseExpression<T>& t, std::size_t dim, std::size_t ddof=0){
+    // Note: no && version available, as forwarding t to determine the mean can result in undefined behaviour when re-using it in the summation
+    return sum(square(static_cast<const T&>(t) - eval(mean(static_cast<const T&>(t),dim)))) / (t.shape(dim) + ddof);
+}
+
+template<class T>
+decltype(auto) stddev( const DenseExpression<T>& t, std::size_t dim, std::size_t ddof=0){
+    return sqrt(var(t,dim,ddof));
 }
 
 // =========================
