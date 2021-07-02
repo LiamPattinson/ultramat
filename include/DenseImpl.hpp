@@ -312,11 +312,9 @@ class DenseImpl {
         // Ensure that the new shape has the correct size.
         auto size = std::accumulate(shape.begin(),shape.end(),1,std::multiplies<typename Shape::value_type>{});
         if( size != derived().size() ) throw std::runtime_error("Ultramat: Cannot reshape, result would have incorrect size");
-        // Set new shape
-        derived()._shape.resize(shape.size());
+        // Set new shape and stride
+        derived().resize_shape_and_stride(shape.size());
         std::ranges::copy( shape, derived()._shape.begin());
-        // reset stride and return
-        derived()._stride.resize(shape.size()+1);
         set_stride();
         return derived(); 
     }

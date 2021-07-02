@@ -2,13 +2,6 @@
 
 ## Upcoming
 
-### Containers
-    
-    * Unit test vectors and matrices
-    * Find a way around the issue of reshaping dynamic vectors and matrices
-    * Implement  matrix generators (such as 'eye')
-    * Consider removing ReadWrite as an enum class, and instead implement it as a policy class.
-
 ### More Expressions
 
     * where( condition, left_expression, right_expression)
@@ -29,13 +22,15 @@
     * new expressions: real, imag, arg, norm, conj
     * hermitian transpose (will need an eval)
 
-### LinearAlgebra
+### Linear algebra
 
-    * MatMul
+    * Implement matrix generators (such as 'eye', 'identity')
+    * trace
+    * dot
+    * matmul
     * GaussianElimination solver
     * LU factorisation
     * Set BLAS/LAPACK usage at compile time
-    * This list will go MUCH deeper as time goes on...
 
 ## Wishlist
 
@@ -49,6 +44,31 @@
     * Do not have this switched on by default. The end user may wish to use this library alongside
       their own parallelisation strategy, and therefore this would interfere. However, signpost it
       well!
+
+### Further linear algebra
+
+    * inner, outer
+    * cond
+    * rank
+    * kronecker product
+    * QR decomposition
+    * SVD decomposition
+
+### Iterative linear algebra
+
+    * Jacobi
+    * Gauss-Seidel
+    * Richardson
+    * SOR/SSOR
+    * Multigrid methods
+    * Krylov methods
+
+### Optimisation
+
+    * Gradient Descent
+    * Stochastic Gradient Descent
+    * Conjugate Gradient Descent
+    * Preconditioning
 
 ### FFT
 

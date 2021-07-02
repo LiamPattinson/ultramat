@@ -18,13 +18,6 @@ class Dense : public DenseExpression<Dense<T,Type,Order>>, public DenseImpl<Dens
     static constexpr bool is_nd = ( Type == DenseType::nd );
     static constexpr std::size_t fixed_dims = static_cast<std::size_t>(Type);
 
-    void test_fixed_dims( std::size_t d ) const {
-        if( d != dims() ){
-            if( fixed_dims==1 ) throw std::runtime_error("Ultra: Tried to construct Vector with shape of size " + std::to_string(d) + '.');
-            if( fixed_dims==2 ) throw std::runtime_error("Ultra: Tried to construct Matrix with shape of size " + std::to_string(d) + '.');
-        }
-    }
-
 public:
 
     using value_type = std::conditional_t<std::is_same<T,bool>::value,Bool,T>;
@@ -42,7 +35,7 @@ public:
     // View of self
     using View = DenseView<Dense<T,Type,Order>>;
 
-protected:  
+private: 
 
     shape_type  _shape;
     stride_type _stride;
@@ -107,9 +100,9 @@ public:
         set_stride();
     }
 
-    Dense( std::size_t size ) requires ( !is_nd && fixed_dims == 1 ) : _shape{size}, _stride{1,size}, _data(size) {}
+    Dense( std::size_t size ) requires ( !is_nd && fixed_dims == 1 ) : _shape{size}, _data(size) { set_stride(); }
     
-    Dense( std::size_t size, const value_type& fill ) requires ( !is_nd && fixed_dims == 1 ) : _shape{size}, _stride{1,size}, _data(size,fill) {}
+    Dense( std::size_t size, const value_type& fill ) requires ( !is_nd && fixed_dims == 1 ) : _shape{size}, _data(size,fill) { set_stride(); }
 
     Dense( std::size_t rows, std::size_t cols ) requires ( !is_nd && fixed_dims == 2 ) : _shape{rows,cols}, _data(rows*cols) { set_stride(); }
     
@@ -254,6 +247,25 @@ public:
     using DenseImpl<Dense<T,Type,Order>>::set_stride;
     using DenseImpl<Dense<T,Type,Order>>::is_contiguous;
     using DenseImpl<Dense<T,Type,Order>>::is_omp_parallelisable;
+
+private:
+
+    void test_fixed_dims( std::size_t d ) const {
+        if( d != dims() ){
+            if( fixed_dims==1 ) throw std::runtime_error("Ultra: Tried to construct Vector with shape of size " + std::to_string(d) + '.');
+            if( fixed_dims==2 ) throw std::runtime_error("Ultra: Tried to construct Matrix with shape of size " + std::to_string(d) + '.');
+        }
+    }
+
+    void resize_shape_and_stride( std::size_t size) requires ( is_nd ) {
+        _shape.resize(size);
+        _stride.resize(size+1);
+    }
+
+    void resize_shape_and_stride( std::size_t size) requires ( !is_nd ) {
+        test_fixed_dims(size);
+    }
+
 };
 
 template<class T, DenseOrder Order, std::size_t... Dims>
@@ -282,10 +294,10 @@ public:
     // View of self
     using View = DenseView<DenseFixed<T,Order,Dims...>>;
 
-protected:  
+private:
 
     static constexpr shape_type  _shape = {{Dims...}};
-    static constexpr stride_type _stride = ( Order == DenseOrder::row_major ? variadic_stride<Dims...>::row_major : variadic_stride<Dims...>::col_major );
+    static constexpr stride_type _stride = (Order == DenseOrder::row_major ? variadic_stride<Dims...>::row_major : variadic_stride<Dims...>::col_major);
     data_type _data;
 
 public:

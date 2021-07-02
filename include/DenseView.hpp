@@ -20,6 +20,11 @@ class DenseView : public DenseExpression<DenseView<T,rw>>, public DenseImpl<Dens
     static constexpr ReadWrite other_rw = (rw == ReadWrite::read_only ? ReadWrite::writeable : ReadWrite::read_only);
     friend DenseView<T,other_rw>;
 
+    void resize_shape_and_stride( std::size_t size){
+        _shape.resize(size);
+        _stride.resize(size+1);
+    }
+
 public:
 
     using value_type = typename T::value_type;
@@ -278,9 +283,9 @@ public:
         }
         // Create copy to work with
         DenseView<T,ReadWrite::read_only> bcast_view(*this);
-        bcast_view._shape = bcast_shape;
+        bcast_view.resize_shape_and_stride(bcast_shape.size());
+        std::ranges::copy( bcast_shape, bcast_view._shape.begin());
         bcast_view._size = std::accumulate( bcast_shape.begin(), bcast_shape.end(), 1, std::multiplies<std::size_t>{});
-        bcast_view._stride.resize(bcast_shape.size()+1);
         // Broadcasting stride rules:
         // - If _shape[ii] == 1 and bcast_shape[ii] > 1, stride=0
         // - If ii > dims(), stride=0
