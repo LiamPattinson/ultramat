@@ -279,7 +279,7 @@ public:
 
     // Get stripes from each Arg
     decltype(auto) get_stripe( std::size_t stripe_num, std::size_t dim, DenseOrder order) const {
-        return Stripe(std::move(apply_to_each(GetStripe{stripe_num,dim,order},_args)));
+        return Stripe(apply_to_each(GetStripe{stripe_num,dim,order},_args));
     }
 };
 
@@ -854,6 +854,150 @@ public:
     // Get stripes from each Arg
     decltype(auto) get_stripe( std::size_t, std::size_t, DenseOrder) const {
         return Stripe(_f);
+    }
+};
+
+// WhereDenseExpression
+// Takes three arguments: Cond, L, and R. Returns the result of L when Cond is true, or R when Cond is false.
+// Could be more simply implemented using ElementWiseDenseExpression with the function (cond ? l : r).
+// However, this would require both L and R to be evaluated, which is wasteful.
+
+template<class Cond, class L, class R>
+class WhereDenseExpression : public DenseExpression<WhereDenseExpression<Cond,L,R>> {
+
+public:
+
+    using value_type = decltype( std::declval<typename std::remove_cvref_t<L>::value_type>() + std::declval<typename std::remove_cvref_t<R>::value_type>());
+
+private:
+    
+    // arg_t: If receiving 'Args&' or 'const Args&' as lvalue references, use this. Otherwise, if receiving rvalue reference,
+    //        store Args 'by-value'. This avoids dangling references when the user chooses to return an expression from a function.
+    template<class T>
+    using arg_t = std::conditional_t< std::is_lvalue_reference<T>::value, T, std::remove_cvref_t<T>>;
+
+    arg_t<Cond> _condition;
+    arg_t<L> _left_expression;
+    arg_t<R> _right_expression;
+
+    bool test_dims() const {
+        return _condition.dims() == _left_expression.dims() && _condition.dims() == _right_expression.dims();
+    }
+
+    bool test_shape(std::size_t ii) const {
+        return _condition.shape(ii) == _left_expression.shape(ii) && _condition.shape(ii) == _right_expression.shape(ii);
+    }
+
+
+public:
+
+    WhereDenseExpression() = delete;
+    WhereDenseExpression( const WhereDenseExpression& ) = delete;
+    WhereDenseExpression( WhereDenseExpression&& ) = default;
+    WhereDenseExpression& operator=( const WhereDenseExpression& ) = delete;
+    WhereDenseExpression& operator=( WhereDenseExpression&& ) = default;
+
+    WhereDenseExpression( Cond&& cond, L&& l, R&& r) :
+        _condition(std::forward<Cond>(cond)),
+        _left_expression(std::forward<L>(l)),
+        _right_expression(std::forward<R>(r))
+    {
+        if( !test_dims() ) throw std::runtime_error("WhereDenseExpression: args have incompatible dimensions.");
+        for( std::size_t ii=0, end=_condition.dims(); ii<end; ++ii){
+            if( std::ranges::any_of(test_shape(ii),[](bool b){return b;}) ){
+                throw std::runtime_error("WhereDenseExpression: args have incompatible shapes.");
+            }
+        }
+        // No need to test size, this requirement is satisfied implicitly.
+    }
+
+    decltype(auto) size() const { return _condition.size(); }
+    decltype(auto) dims() const { return _condition.dims(); }
+    decltype(auto) shape() const { return _condition.shape(); }
+    decltype(auto) shape(std::size_t ii) const { return _condition.shape(ii); }
+    decltype(auto) num_stripes(std::size_t dim) const { return _condition.num_stripes(dim); }
+    decltype(auto) required_stripe_dim() const { return dims(); }
+
+    constexpr DenseOrder order() const noexcept {
+        return _condition.order() == _left_expression.order() && _condition.order() == _right_expression.order() ? _condition.order() : DenseOrder::mixed; 
+    }
+
+    constexpr bool is_contiguous() const noexcept {
+        return _condition.is_contiguous() && _left_expression.is_contiguous() && _right_expression.is_contiguous();
+    }
+
+    constexpr bool is_omp_parallelisable() const noexcept {
+        return _condition.is_omp_parallelisable() && _left_expression.is_omp_parallelisable() && _right_expression.is_omp_parallelisable();
+    }
+
+    // Define const_iterator class
+ 
+    // Notes:
+    // begin() should return a compound iterator over Cond, L and R
+    // Dereferencing this will return ( *it_cond ? *it_l : *it_r).
+    // Incrementing this will increment all iterators, regardless of whether they were dereferenced
+
+    class const_iterator {
+        template<class T>
+        using it_t = typename std::remove_cvref_t<T>::const_iterator;
+        
+        it_t<Cond> _it_cond;
+        it_t<L> _it_l;
+        it_t<R> _it_r;
+        
+        public:
+        
+        const_iterator( it_t<Cond>&& it_cond, it_t<L>&& it_l, it_t<R>&& it_r) : _it_cond(std::move(it_cond)), _it_l(std::move(it_l)), _it_r(std::move(it_r)) {}
+        decltype(auto) operator*() { return *_it_cond ? *_it_l : *_it_r; }
+        const_iterator& operator++() { ++_it_cond; ++_it_l; ++_it_r; return *this; }
+    };
+
+    const_iterator begin() const { return const_iterator(_condition.begin(),_left_expression.begin(),_right_expression.begin()); }
+
+    // Define stripe class
+    // As element-wise operations are strictly non-modifying, only read_only stripes are permitted.
+ 
+    class Stripe {
+        
+        template<class T>
+        using stripe_t = decltype(std::declval<std::add_const_t<std::remove_cvref_t<T>>>().get_stripe(0,0,DenseOrder::col_major));
+
+        stripe_t<Cond> _stripe_cond;
+        stripe_t<L> _stripe_l;
+        stripe_t<R> _stripe_r;
+
+        public:
+
+        Stripe( stripe_t<Cond>&& stripe_cond, stripe_t<L>&& stripe_l, stripe_t<R>&& stripe_r) : 
+            _stripe_cond(std::move(stripe_cond)),
+            _stripe_l(std::move(stripe_l)),
+            _stripe_r(std::move(stripe_r))
+        {}
+        
+        // Define iterator type
+
+        class Iterator {
+            
+            template<class T>
+            using it_t = typename decltype(std::declval<std::add_const_t<std::remove_cvref_t<T>>>().get_stripe(0,0,DenseOrder::col_major))::Iterator;
+            
+            it_t<Cond> _it_cond;
+            it_t<L> _it_l;
+            it_t<R> _it_r;
+            
+            public:
+            
+            Iterator( it_t<Cond>&& it_cond, it_t<L>&& it_l, it_t<R>&& it_r) : _it_cond(std::move(it_cond)), _it_l(std::move(it_l)), _it_r(std::move(it_r)) {}
+            decltype(auto) operator*() { return *_it_cond ? *_it_l : *_it_r; }
+            Iterator& operator++() { ++_it_cond; ++_it_l; ++_it_r; return *this; }
+        };
+        
+        Iterator begin() const { return Iterator(_stripe_cond.begin(),_stripe_l.begin(),_stripe_r.begin()); }
+    };
+
+    // Get stripes from each Arg
+    decltype(auto) get_stripe( std::size_t stripe_num, std::size_t dim, DenseOrder order) const {
+        return Stripe( _condition.get_stripe(stripe_num,dim,order), _left_expression.get_stripe(stripe_num,dim,order), _right_expression.get_stripe(stripe_num,dim,order));
     }
 };
 

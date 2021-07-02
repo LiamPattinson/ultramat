@@ -4,22 +4,20 @@
 
 ### More Expressions
 
-    * where( condition, left_expression, right_expression)
-        * Evaluate condition.
-        * If it returns true, evaluate and return left expression.
-        * If it returns false, return right expression
-    * is_nan/is_finite etc.
-    * square/cube
-    * reciprocal
-    * to_radians/to_degrees
-    * signbit/copysign
-    * trunc (like ceil and floor, always towards zero)
-    * include mathematical constants
+    * mean/average
+    * stddev/var
+
+    * unit testing:
+        * where
+        * math constants
 
 ### Special consideration for std::complex
 
     * need new type trait to fill the role of is_arithmetic. is_scalar?
     * new expressions: real, imag, arg, norm, conj
+    * complex sqrt, complex log, complex pow, complex acos/asin/atanh
+        * std:: already deals with most complex variants on cmath functions. However, this deals only
+          with the case f(Complex) -> Complex. Special versions are necessary when f(Real) -> Complex.
     * hermitian transpose (will need an eval)
 
 ### Linear algebra
@@ -73,6 +71,15 @@
 ### FFT
 
     * Optional functionality if fftw3 is installed
+
+### Statistics
+
+    * covariance/correlation
+    * weighted average
+    * median
+    * histogram
+    * PCA
+    * random chi squared/poisson/etc
 
 ### Sparse Matrices
 
