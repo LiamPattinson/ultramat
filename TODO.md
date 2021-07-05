@@ -2,13 +2,17 @@
 
 ## Upcoming
 
-### More Expressions
+    * Implement pairwise summation, Kahan summation, and apply to sum
+        * Requires implementation of 'ComplexFold', which copies a stripe into an
+          appropriately sized std::vector, and then carries out an arbitrary fold over
+          that. This will also be useful for the later implementation of median.
+        * perhaps have pairwise as default and kahan_sum as a high-precision version
+        * implement naive sum as fast_sum
+        * have also fast/kahan versions of mean, stddev, var
 
-    * unit testing:
-        * where
-        * math constants
-        * mean
-        * stddev
+    * Better way of constructing arrays from those with different DenseType and DenseOrder
+
+    * Look into simplifying Folds again, now that they've been made evaluating by default.
 
 ### Special consideration for std::complex
 
@@ -45,8 +49,6 @@
 
 ### Improve expressions
 
-    * Implement pairwise summation, Kahan summation, and apply to sum
-        * perhaps have pairwise as default and kahan as a high-precision version
 
 ### Further linear algebra
 

@@ -27,8 +27,32 @@ namespace ultra {
 
 // Define row/col order enum class
 
-enum class DenseOrder { row_major, col_major, mixed };
+enum class DenseOrder { row_major, col_major };
 const DenseOrder default_order = DenseOrder::row_major;
+
+// get_common_order
+// return row_major if all row_major, col_major if all col_major, and default otherwise
+
+template<class... Ts> struct GetCommonOrderImpl;
+
+template<class T1, class T2, class... Ts>
+struct GetCommonOrderImpl<T1,T2,Ts...> {
+    static constexpr DenseOrder Order = std::remove_cvref_t<T1>::order() == GetCommonOrderImpl<T2,Ts...>::order() ? std::remove_cvref_t<T1>::order() : default_order;
+    static constexpr DenseOrder order() { return Order; }
+};
+
+template<class T1>
+struct GetCommonOrderImpl<T1> {
+    static constexpr DenseOrder Order = std::remove_cvref_t<T1>::order();
+    static constexpr DenseOrder order() { return Order; }
+};
+
+template<class... Ts>
+struct get_common_order {
+    static constexpr DenseOrder Order = GetCommonOrderImpl<Ts...>::order();
+    static constexpr DenseOrder order(){ return Order; }
+    static constexpr DenseOrder value = Order;
+};
 
 // Define 'DenseType' enum class.
 // Used by Dense to determine whether to store shape/stride as std::vector or std::array, and whether to restrict reshaping

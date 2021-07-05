@@ -27,7 +27,7 @@ class DenseExpression {
     constexpr decltype(auto) dims() const { return derived().dims(); }
     constexpr decltype(auto) shape() const { return derived().shape(); }
     constexpr decltype(auto) shape(std::size_t ii) const { return derived().shape(ii); }
-    constexpr decltype(auto) order() const { return derived().order(); }
+    static constexpr decltype(auto) order() { return T::order(); }
 
     constexpr bool is_contiguous() const noexcept { return derived().is_contiguous(); }
     constexpr bool is_omp_parallelisable() const noexcept { return derived().is_omp_parallelisable(); }
@@ -51,7 +51,7 @@ class ExpressionException : public std::runtime_error {
 // Forces evaluation of an expession to a temporary, and returns it.
 
 template<class T>
-using eval_result = Array<typename std::remove_cvref_t<T>::value_type>;
+using eval_result = Dense<typename std::remove_cvref_t<T>::value_type, DenseType::nd, std::remove_cvref_t<T>::order()>;
 
 template<class T>
 decltype(auto) eval( const DenseExpression<T>& t){
@@ -133,26 +133,6 @@ constexpr bool any_of_tuple(Tuple&& t){
     return any_of_tuple_impl(std::forward<Tuple>(t), std::make_index_sequence<std::tuple_size<std::remove_reference_t<Tuple>>::value>{});
 }
 
-// get_common_order
-// for a tuple of DenseOrder, return row_major if all row_major, col_major if all col_major, and mixed otherwise.
-
-template<std::size_t N, class Tuple>
-struct GetCommonOrderImpl {
-    DenseOrder operator()( Tuple&& t) const noexcept {
-        DenseOrder order = std::get<N>(std::forward<Tuple>(t)).order();
-        return (order  == GetCommonOrderImpl<N-1,Tuple>{}(std::forward<Tuple>(t)) ? order : DenseOrder::mixed);
-    }
-};
-
-template<class Tuple> struct GetCommonOrderImpl<0,Tuple>{
-    DenseOrder operator()( Tuple&& t) const noexcept{ return std::get<0>(std::forward<Tuple>(t)).order();}
-};
-
-template<class Tuple>
-DenseOrder get_common_order(Tuple&& t){
-    return GetCommonOrderImpl<std::tuple_size<std::remove_cvref_t<Tuple>>::value-1,Tuple>{}(std::forward<Tuple>(t));
-}
-
 // ElementWiseDenseExpression
 // Performs an operation taking an arbitray number of args. Operation acts independently over each arg.
 // All inputs and outputs must be of the same shape.
@@ -212,9 +192,10 @@ public:
     decltype(auto) dims() const { return std::get<0>(_args).dims(); }
     decltype(auto) shape() const { return std::get<0>(_args).shape(); }
     decltype(auto) shape(std::size_t ii) const { return std::get<0>(_args).shape(ii); }
-    decltype(auto) order() const noexcept { return get_common_order(_args); }
     decltype(auto) num_stripes(std::size_t dim) const { return std::get<0>(_args).num_stripes(dim); }
     decltype(auto) required_stripe_dim() const { return dims(); }
+
+    static constexpr DenseOrder order() { return get_common_order<Args...>::value; }
 
     constexpr bool is_contiguous() const noexcept { return all_of_tuple(apply_to_each(IsContiguous{},_args)); }
     constexpr bool is_omp_parallelisable() const noexcept { return all_of_tuple(apply_to_each(IsOmpParallelisable{},_args)); }
@@ -237,9 +218,11 @@ public:
         const_iterator( ItTuple&& its) : f{}, _its(std::move(its)) {}
         decltype(auto) operator*() { return std::apply(f,apply_to_each(Deref{},_its)); }
         const_iterator& operator++() { apply_to_each(PrefixInc{},_its); return *this; }
+        bool operator==( const const_iterator& other) const { return std::get<0>(_its) == std::get<0>(other._its);}
     };
 
     const_iterator begin() const { return const_iterator(apply_to_each(Begin{},_args)); }
+    const_iterator end()   const { return const_iterator(apply_to_each(End{},_args)); }
 
     // Define stripe class
     // As element-wise operations are strictly non-modifying, only read_only stripes are permitted.
@@ -272,9 +255,11 @@ public:
             Iterator( ItTuple&& its) : _f{}, _its(std::move(its)) {}
             decltype(auto) operator*() { return std::apply(_f,apply_to_each(Deref{},_its)); }
             Iterator& operator++() { apply_to_each(PrefixInc{},_its); return *this; }
+            bool operator==( const Iterator& other) const { return std::get<0>(_its) == std::get<0>(other._its);}
         };
         
         Iterator begin() const { return Iterator(apply_to_each(Begin{},_stripes)); }
+        Iterator end()   const { return Iterator(apply_to_each(End{},_stripes)); }
     };
 
     // Get stripes from each Arg
@@ -286,8 +271,8 @@ public:
 // ScalarDenseExpression
 // Broadcast a scalar to a given shape, allowing it to take part in DenseExpressions.
 
-template<class T>
-class ScalarDenseExpression : public DenseExpression<ScalarDenseExpression<T>> {
+template<class T, DenseOrder Order>
+class ScalarDenseExpression : public DenseExpression<ScalarDenseExpression<T,Order>> {
 
 public:
 
@@ -298,7 +283,7 @@ private:
     
     value_type               _scalar;
     std::vector<std::size_t> _shape;
-    DenseOrder               _order;
+    std::size_t              _size;
 
 public:
 
@@ -309,17 +294,22 @@ public:
     ScalarDenseExpression& operator=( ScalarDenseExpression&& ) = default;
 
     template<std::ranges::range Shape> requires ( std::is_integral<typename Shape::value_type>::value )
-    ScalarDenseExpression( T t, const Shape& shape, DenseOrder order) : _scalar(t), _shape(shape.size()), _order(order) {
+    ScalarDenseExpression( T t, const Shape& shape ) : 
+        _scalar(t),
+        _shape(shape.size()),
+        _size(std::accumulate(shape.begin(),shape.end(),1,std::multiplies<std::size_t>{}))
+    {
         std::ranges::copy(shape,_shape.begin());
     }
 
-    decltype(auto) size() const { return std::accumulate(_shape.begin(),_shape.end(),1,std::multiplies<std::size_t>{}); }
+    decltype(auto) size() const { return _size; }
     decltype(auto) dims() const { return _shape.size(); }
     decltype(auto) shape() const { return _shape; }
     decltype(auto) shape(std::size_t ii) const { return _shape[ii]; }
-    decltype(auto) order() const noexcept { return _order; }
     decltype(auto) num_stripes(std::size_t dim) const { return size()/shape(dim); }
     decltype(auto) required_stripe_dim() const { return dims(); }
+
+    static constexpr DenseOrder order() { return Order; }
 
     constexpr bool is_contiguous() const noexcept { return true; }
     constexpr bool is_omp_parallelisable() const noexcept { return true; }
@@ -328,34 +318,39 @@ public:
 
     class const_iterator {
         
-        value_type _t;
+        std::size_t _idx;
+        value_type  _t;
         
         public:
         
-        const_iterator( value_type t) : _t(t) {}
+        const_iterator( value_type t, std::size_t idx) : _t(t), _idx(idx) {}
         decltype(auto) operator*() { return _t; }
-        const_iterator& operator++() { /* Do nothing! */ return *this; }
+        const_iterator& operator++() { ++_idx; return *this; }
+        bool operator==( const const_iterator& other) const { return _idx == other._idx; }
     };
 
-    const_iterator begin() const { return const_iterator(_scalar); }
+    const_iterator begin() const { return const_iterator(_scalar,0); }
+    const_iterator end()   const { return const_iterator(_scalar,size()); }
 
     // Define stripe class
 
     class Stripe {
         
-        value_type _t;
+        value_type  _t;
+        std::size_t _size;
 
         public:
 
-        Stripe( value_type t) : _t(t) {}
+        Stripe( value_type t, std::size_t size) : _t(t), _size(size) {}
         
         // Borrow iterator type
         using Iterator = const_iterator;
-        Iterator begin() const { return Iterator(_t); }
+        Iterator begin() const { return Iterator(_t,0); }
+        Iterator end()   const { return Iterator(_t,_size); }
     };
 
-    decltype(auto) get_stripe( std::size_t, std::size_t, DenseOrder ) const {
-        return Stripe(_scalar);
+    decltype(auto) get_stripe( std::size_t, std::size_t dim, DenseOrder ) const {
+        return Stripe(_scalar,shape(dim));
     }
 };
 
@@ -444,7 +439,7 @@ public:
         _f(f),
         _t(std::forward<T>(t)),
         _fold_dim(fold_dim),
-        _fold_size(t.shape(fold_dim))
+        _fold_size(_t.shape(fold_dim))
     {
         if( _fold_dim >= _t.dims() ) throw ExpressionException("Ultramat: Fold dimension must be smaller than dims()");
     }
@@ -453,10 +448,19 @@ public:
         _f(f),
         _t(std::forward<T>(t)),
         _fold_dim(fold_dim),
-        _fold_size(t.shape(fold_dim))
+        _fold_size(_t.shape(fold_dim))
     {
         if( _fold_dim >= _t.dims() ) throw ExpressionException("Ultramat: Fold dimension must be smaller than dims()");
     }
+
+    std::size_t dims() const { return std::max((std::size_t)1,_t.dims()-1); }
+    decltype(auto) shape(std::size_t ii) const { return (_t.dims()==1 ? 1 : _t.shape(ii < _fold_dim ? ii : ii+1)); }
+    decltype(auto) num_stripes(std::size_t dim) const { return size()/shape(dim); }
+    constexpr bool is_contiguous() const noexcept { return _t.is_contiguous(); }
+    constexpr bool is_omp_parallelisable() const noexcept { return _t.is_omp_parallelisable(); }
+    decltype(auto) required_stripe_dim() const { return dims(); }
+
+    static constexpr DenseOrder order() { return std::remove_cvref_t<T>::order(); }
 
     std::size_t size() const { 
         std::size_t result=1;
@@ -464,13 +468,11 @@ public:
         return result;
     }
 
-    std::size_t dims() const { return std::max((std::size_t)1,_t.dims()-1); }
-    decltype(auto) shape(std::size_t ii) const { return (_t.dims()==1 ? 1 : _t.shape(ii < _fold_dim ? ii : ii+1)); }
-    decltype(auto) order() const noexcept { return _t.order(); }
-    decltype(auto) num_stripes(std::size_t dim) const { return size()/shape(dim); }
-    constexpr bool is_contiguous() const noexcept { return _t.is_contiguous(); }
-    constexpr bool is_omp_parallelisable() const noexcept { return _t.is_omp_parallelisable(); }
-    decltype(auto) required_stripe_dim() const { return dims(); }
+    std::vector<std::size_t> shape() const {
+        std::vector<std::size_t> result(dims());
+        for( std::size_t ii=0; ii<dims(); ++ii) result[ii] = shape(ii);
+        return result;
+    }
 
     // Define const_iterator class
  
@@ -484,7 +486,7 @@ public:
         F           _f;
         ref_t       _t;
         std::size_t _stripe_dim;
-        DenseOrder     _order;
+        DenseOrder  _order;
         std::size_t _stripe_num;
         std::size_t _stripe_inc;
         
@@ -547,7 +549,7 @@ public:
         }
 
         const_iterator& operator++() { _stripe_num+=_stripe_inc; return *this; }
-        bool operator==(const const_iterator& it) { return _stripe_num == it._stripe_num; }
+        bool operator==(const const_iterator& it) const { return _stripe_num == it._stripe_num; }
     };
 
     const_iterator begin() const requires (is_general_fold) {
@@ -573,7 +575,7 @@ public:
         F           _f;
         ref_t       _t;
         std::size_t _fold_dim;
-        DenseOrder     _order;
+        DenseOrder  _order;
 
         std::size_t _start_stripe_num;
         std::size_t _end_stripe_num;
@@ -700,7 +702,7 @@ public:
     decltype(auto) dims() const { return _t.dims(); }
     decltype(auto) shape() const { return _t.shape(); }
     decltype(auto) shape(std::size_t ii) const { return _t.shape(ii); }
-    decltype(auto) order() const noexcept { return _t.order(); }
+    static constexpr DenseOrder order() { return std::remove_cvref_t<T>::order(); }
 
     decltype(auto) num_stripes(std::size_t dim) const {
         if( dim != _dim ){
@@ -755,9 +757,11 @@ public:
                 }    
                 return _val;
             }
+            bool operator==( const Iterator& other ) const { return _it == other._it; }
         };
         
         Iterator begin() const { return Iterator(_f,_stripe.begin()); }
+        Iterator end()   const { return Iterator(_f,_stripe.end()); }
     };
 
     // Get stripe from _t
@@ -776,8 +780,10 @@ public:
         const_iterator() { throw std::runtime_error("Ultramat CumulativeDenseExpression: Must use striped iteration!");}
         decltype(auto) operator*() { return 0; }
         const_iterator& operator++() { return *this; }
+        bool operator==( const const_iterator& other) const { return true; }
     };
     const_iterator begin() const { return const_iterator(); }
+    const_iterator end()   const { return const_iterator(); }
 };
 
 // Define GeneratorExpression:
@@ -805,16 +811,19 @@ public:
     GeneratorExpression& operator=( GeneratorExpression&& ) = default;
 
     template<std::ranges::sized_range Shape>
-    GeneratorExpression( F&& f, const Shape& shape) : _f(std::forward<F>(f)), _shape(shape.size()) {
+    GeneratorExpression( F&& f, const Shape& shape) : 
+        _f(std::forward<F>(f)), 
+        _shape(shape.size()),
+        _size(std::accumulate( shape.begin(), shape.end(), 1, std::multiplies<std::size_t>()))
+    {
         std::ranges::copy( shape, _shape.begin());
-        _size = std::accumulate( _shape.begin(), _shape.end(), 1, std::multiplies<std::size_t>() );
     }
 
     decltype(auto) size() const { return _size; }
     decltype(auto) dims() const { return _shape.size(); }
     decltype(auto) shape() const { return _shape; }
     decltype(auto) shape(std::size_t ii) const { return _shape[ii]; }
-    decltype(auto) order() const noexcept { return default_order; }
+    static constexpr DenseOrder order() { return default_order; }
     decltype(auto) num_stripes(std::size_t dim) const { return _size/_shape[dim]; }
     decltype(auto) required_stripe_dim() const { return dims(); }
 
@@ -830,30 +839,34 @@ public:
 
         public:
         
-        const_iterator( const function_type& f) : _f(f), _count(0) {}
+        const_iterator( const function_type& f, std::size_t count) : _f(f), _count(count) {}
         decltype(auto) operator*() { return _f(_count); }
         const_iterator& operator++() { ++_count; return *this; }
+        bool operator==( const const_iterator& other) const { return _count == other._count; }
     };
 
-    const_iterator begin() const { return const_iterator(_f); }
+    const_iterator begin() const { return const_iterator(_f,0); }
+    const_iterator end()   const { return const_iterator(_f,_size); }
 
     // Define stripe class
  
     class Stripe {
 
         function_type _f;
+        std::size_t _size;
 
         public:
 
-        Stripe( const function_type& f) : _f(f) {}
+        Stripe( const function_type& f, std::size_t size) : _f(f), _size(size) {}
 
         using Iterator = const_iterator;
-        const_iterator begin() const { return const_iterator(_f); }
+        const_iterator begin() const { return const_iterator(_f,0); }
+        const_iterator end()   const { return const_iterator(_f,_size); }
     };
 
     // Get stripes from each Arg
-    decltype(auto) get_stripe( std::size_t, std::size_t, DenseOrder) const {
-        return Stripe(_f);
+    decltype(auto) get_stripe( std::size_t, std::size_t dim, DenseOrder) const {
+        return Stripe(_f,shape(dim));
     }
 };
 
@@ -862,12 +875,12 @@ public:
 // Could be more simply implemented using ElementWiseDenseExpression with the function (cond ? l : r).
 // However, this would require both L and R to be evaluated, which is wasteful.
 
-template<class Cond, class L, class R>
-class WhereDenseExpression : public DenseExpression<WhereDenseExpression<Cond,L,R>> {
+template<class Cond, class Left, class Right>
+class WhereDenseExpression : public DenseExpression<WhereDenseExpression<Cond,Left,Right>> {
 
 public:
 
-    using value_type = decltype( std::declval<typename std::remove_cvref_t<L>::value_type>() + std::declval<typename std::remove_cvref_t<R>::value_type>());
+    using value_type = decltype( std::declval<typename std::remove_cvref_t<Left>::value_type>() + std::declval<typename std::remove_cvref_t<Right>::value_type>());
 
 private:
     
@@ -877,8 +890,8 @@ private:
     using arg_t = std::conditional_t< std::is_lvalue_reference<T>::value, T, std::remove_cvref_t<T>>;
 
     arg_t<Cond> _condition;
-    arg_t<L> _left_expression;
-    arg_t<R> _right_expression;
+    arg_t<Left> _left_expression;
+    arg_t<Right> _right_expression;
 
     bool test_dims() const {
         return _condition.dims() == _left_expression.dims() && _condition.dims() == _right_expression.dims();
@@ -897,14 +910,17 @@ public:
     WhereDenseExpression& operator=( const WhereDenseExpression& ) = delete;
     WhereDenseExpression& operator=( WhereDenseExpression&& ) = default;
 
-    WhereDenseExpression( Cond&& cond, L&& l, R&& r) :
-        _condition(std::forward<Cond>(cond)),
+    // For reasons that escape me, this constructor must be templated, and explicit class template deduction guides are required.
+    // This is not needed for ElementWiseDenseExpression, despite the fact that this class is essentially a copy.
+    template<class C, class L, class R>
+    WhereDenseExpression( C&& cond, L&& l, R&& r) :
+        _condition(std::forward<C>(cond)),
         _left_expression(std::forward<L>(l)),
         _right_expression(std::forward<R>(r))
     {
         if( !test_dims() ) throw std::runtime_error("WhereDenseExpression: args have incompatible dimensions.");
         for( std::size_t ii=0, end=_condition.dims(); ii<end; ++ii){
-            if( std::ranges::any_of(test_shape(ii),[](bool b){return b;}) ){
+            if( !test_shape(ii) ){
                 throw std::runtime_error("WhereDenseExpression: args have incompatible shapes.");
             }
         }
@@ -918,8 +934,8 @@ public:
     decltype(auto) num_stripes(std::size_t dim) const { return _condition.num_stripes(dim); }
     decltype(auto) required_stripe_dim() const { return dims(); }
 
-    constexpr DenseOrder order() const noexcept {
-        return _condition.order() == _left_expression.order() && _condition.order() == _right_expression.order() ? _condition.order() : DenseOrder::mixed; 
+    static constexpr DenseOrder order() {
+        return get_common_order<Cond,Left,Right>::value; 
     }
 
     constexpr bool is_contiguous() const noexcept {
@@ -942,17 +958,19 @@ public:
         using it_t = typename std::remove_cvref_t<T>::const_iterator;
         
         it_t<Cond> _it_cond;
-        it_t<L> _it_l;
-        it_t<R> _it_r;
+        it_t<Left> _it_l;
+        it_t<Right> _it_r;
         
         public:
         
-        const_iterator( it_t<Cond>&& it_cond, it_t<L>&& it_l, it_t<R>&& it_r) : _it_cond(std::move(it_cond)), _it_l(std::move(it_l)), _it_r(std::move(it_r)) {}
+        const_iterator( it_t<Cond>&& it_cond, it_t<Left>&& it_l, it_t<Right>&& it_r) : _it_cond(std::move(it_cond)), _it_l(std::move(it_l)), _it_r(std::move(it_r)) {}
         decltype(auto) operator*() { return *_it_cond ? *_it_l : *_it_r; }
         const_iterator& operator++() { ++_it_cond; ++_it_l; ++_it_r; return *this; }
+        bool operator==( const const_iterator& other) const { return _it_cond == other._it_cond; }
     };
 
     const_iterator begin() const { return const_iterator(_condition.begin(),_left_expression.begin(),_right_expression.begin()); }
+    const_iterator end()   const { return const_iterator(_condition.end(),_left_expression.end(),_right_expression.end()); }
 
     // Define stripe class
     // As element-wise operations are strictly non-modifying, only read_only stripes are permitted.
@@ -963,12 +981,12 @@ public:
         using stripe_t = decltype(std::declval<std::add_const_t<std::remove_cvref_t<T>>>().get_stripe(0,0,DenseOrder::col_major));
 
         stripe_t<Cond> _stripe_cond;
-        stripe_t<L> _stripe_l;
-        stripe_t<R> _stripe_r;
+        stripe_t<Left> _stripe_l;
+        stripe_t<Right> _stripe_r;
 
         public:
 
-        Stripe( stripe_t<Cond>&& stripe_cond, stripe_t<L>&& stripe_l, stripe_t<R>&& stripe_r) : 
+        Stripe( stripe_t<Cond>&& stripe_cond, stripe_t<Left>&& stripe_l, stripe_t<Right>&& stripe_r) : 
             _stripe_cond(std::move(stripe_cond)),
             _stripe_l(std::move(stripe_l)),
             _stripe_r(std::move(stripe_r))
@@ -982,17 +1000,19 @@ public:
             using it_t = typename decltype(std::declval<std::add_const_t<std::remove_cvref_t<T>>>().get_stripe(0,0,DenseOrder::col_major))::Iterator;
             
             it_t<Cond> _it_cond;
-            it_t<L> _it_l;
-            it_t<R> _it_r;
+            it_t<Left> _it_l;
+            it_t<Right> _it_r;
             
             public:
             
-            Iterator( it_t<Cond>&& it_cond, it_t<L>&& it_l, it_t<R>&& it_r) : _it_cond(std::move(it_cond)), _it_l(std::move(it_l)), _it_r(std::move(it_r)) {}
+            Iterator( it_t<Cond>&& it_cond, it_t<Left>&& it_l, it_t<Right>&& it_r) : _it_cond(std::move(it_cond)), _it_l(std::move(it_l)), _it_r(std::move(it_r)) {}
             decltype(auto) operator*() { return *_it_cond ? *_it_l : *_it_r; }
             Iterator& operator++() { ++_it_cond; ++_it_l; ++_it_r; return *this; }
+            bool operator==( const Iterator* other) const { return _it_cond == other._it_cond; }
         };
         
         Iterator begin() const { return Iterator(_stripe_cond.begin(),_stripe_l.begin(),_stripe_r.begin()); }
+        Iterator end()   const { return Iterator(_stripe_cond.end(),_stripe_l.end(),_stripe_r.end()); }
     };
 
     // Get stripes from each Arg
@@ -1000,6 +1020,17 @@ public:
         return Stripe( _condition.get_stripe(stripe_num,dim,order), _left_expression.get_stripe(stripe_num,dim,order), _right_expression.get_stripe(stripe_num,dim,order));
     }
 };
+
+// explicit class template deduction guides
+
+template< class C, class L, class R> WhereDenseExpression( const C& c, const L& l, const R& r) -> WhereDenseExpression<C,L,R>;
+template< class C, class L, class R> WhereDenseExpression( C&& c, const L& l, const R& r) -> WhereDenseExpression<C,L,R>;
+template< class C, class L, class R> WhereDenseExpression( const C& c, L&& l, const R& r) -> WhereDenseExpression<C,L,R>;
+template< class C, class L, class R> WhereDenseExpression( const C& c, const L& l, R&& r) -> WhereDenseExpression<C,L,R>;
+template< class C, class L, class R> WhereDenseExpression( C&& c, L&& l, const R& r) -> WhereDenseExpression<C,L,R>;
+template< class C, class L, class R> WhereDenseExpression( C&& c, const L& l, R&& r) -> WhereDenseExpression<C,L,R>;
+template< class C, class L, class R> WhereDenseExpression( const C& c, L&& l, R&& r) -> WhereDenseExpression<C,L,R>;
+template< class C, class L, class R> WhereDenseExpression( C&& c, L&& l, R&& r) -> WhereDenseExpression<C,L,R>;
 
 } // namespace
 #endif

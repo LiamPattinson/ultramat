@@ -6,6 +6,22 @@
 using namespace ultra;
 using shape_vec = std::vector<std::size_t>;
 
+TEST(ArrayMathTest,Constants){
+    float x = 1;
+    for( std::size_t ii=0; ii<100; ++ii) x *= 10;
+    ASSERT_TRUE(std::isinf(x));
+    EXPECT_EQ( x, Inf);
+    EXPECT_EQ( x, Infinity);
+    EXPECT_EQ( x, infty);
+    float y = -1;
+    for( std::size_t ii=0; ii<100; ++ii) y *= 10;
+    ASSERT_TRUE(std::isinf(y));
+    EXPECT_EQ( y, ninf);
+    EXPECT_EQ( y, Ninf);
+    // Can't compare nan -- it the only thing for which x == x is false.
+    EXPECT_TRUE(std::isnan(NaN));
+}
+
 TEST(ArrayMathTest,Arithmetic){
     auto shape = shape_vec{5,10,20};
     Array<int>::col_major         a(shape);
@@ -307,35 +323,36 @@ TEST(ArrayMathTest,CumulativeSum){
 
 }
 
-template<class T1, class T2>
-T1 single_sum( const T2& array, std::size_t dim0=0) {
+
+template<class T>
+T single_sum( const T& array, std::size_t dim0=0) {
     return sum(array,dim0);
 }
 
-template<class T1, class T2>
-T1 double_sum( const T2& array, std::size_t dim0, std::size_t dim1) {
+template<class T>
+T double_sum( const T& array, std::size_t dim0, std::size_t dim1) {
     return sum(sum(array,dim0),dim1);
 }
 
-template<class T1, class T2>
-T1 triple_sum( const T2& array, std::size_t dim0, std::size_t dim1, std::size_t dim2) {
+template<class T>
+T triple_sum( const T& array, std::size_t dim0, std::size_t dim1, std::size_t dim2) {
     return sum(sum(sum(array,dim0),dim1),dim2);
 }
 
-template<class T1, class T2>
-T1 quad_sum( const T2& array, std::size_t dim0, std::size_t dim1, std::size_t dim2, std::size_t dim3) {
+template<class T>
+T quad_sum( const T& array, std::size_t dim0, std::size_t dim1, std::size_t dim2, std::size_t dim3) {
     return sum(sum(sum(sum(array,dim0),dim1),dim2),dim3);
 }
 
-template<class T1, class T2>
-T1 quin_sum( const T2& array, std::size_t dim0, std::size_t dim1, std::size_t dim2, std::size_t dim3, std::size_t dim4) {
+template<class T>
+T quin_sum( const T& array, std::size_t dim0, std::size_t dim1, std::size_t dim2, std::size_t dim3, std::size_t dim4) {
     return sum(sum(sum(sum(sum(array,dim0),dim1),dim2),dim3),dim4);
 }
 
-template<class T1, class T2>
-bool test_1D( const T2& array ) {
+template<class T>
+bool test_1D( const T& array ) {
     bool correct = true;
-    T1 result = single_sum<T1,T2>(array);
+    T result = single_sum(array);
     if( result.dims() != 1 ){ correct=false; std::cerr << "Incorrect dims" << std::endl;}
     if( result.size() != 1 ){ correct=false; std::cerr << "Incorrect size" << std::endl;}
     if( result.shape(0) != 1 ){ correct=false; std::cerr << "Incorrect shape(0)" << std::endl;}
@@ -347,10 +364,10 @@ bool test_1D( const T2& array ) {
     return correct;
 }
 
-template<class T1, class T2>
-bool test_2D_single( const T2& array, std::size_t dim ) {
+template<class T>
+bool test_2D_single( const T& array, std::size_t dim ) {
     bool correct = true;
-    T1 result = single_sum<T1,T2>(array,dim);
+    T result = single_sum(array,dim);
     if( result.dims() != 1 ){ correct=false; std::cerr << "Incorrect dims" << std::endl;}
     if( result.shape(0) != array.shape(!dim) ){ correct=false; std::cerr << "Incorrect shape(0)" << std::endl;}
     std::size_t total;
@@ -370,10 +387,10 @@ bool test_2D_single( const T2& array, std::size_t dim ) {
     return correct;
 }
 
-template<class T1, class T2>
-bool test_2D_double( const T2& array, std::size_t dim ) {
+template<class T>
+bool test_2D_double( const T& array, std::size_t dim ) {
     bool correct = true;
-    T1 result = double_sum<T1,T2>(array,dim,0);
+    T result = double_sum(array,dim,0);
     if( result.dims() != 1 ){ correct=false; std::cerr << "Incorrect dims" << std::endl;}
     if( result.shape(0) != 1 ){ correct=false; std::cerr << "Incorrect shape(0)" << std::endl;}
     std::size_t total = 0;
@@ -389,10 +406,10 @@ bool test_2D_double( const T2& array, std::size_t dim ) {
     return correct;
 }
 
-template<class T1, class T2>
-bool test_3D_single( const T2& array, std::size_t dim ) {
+template<class T>
+bool test_3D_single( const T& array, std::size_t dim ) {
     bool correct = true;
-    T1 result = single_sum<T1,T2>(array,dim);
+    T result = single_sum(array,dim);
     if( result.dims() != 2 ){ correct=false; std::cerr << "Incorrect dims" << std::endl;}
     if( result.shape(0) != array.shape(dim==0 ? 1 : 0) ){ correct=false; std::cerr << "Incorrect shape(0)" << std::endl;}
     if( result.shape(1) != array.shape(dim<=1 ? 2 : 1) ){ correct=false; std::cerr << "Incorrect shape(1)" << std::endl;}
@@ -416,10 +433,10 @@ bool test_3D_single( const T2& array, std::size_t dim ) {
     return correct;
 }
 
-template<class T1, class T2>
-bool test_3D_double( const T2& array, std::size_t dim0 , std::size_t dim1) {
+template<class T>
+bool test_3D_double( const T& array, std::size_t dim0 , std::size_t dim1) {
     bool correct = true;
-    T1 result = double_sum<T1,T2>(array,dim0,dim1);
+    T result = double_sum(array,dim0,dim1);
     if( result.dims() != 1 ){ correct=false; std::cerr << "Incorrect dims" << std::endl;}
     std::size_t total;
     shape_vec permutation{0,1,2};
@@ -443,10 +460,10 @@ bool test_3D_double( const T2& array, std::size_t dim0 , std::size_t dim1) {
     return correct;
 }
 
-template<class T1, class T2>
-bool test_3D_triple( const T2& array, std::size_t dim0 , std::size_t dim1) {
+template<class T>
+bool test_3D_triple( const T& array, std::size_t dim0 , std::size_t dim1) {
     bool correct = true;
-    T1 result = triple_sum<T1,T2>(array,dim0,dim1,0);
+    T result = triple_sum(array,dim0,dim1,0);
     if( result.dims() != 1 ){ correct=false; std::cerr << "Incorrect dims" << std::endl;}
     if( result.size() != 1 ){ correct=false; std::cerr << "Incorrect size" << std::endl;}
     if( result.shape(0) != 1 ){ correct=false; std::cerr << "Incorrect shape(0)" << std::endl;}
@@ -465,10 +482,10 @@ bool test_3D_triple( const T2& array, std::size_t dim0 , std::size_t dim1) {
     return correct;
 }
 
-template<class T1, class T2>
-bool test_4D_single( const T2& array, std::size_t dim ) {
+template<class T>
+bool test_4D_single( const T& array, std::size_t dim ) {
     bool correct = true;
-    T1 result = single_sum<T1,T2>(array,dim);
+    T result = single_sum(array,dim);
     if( result.dims() != 3 ){ correct=false; std::cerr << "Incorrect dims" << std::endl;}
     if( result.shape(0) != array.shape(dim==0 ? 1 : 0) ){ correct=false; std::cerr << "Incorrect shape(0)" << std::endl;}
     if( result.shape(1) != array.shape(dim<=1 ? 2 : 1) ){ correct=false; std::cerr << "Incorrect shape(1)" << std::endl;}
@@ -495,10 +512,10 @@ bool test_4D_single( const T2& array, std::size_t dim ) {
     return correct;
 }
 
-template<class T1, class T2>
-bool test_4D_double( const T2& array, std::size_t dim0, std::size_t dim1) {
+template<class T>
+bool test_4D_double( const T& array, std::size_t dim0, std::size_t dim1) {
     bool correct = true;
-    T1 result = double_sum<T1,T2>(array,dim0,dim1);
+    T result = double_sum(array,dim0,dim1);
     if( result.dims() != 2 ){ correct=false; std::cerr << "Incorrect dims" << std::endl;}
     std::size_t total;
     shape_vec permutation{0,1,2,3};
@@ -524,10 +541,10 @@ bool test_4D_double( const T2& array, std::size_t dim0, std::size_t dim1) {
     return correct;
 }
 
-template<class T1, class T2>
-bool test_4D_triple( const T2& array, std::size_t dim0, std::size_t dim1, std::size_t dim2) {
+template<class T>
+bool test_4D_triple( const T& array, std::size_t dim0, std::size_t dim1, std::size_t dim2) {
     bool correct = true;
-    T1 result = triple_sum<T1,T2>(array,dim0,dim1,dim2);
+    T result = triple_sum(array,dim0,dim1,dim2);
     if( result.dims() != 1 ){ correct=false; std::cerr << "Incorrect dims" << std::endl;}
     std::size_t total;
     shape_vec permutation{0,1,2,3};
@@ -554,10 +571,10 @@ bool test_4D_triple( const T2& array, std::size_t dim0, std::size_t dim1, std::s
     return correct;
 }
 
-template<class T1, class T2>
-bool test_4D_quad( const T2& array, std::size_t dim0 , std::size_t dim1, std::size_t dim2) {
+template<class T>
+bool test_4D_quad( const T& array, std::size_t dim0 , std::size_t dim1, std::size_t dim2) {
     bool correct = true;
-    T1 result = quad_sum<T1,T2>(array,dim0,dim1,dim2,0);
+    T result = quad_sum(array,dim0,dim1,dim2,0);
     if( result.dims() != 1 ){ correct=false; std::cerr << "Incorrect dims" << std::endl;}
     std::size_t total = 0;
     for( std::size_t ii=0; ii<array.shape(0); ++ii){
@@ -576,10 +593,10 @@ bool test_4D_quad( const T2& array, std::size_t dim0 , std::size_t dim1, std::si
     return correct;
 }
 
-template<class T1, class T2>
-bool test_5D_single( const T2& array, std::size_t dim ) {
+template<class T>
+bool test_5D_single( const T& array, std::size_t dim ) {
     bool correct = true;
-    T1 result = single_sum<T1,T2>(array,dim);
+    T result = single_sum(array,dim);
     if( result.dims() != 4 ){ correct=false; std::cerr << "Incorrect dims" << std::endl;}
     if( result.shape(0) != array.shape(dim==0 ? 1 : 0) ){ correct=false; std::cerr << "Incorrect shape(0)" << std::endl;}
     if( result.shape(1) != array.shape(dim<=1 ? 2 : 1) ){ correct=false; std::cerr << "Incorrect shape(1)" << std::endl;}
@@ -609,10 +626,10 @@ bool test_5D_single( const T2& array, std::size_t dim ) {
     return correct;
 }
 
-template<class T1, class T2>
-bool test_5D_double( const T2& array, std::size_t dim0 , std::size_t dim1) {
+template<class T>
+bool test_5D_double( const T& array, std::size_t dim0 , std::size_t dim1) {
     bool correct = true;
-    T1 result = double_sum<T1,T2>(array,dim0,dim1);
+    T result = double_sum(array,dim0,dim1);
     if( result.dims() != 3 ){ correct=false; std::cerr << "Incorrect dims" << std::endl;}
     std::size_t total;
     shape_vec permutation{0,1,2,3,4};
@@ -640,10 +657,10 @@ bool test_5D_double( const T2& array, std::size_t dim0 , std::size_t dim1) {
     return correct;
 }
 
-template<class T1, class T2>
-bool test_5D_triple( const T2& array, std::size_t dim0 , std::size_t dim1, std::size_t dim2) {
+template<class T>
+bool test_5D_triple( const T& array, std::size_t dim0 , std::size_t dim1, std::size_t dim2) {
     bool correct = true;
-    T1 result = triple_sum<T1,T2>(array,dim0,dim1,dim2);
+    T result = triple_sum(array,dim0,dim1,dim2);
     if( result.dims() != 2 ){ correct=false; std::cerr << "Incorrect dims" << std::endl;}
     std::size_t total;
     shape_vec permutation{0,1,2,3,4};
@@ -673,10 +690,10 @@ bool test_5D_triple( const T2& array, std::size_t dim0 , std::size_t dim1, std::
     return correct;
 }
 
-template<class T1, class T2>
-bool test_5D_quad( const T2& array, std::size_t dim0 , std::size_t dim1, std::size_t dim2, std::size_t dim3) {
+template<class T>
+bool test_5D_quad( const T& array, std::size_t dim0 , std::size_t dim1, std::size_t dim2, std::size_t dim3) {
     bool correct = true;
-    T1 result = quad_sum<T1,T2>(array,dim0,dim1,dim2,dim3);
+    T result = quad_sum(array,dim0,dim1,dim2,dim3);
     if( result.dims() != 1 ){ correct=false; std::cerr << "Incorrect dims" << std::endl;}
     std::size_t total;
     shape_vec permutation{0,1,2,3,4};
@@ -707,10 +724,10 @@ bool test_5D_quad( const T2& array, std::size_t dim0 , std::size_t dim1, std::si
     return correct;
 }
 
-template<class T1, class T2>
-bool test_5D_quin( const T2& array, std::size_t dim0 , std::size_t dim1, std::size_t dim2, std::size_t dim3) {
+template<class T>
+bool test_5D_quin( const T& array, std::size_t dim0 , std::size_t dim1, std::size_t dim2, std::size_t dim3) {
     bool correct = true;
-    T1 result = quin_sum<T1,T2>(array,dim0,dim1,dim2,dim3,0);
+    T result = quin_sum(array,dim0,dim1,dim2,dim3,0);
     if( result.dims() != 1 ){ correct=false; std::cerr << "Incorrect dims" << std::endl;}
     if( result.size() != 1 ){ correct=false; std::cerr << "Incorrect size" << std::endl;}
     std::size_t total=0;
@@ -757,90 +774,60 @@ TEST(ArrayMathTest,SumTest){
     count = 0; for( auto&& x : row_5D ) x = count++;
     
     // 1D
-    EXPECT_TRUE( test_1D<Array<std::size_t>::col_major>( col_1D));
-    EXPECT_TRUE( test_1D<Array<std::size_t>::row_major>( row_1D));
-    EXPECT_TRUE( test_1D<Array<std::size_t>::row_major>( col_1D));
-    EXPECT_TRUE( test_1D<Array<std::size_t>::col_major>( row_1D));
+    EXPECT_TRUE( test_1D( col_1D));
+    EXPECT_TRUE( test_1D( row_1D));
 
     // 2D
     for( std::size_t ii=0; ii<2; ++ii){
-        EXPECT_TRUE( test_2D_single<Array<std::size_t>::col_major>( col_2D, ii));
-        EXPECT_TRUE( test_2D_single<Array<std::size_t>::row_major>( row_2D, ii));
-        EXPECT_TRUE( test_2D_single<Array<std::size_t>::row_major>( col_2D, ii));
-        EXPECT_TRUE( test_2D_single<Array<std::size_t>::col_major>( row_2D, ii));
-        EXPECT_TRUE( test_2D_double<Array<std::size_t>::col_major>( col_2D, ii));
-        EXPECT_TRUE( test_2D_double<Array<std::size_t>::row_major>( row_2D, ii));
-        EXPECT_TRUE( test_2D_double<Array<std::size_t>::row_major>( col_2D, ii));
-        EXPECT_TRUE( test_2D_double<Array<std::size_t>::col_major>( row_2D, ii));
+        EXPECT_TRUE( test_2D_single( col_2D, ii));
+        EXPECT_TRUE( test_2D_single( row_2D, ii));
+        EXPECT_TRUE( test_2D_double( col_2D, ii));
+        EXPECT_TRUE( test_2D_double( row_2D, ii));
     }
 
     // 3D
     for( std::size_t ii=0; ii<3; ++ii){
-        EXPECT_TRUE( test_3D_single<Array<std::size_t>::col_major>( col_3D, ii));
-        EXPECT_TRUE( test_3D_single<Array<std::size_t>::row_major>( row_3D, ii));
-        EXPECT_TRUE( test_3D_single<Array<std::size_t>::row_major>( col_3D, ii));
-        EXPECT_TRUE( test_3D_single<Array<std::size_t>::col_major>( row_3D, ii));
+        EXPECT_TRUE( test_3D_single( col_3D, ii));
+        EXPECT_TRUE( test_3D_single( row_3D, ii));
         for( std::size_t jj=0; jj<2; ++jj){
-            EXPECT_TRUE( test_3D_double<Array<std::size_t>::col_major>( col_3D, ii, jj));
-            EXPECT_TRUE( test_3D_double<Array<std::size_t>::row_major>( row_3D, ii, jj));
-            EXPECT_TRUE( test_3D_double<Array<std::size_t>::row_major>( col_3D, ii, jj));
-            EXPECT_TRUE( test_3D_double<Array<std::size_t>::col_major>( row_3D, ii, jj));
-            EXPECT_TRUE( test_3D_triple<Array<std::size_t>::col_major>( col_3D, ii, jj));
-            EXPECT_TRUE( test_3D_triple<Array<std::size_t>::row_major>( row_3D, ii, jj));
-            EXPECT_TRUE( test_3D_triple<Array<std::size_t>::row_major>( col_3D, ii, jj));
-            EXPECT_TRUE( test_3D_triple<Array<std::size_t>::col_major>( row_3D, ii, jj));
+            EXPECT_TRUE( test_3D_double( col_3D, ii, jj));
+            EXPECT_TRUE( test_3D_double( row_3D, ii, jj));
+            EXPECT_TRUE( test_3D_triple( col_3D, ii, jj));
+            EXPECT_TRUE( test_3D_triple( row_3D, ii, jj));
         }
     }
 
     // 4D
     for( std::size_t ii=0; ii<4; ++ii){
-        EXPECT_TRUE( test_4D_single<Array<std::size_t>::col_major>( col_4D, ii));
-        EXPECT_TRUE( test_4D_single<Array<std::size_t>::row_major>( row_4D, ii));
-        EXPECT_TRUE( test_4D_single<Array<std::size_t>::row_major>( col_4D, ii));
-        EXPECT_TRUE( test_4D_single<Array<std::size_t>::col_major>( row_4D, ii));
+        EXPECT_TRUE( test_4D_single( col_4D, ii));
+        EXPECT_TRUE( test_4D_single( row_4D, ii));
         for( std::size_t jj=0; jj<3; ++jj){
-            EXPECT_TRUE( test_4D_double<Array<std::size_t>::col_major>( col_4D, ii, jj));
-            EXPECT_TRUE( test_4D_double<Array<std::size_t>::row_major>( row_4D, ii, jj));
-            EXPECT_TRUE( test_4D_double<Array<std::size_t>::row_major>( col_4D, ii, jj));
-            EXPECT_TRUE( test_4D_double<Array<std::size_t>::col_major>( row_4D, ii, jj));
+            EXPECT_TRUE( test_4D_double( col_4D, ii, jj));
+            EXPECT_TRUE( test_4D_double( row_4D, ii, jj));
             for( std::size_t kk=0; kk<2; ++kk){
-                EXPECT_TRUE( test_4D_triple<Array<std::size_t>::col_major>( col_4D, ii, jj, kk));
-                EXPECT_TRUE( test_4D_triple<Array<std::size_t>::row_major>( row_4D, ii, jj, kk));
-                EXPECT_TRUE( test_4D_triple<Array<std::size_t>::row_major>( col_4D, ii, jj, kk));
-                EXPECT_TRUE( test_4D_triple<Array<std::size_t>::col_major>( row_4D, ii, jj, kk));
-                EXPECT_TRUE( test_4D_quad<Array<std::size_t>::col_major>( col_4D, ii, jj, kk));
-                EXPECT_TRUE( test_4D_quad<Array<std::size_t>::row_major>( row_4D, ii, jj, kk));
-                EXPECT_TRUE( test_4D_quad<Array<std::size_t>::row_major>( col_4D, ii, jj, kk));
-                EXPECT_TRUE( test_4D_quad<Array<std::size_t>::col_major>( row_4D, ii, jj, kk));
+                EXPECT_TRUE( test_4D_triple( col_4D, ii, jj, kk));
+                EXPECT_TRUE( test_4D_triple( row_4D, ii, jj, kk));
+                EXPECT_TRUE( test_4D_quad( col_4D, ii, jj, kk));
+                EXPECT_TRUE( test_4D_quad( row_4D, ii, jj, kk));
             }
         }
     }
 
     // 5D
     for( std::size_t ii=0; ii<5; ++ii){
-        EXPECT_TRUE( test_5D_single<Array<std::size_t>::col_major>( col_5D, ii));
-        EXPECT_TRUE( test_5D_single<Array<std::size_t>::row_major>( row_5D, ii));
-        EXPECT_TRUE( test_5D_single<Array<std::size_t>::row_major>( col_5D, ii));
-        EXPECT_TRUE( test_5D_single<Array<std::size_t>::col_major>( row_5D, ii));
+        EXPECT_TRUE( test_5D_single( col_5D, ii));
+        EXPECT_TRUE( test_5D_single( row_5D, ii));
         for( std::size_t jj=0; jj<4; ++jj){
-            EXPECT_TRUE( test_5D_double<Array<std::size_t>::col_major>( col_5D, ii, jj));
-            EXPECT_TRUE( test_5D_double<Array<std::size_t>::row_major>( row_5D, ii, jj));
-            EXPECT_TRUE( test_5D_double<Array<std::size_t>::row_major>( col_5D, ii, jj));
-            EXPECT_TRUE( test_5D_double<Array<std::size_t>::col_major>( row_5D, ii, jj));
+            EXPECT_TRUE( test_5D_double( col_5D, ii, jj));
+            EXPECT_TRUE( test_5D_double( row_5D, ii, jj));
             for( std::size_t kk=0; kk<3; ++kk){
-                EXPECT_TRUE( test_5D_triple<Array<std::size_t>::col_major>( col_5D, ii, jj, kk));
-                EXPECT_TRUE( test_5D_triple<Array<std::size_t>::row_major>( row_5D, ii, jj, kk));
-                EXPECT_TRUE( test_5D_triple<Array<std::size_t>::row_major>( col_5D, ii, jj, kk));
-                EXPECT_TRUE( test_5D_triple<Array<std::size_t>::col_major>( row_5D, ii, jj, kk));
+                EXPECT_TRUE( test_5D_triple( col_5D, ii, jj, kk));
+                EXPECT_TRUE( test_5D_triple( row_5D, ii, jj, kk));
                 for( std::size_t ll=0; ll<2; ++ll){
-                    EXPECT_TRUE( test_5D_quad<Array<std::size_t>::col_major>( col_5D, ii, jj, kk, ll));
-                    EXPECT_TRUE( test_5D_quad<Array<std::size_t>::row_major>( row_5D, ii, jj, kk, ll));
-                    EXPECT_TRUE( test_5D_quad<Array<std::size_t>::row_major>( col_5D, ii, jj, kk, ll));
-                    EXPECT_TRUE( test_5D_quad<Array<std::size_t>::col_major>( row_5D, ii, jj, kk, ll));
-                    EXPECT_TRUE( test_5D_quin<Array<std::size_t>::col_major>( col_5D, ii, jj, kk, ll));
-                    EXPECT_TRUE( test_5D_quin<Array<std::size_t>::row_major>( row_5D, ii, jj, kk, ll));
-                    EXPECT_TRUE( test_5D_quin<Array<std::size_t>::row_major>( col_5D, ii, jj, kk, ll));
-                    EXPECT_TRUE( test_5D_quin<Array<std::size_t>::col_major>( row_5D, ii, jj, kk, ll));
+                    EXPECT_TRUE( test_5D_quad( col_5D, ii, jj, kk, ll));
+                    EXPECT_TRUE( test_5D_quad( row_5D, ii, jj, kk, ll));
+                    EXPECT_TRUE( test_5D_quin( col_5D, ii, jj, kk, ll));
+                    EXPECT_TRUE( test_5D_quin( row_5D, ii, jj, kk, ll));
                 }
             }
         }
@@ -1128,3 +1115,24 @@ TEST(ArrayMathTest,Random){
     EXPECT_TRUE( std::fabs(percent_within_2_stddev-95.45) < 0.5 );
 }
 
+TEST(ArrayMathTest,MeanAndStddev){
+    Array<double> m = mean(random_normal(10,2,10000));
+    Array<double> v = var(random_normal(10,2,10000));
+    Array<double> s = stddev(random_normal(10,2,10000));
+    EXPECT_LT( std::abs(m(0) - 10), 1e-1 );
+    EXPECT_LT( std::abs(v(0) - 4), 1e-1 );
+    EXPECT_LT( std::abs(s(0) - 2), 1e-1 );
+}
+
+TEST(ArrayMathTest,Where){
+    Array<std::size_t> a(shape_vec{3,3});
+    Array<double> b(shape_vec{3,3}); b.fill(pi);
+    Array<double> c(shape_vec{3,3}); c.fill(e);
+    int count=0; for(auto&& x : a) x = count++;
+    // for every third element, e. Otherwise pi+e.
+    Array<double> d = where( !(a%3), c, b+c); 
+    bool where_correct = true;
+    count=0;
+    for( auto&& x : d ) if ( std::abs(x - (e + (((count++)%3) ? pi : 0))) > 1e-2 )  where_correct=false;
+    EXPECT_TRUE( where_correct);
+}
