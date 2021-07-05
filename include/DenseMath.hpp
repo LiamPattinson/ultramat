@@ -458,23 +458,23 @@ struct Max { template<class T> T operator()( const T& x, const T& y) const { ret
 template<class F, class T, class ValueType>
 decltype(auto) fold( const F& f, const DenseExpression<T>& t, const ValueType& start_val, std::size_t dim=0){
     static_assert(std::is_convertible< decltype(f(start_val,std::declval<typename std::remove_cvref_t<T>::value_type>())), std::remove_cvref_t<ValueType>>::value );
-    return eval(FoldDenseExpression(f,static_cast<const T&>(t),start_val,dim));
+    return FoldDenseExpression(f,static_cast<const T&>(t),start_val,dim);
 }
 
 template<class F, class T, class ValueType>
 decltype(auto) fold( const F& f, DenseExpression<T>&& t, const ValueType& start_val, std::size_t dim=0){
     static_assert(std::is_convertible< decltype(f(start_val,std::declval<typename std::remove_cvref_t<T>::value_type>())), std::remove_cvref_t<ValueType>>::value);
-    return eval(FoldDenseExpression(f,static_cast<T&&>(t),start_val,dim));
+    return FoldDenseExpression(f,static_cast<T&&>(t),start_val,dim);
 }
 
 template<class F, class T>
 decltype(auto) accumulate( const F& f, const DenseExpression<T>& t, std::size_t dim=0){
-    return eval(AccumulateDenseExpression(f,static_cast<const T&>(t),dim));
+    return AccumulateDenseExpression(f,static_cast<const T&>(t),dim);
 }
 
 template<class F, class T>
 decltype(auto) accumulate( const F& f, DenseExpression<T>&& t, std::size_t dim=0){
-    return eval(AccumulateDenseExpression(f,static_cast<T&&>(t),dim));
+    return AccumulateDenseExpression(f,static_cast<T&&>(t),dim);
 }
 
 template<class T>
@@ -544,7 +544,8 @@ decltype(auto) var( const DenseExpression<T>& t, std::size_t dim=0, std::size_t 
     auto mu = eval(mean(x,dim));
     if( ddof >= x.shape(dim) ) throw std::runtime_error("Ultra var/stddev: choice of ddof would result in negative/zero denominator");
     std::size_t denom = x.shape(dim) - ddof;
-    return sum(square(x - mu.broadcast(x))) / denom;
+    // Also must evaluate result as broadcast creates a view to a temporary object
+    return eval(sum(square(x - mu.broadcast(x))) / denom);
 }
 
 template<class T>
@@ -554,7 +555,8 @@ decltype(auto) var( DenseExpression<T>&& t, std::size_t dim=0, std::size_t ddof=
     auto mu = eval(mean(x,dim));
     if( ddof >= x.shape(dim) ) throw std::runtime_error("Ultra var/stddev: choice of ddof would result in negative/zero denominator");
     std::size_t denom = x.shape(dim) - ddof;
-    return sum(square(x - mu.broadcast(x))) / denom;
+    // Also must evaluate result as broadcast creates a view to a temporary object
+    return eval(sum(square(x - mu.broadcast(x))) / denom);
 }
 
 template<class T>

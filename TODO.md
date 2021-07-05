@@ -10,10 +10,6 @@
         * implement naive sum as fast_sum
         * have also fast/kahan versions of mean, stddev, var
 
-    * Better way of constructing arrays from those with different DenseType and DenseOrder
-
-    * Look into simplifying Folds again, now that they've been made evaluating by default.
-
 ### Special consideration for std::complex
 
     * need new type trait to fill the role of is_arithmetic. is_scalar?

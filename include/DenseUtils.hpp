@@ -110,5 +110,10 @@ class Bool {
     inline operator bool&() { return _x; }
 };
 
+// Arithmetic concept
+
+template<class T>
+concept arithmetic = std::is_arithmetic<T>::value;
+
 } // namespace
 #endif
