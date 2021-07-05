@@ -201,7 +201,7 @@ public:
     // - Broadcasting
     // - Permuting/Transposing
 
-    template<std::ranges::range Slices> requires ( std::is_same<typename Slices::value_type,Slice>::value )
+    template<std::ranges::sized_range Slices> requires ( std::is_same<typename Slices::value_type,Slice>::value )
     DenseView slice( const Slices& slices ) const {
         // Create copy to work with
         DenseView result(*this);
@@ -248,7 +248,7 @@ public:
     }
 
 
-    template<std::ranges::range... Shapes> requires ( std::integral<typename Shapes::value_type> && ... )
+    template<shapelike... Shapes>
     static std::vector<std::size_t> get_broadcast_shape( const Shapes&... shapes) {
         std::size_t max_dims = std::max({shapes.size()...});
         std::vector<std::size_t> bcast_shape(max_dims,1);
@@ -263,8 +263,7 @@ public:
         return bcast_shape;
     }
 
-    template<std::ranges::range... Shapes>
-    requires (( !is_dense<Shapes>::value && std::integral<typename Shapes::value_type>) && ... )
+    template<shapelike... Shapes>
     DenseView<T,ReadWrite::read_only> broadcast( const Shapes&... shapes) const {
         static const std::string err = "Ultramat: Cannot broadcast to given shape";
         auto bcast_shape = get_broadcast_shape(_shape,shapes...);
@@ -311,7 +310,7 @@ public:
         return broadcast(denses.shape()...);
     }
 
-    template<std::ranges::range Perm> requires std::integral<typename Perm::value_type>
+    template<shapelike Perm>
     DenseView permute( const Perm& permutations) const {
         static const std::string permute_err = "Ultramat: Permute should be given ints in range [0,dims()) without repeats";
         // Require length of pemutations to be same as dims(), and should contain all of the ints in the range [0,dims()) without repeats.

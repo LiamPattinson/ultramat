@@ -67,12 +67,12 @@ decltype(auto) eval( DenseExpression<T>&& t){
 // Performs eval, then transforms.
 // Note: Other transforms, such as view/slice/permute/transpose must be performed on an lvalue, so cannot be used here.
 
-template<class T, std::ranges::range Shape> requires std::integral<typename Shape::value_type>
+template<class T, shapelike Shape>
 eval_result<T> reshape( const DenseExpression<T>& t, const Shape& shape){
     return eval(static_cast<const T&>(t)).reshape(shape);
 }
 
-template<class T, std::ranges::range Shape> requires std::integral<typename Shape::value_type>
+template<class T, shapelike Shape>
 eval_result<T> reshape( DenseExpression<T>&& t, const Shape& shape){
     return eval(static_cast<T&&>(t)).reshape(shape);
 }
@@ -293,7 +293,7 @@ public:
     ScalarDenseExpression& operator=( const ScalarDenseExpression& ) = delete;
     ScalarDenseExpression& operator=( ScalarDenseExpression&& ) = default;
 
-    template<std::ranges::range Shape> requires ( std::is_integral<typename Shape::value_type>::value )
+    template<shapelike Shape>
     ScalarDenseExpression( T t, const Shape& shape ) : 
         _scalar(t),
         _shape(shape.size()),
@@ -810,7 +810,7 @@ public:
     GeneratorExpression& operator=( const GeneratorExpression& ) = delete;
     GeneratorExpression& operator=( GeneratorExpression&& ) = default;
 
-    template<std::ranges::sized_range Shape>
+    template<shapelike Shape>
     GeneratorExpression( F&& f, const Shape& shape) : 
         _f(std::forward<F>(f)), 
         _shape(shape.size()),

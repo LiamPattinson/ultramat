@@ -110,10 +110,11 @@ class Bool {
     inline operator bool&() { return _x; }
 };
 
-// Arithmetic concept
+// Custom concepts
 
-template<class T>
-concept arithmetic = std::is_arithmetic<T>::value;
+template<class T> concept arithmetic = std::is_arithmetic<T>::value;
+
+template<class T> concept shapelike = std::ranges::sized_range<T> && std::integral<typename T::value_type> && !is_dense<T>::value;
 
 } // namespace
 #endif

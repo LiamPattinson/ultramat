@@ -62,7 +62,7 @@ public:
     friend void swap( Dense& a, Dense& b) noexcept { a.swap(b); }
 
     // Construct from shape
-    template<std::ranges::sized_range Shape> requires ( is_nd ) && std::integral<typename Shape::value_type>
+    template<shapelike Shape> requires ( is_nd )
     Dense( const Shape& shape ) :
         _shape(shape.size()),
         _stride(shape.size()+1),
@@ -72,7 +72,7 @@ public:
         set_stride();
     }
 
-    template<std::ranges::range Shape> requires ( is_nd ) && std::integral<typename Shape::value_type>
+    template<shapelike Shape> requires ( is_nd )
     Dense( const Shape& shape, const value_type& fill) :
         _shape(shape.size()),
         _stride(shape.size()+1),
@@ -82,7 +82,7 @@ public:
         set_stride();
     }
 
-    template<std::ranges::sized_range Shape> requires ( !is_nd ) && std::integral<typename Shape::value_type>
+    template<shapelike Shape> requires ( !is_nd )
     Dense( const Shape& shape ) :
         _data(std::accumulate(shape.begin(),shape.end(),1,std::multiplies<typename Shape::value_type>{}))
     {
@@ -91,7 +91,7 @@ public:
         set_stride();
     }
 
-    template<std::ranges::range Shape> requires ( !is_nd ) && std::integral<typename Shape::value_type>
+    template<shapelike Shape> requires ( !is_nd )
     Dense( const Shape& shape, const value_type& fill) :
         _data(std::accumulate(shape.begin(),shape.end(),1,std::multiplies<typename Shape::value_type>{}),fill)
     {

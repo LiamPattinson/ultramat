@@ -62,14 +62,14 @@ class DenseImpl {
 
     // Access via range
     
-    template<std::ranges::range Coords> requires std::integral<typename Coords::value_type>
+    template<shapelike Coords>
     auto operator()( const Coords& coords) const {
         return derived()._data[
             std::inner_product(coords.begin(),coords.end(),derived()._stride.begin()+(Order==DenseOrder::row_major),0)
         ];
     }
 
-    template<std::ranges::range Coords> requires std::integral<typename Coords::value_type>
+    template<shapelike Coords>
     auto& operator()( const Coords& coords) {
         return derived()._data[
             std::inner_product(coords.begin(),coords.end(),derived()._stride.begin()+(Order==DenseOrder::row_major),0)
@@ -228,27 +228,27 @@ class DenseImpl {
 
     // Scalar in-place updates
 
-    template<class U> requires ( std::is_arithmetic<U>::value)
+    template<class U> requires arithmetic<U>
     decltype(auto) operator=( U u) {
         return equal_expression(ScalarDenseExpression<U,order()>(u,shape()));
     }
 
-    template<class U> requires ( std::is_arithmetic<U>::value)
+    template<class U> requires arithmetic<U>
     decltype(auto) operator+=( U u) {
         return add_equal_expression(ScalarDenseExpression<U,order()>(u,shape()));
     }
 
-    template<class U> requires ( std::is_arithmetic<U>::value)
+    template<class U> requires arithmetic<U>
     decltype(auto) operator-=( U u) {
         return sub_equal_expression(ScalarDenseExpression<U,order()>(u,shape()));
     }
 
-    template<class U> requires ( std::is_arithmetic<U>::value)
+    template<class U> requires arithmetic<U>
     decltype(auto) operator*=( U u) {
         return mul_equal_expression(ScalarDenseExpression<U,order()>(u,shape()));
     }
 
-    template<class U> requires ( std::is_arithmetic<U>::value)
+    template<class U> requires arithmetic<U>
     decltype(auto) operator/=( U u) {
         return div_equal_expression(ScalarDenseExpression<U,order()>(u,shape()));
     }
@@ -304,8 +304,7 @@ class DenseImpl {
     // ===============================================
     // Reshaping
 
-    template<std::ranges::range Shape>
-    requires std::integral<typename Shape::value_type>
+    template<shapelike Shape>
     decltype(auto) reshape( const Shape& shape ){
         // Ensure this is contiguous
         if( !derived().is_contiguous() ) throw std::runtime_error("Ultramat: Cannot reshape a non-contiguous array");
@@ -327,8 +326,7 @@ class DenseImpl {
     // ===============================================
     // Broadcasting
 
-    template<std::ranges::range... Shapes>
-    requires (( !is_dense<Shapes>::value &&  std::integral<typename Shapes::value_type>) && ... )
+    template<shapelike... Shapes>
     auto broadcast( const Shapes&... shapes) const {
         return derived().view().broadcast(shapes...);
     }
@@ -341,12 +339,12 @@ class DenseImpl {
     // ===============================================
     // Permuting/Transposing
 
-    template<std::ranges::range Perm> requires std::integral<typename Perm::value_type>
+    template<shapelike Perm>
     auto permute( const Perm& permutations) {
         return derived().view().permute(permutations);
     }
 
-    template<std::ranges::range Perm> requires std::integral<typename Perm::value_type>
+    template<shapelike Perm>
     auto permute( const Perm& permutations) const {
         return derived().view().permute(permutations);
     }
