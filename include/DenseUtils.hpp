@@ -27,7 +27,7 @@ namespace ultra {
 
 // Define row/col order enum class
 
-enum class DenseOrder { row_major, col_major };
+enum class DenseOrder { row_major, col_major, mixed };
 const DenseOrder default_order = DenseOrder::row_major;
 
 // get_common_order
@@ -37,7 +37,7 @@ template<class... Ts> struct GetCommonOrderImpl;
 
 template<class T1, class T2, class... Ts>
 struct GetCommonOrderImpl<T1,T2,Ts...> {
-    static constexpr DenseOrder Order = std::remove_cvref_t<T1>::order() == GetCommonOrderImpl<T2,Ts...>::order() ? std::remove_cvref_t<T1>::order() : default_order;
+    static constexpr DenseOrder Order = std::remove_cvref_t<T1>::order() == GetCommonOrderImpl<T2,Ts...>::order() ? std::remove_cvref_t<T1>::order() : DenseOrder::mixed;
     static constexpr DenseOrder order() { return Order; }
 };
 

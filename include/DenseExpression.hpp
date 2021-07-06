@@ -51,7 +51,10 @@ class ExpressionException : public std::runtime_error {
 // Forces evaluation of an expession to a temporary, and returns it.
 
 template<class T>
-using eval_result = Dense<typename std::remove_cvref_t<T>::value_type, DenseType::nd, std::remove_cvref_t<T>::order()>;
+using eval_result = Dense<
+    typename std::remove_cvref_t<T>::value_type,
+    DenseType::nd,
+    (std::remove_cvref_t<T>::order() == DenseOrder::mixed ? default_order : std::remove_cvref_t<T>::order())>;
 
 template<class T>
 decltype(auto) eval( const DenseExpression<T>& t){
