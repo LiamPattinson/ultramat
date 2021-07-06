@@ -82,13 +82,17 @@ eval_result<T> reshape( DenseExpression<T>&& t, const Shape& shape){
 
 // Expressions utils
 
-struct Begin { template<class T> decltype(auto) operator()( T&& t) { return t.begin(); }};
-struct End { template<class T> decltype(auto) operator()( T&& t) { return t.end(); }};
-struct Deref { template<class T> decltype(auto) operator()( T&& t) { return *t; }};
-struct PrefixInc { template<class T> decltype(auto) operator()( T&& t) { return ++t; }};
-struct Order{ template<class T> bool operator()( T&& t) { return t.order(); }};
-struct IsContiguous { template<class T> bool operator()( T&& t) { return t.is_contiguous(); }};
-struct IsOmpParallelisable { template<class T> bool operator()( T&& t) { return t.is_omp_parallelisable(); }};
+struct _Begin { template<class T> decltype(auto) operator()( T&& t) { return t.begin(); }};
+struct _End { template<class T> decltype(auto) operator()( T&& t) { return t.end(); }};
+struct _Deref { template<class T> decltype(auto) operator()( T&& t) { return *t; }};
+struct _PrefixInc { template<class T> decltype(auto) operator()( T&& t) { return ++t; }};
+struct _PrefixDec { template<class T> decltype(auto) operator()( T&& t) { return --t; }};
+struct _AddEq { template<class T, class U> decltype(auto) operator()( T&& t, U&& u) { return t+=u; }};
+struct _MinEq { template<class T, class U> decltype(auto) operator()( T&& t, U&& u) { return t-=u; }};
+struct _Add { template<class T, class U> decltype(auto) operator()( T&& t, U&& u) { return t+u; }};
+struct _Min { template<class T, class U> decltype(auto) operator()( T&& t, U&& u) { return t-u; }};
+struct _IsContiguous { template<class T> bool operator()( T&& t) { return t.is_contiguous(); }};
+struct _IsOmpParallelisable { template<class T> bool operator()( T&& t) { return t.is_omp_parallelisable(); }};
 
 struct GetStripe {
     std::size_t _stripe, _dim;
@@ -102,15 +106,16 @@ struct GetStripe {
 // apply_to_each returns a tuple given by (f(tuple_args[0]),f(tuple_args[1]),...) where f is unary.
 // Similar to the possible implementation of std::apply from https://en.cppreference.com/w/cpp/utility/apply
 
-template<class F,class Tuple, std::size_t... I>
-constexpr decltype(auto) apply_to_each_impl( F&& f, Tuple&& t, std::index_sequence<I...>){
-    return std::make_tuple( std::invoke(std::forward<F>(f), std::get<I>(std::forward<Tuple>(t)))...);
+template<class F,class Tuple,std::size_t... I, class... Args>
+constexpr decltype(auto) apply_to_each_impl( F&& f, Tuple&& t, std::index_sequence<I...>, Args&&... args){
+    return std::make_tuple( std::invoke(std::forward<F>(f), std::get<I>(std::forward<Tuple>(t)), std::forward<Args>(args)... )...);
 }
 
-template<class F, class Tuple>
-constexpr decltype(auto) apply_to_each( F&& f, Tuple&& t){
-    return apply_to_each_impl( std::forward<F>(f), std::forward<Tuple>(t),
-            std::make_index_sequence<std::tuple_size<std::remove_reference_t<Tuple>>::value>{});
+template<class F, class Tuple, class... Args>
+constexpr decltype(auto) apply_to_each( F&& f, Tuple&& t, Args&&... args){
+    return apply_to_each_impl( std::forward<F>(f), std::forward<Tuple>(t), 
+            std::make_index_sequence<std::tuple_size<std::remove_reference_t<Tuple>>::value>{},
+            std::forward<Args>(args)...);
 }
 
 // all_of_tuple/any_of_tuple
@@ -200,8 +205,8 @@ public:
 
     static constexpr DenseOrder order() { return get_common_order<Args...>::value; }
 
-    constexpr bool is_contiguous() const noexcept { return all_of_tuple(apply_to_each(IsContiguous{},_args)); }
-    constexpr bool is_omp_parallelisable() const noexcept { return all_of_tuple(apply_to_each(IsOmpParallelisable{},_args)); }
+    constexpr bool is_contiguous() const noexcept { return all_of_tuple(apply_to_each(_IsContiguous{},_args)); }
+    constexpr bool is_omp_parallelisable() const noexcept { return all_of_tuple(apply_to_each(_IsOmpParallelisable{},_args)); }
 
     // Define const_iterator class
  
@@ -218,14 +223,26 @@ public:
         
         public:
         
+        const_iterator() = delete;
+        const_iterator( const const_iterator& ) = default;
+        const_iterator( const_iterator&& ) = default;
+        const_iterator& operator=( const const_iterator& ) = default;
+        const_iterator& operator=( const_iterator&& ) = default;
+
         const_iterator( ItTuple&& its) : f{}, _its(std::move(its)) {}
-        decltype(auto) operator*() { return std::apply(f,apply_to_each(Deref{},_its)); }
-        const_iterator& operator++() { apply_to_each(PrefixInc{},_its); return *this; }
+
+        decltype(auto) operator*() { return std::apply(f,apply_to_each(_Deref{},_its)); }
+        const_iterator& operator++() { apply_to_each(_PrefixInc{},_its); return *this; }
+        const_iterator& operator--() { apply_to_each(_PrefixDec{},_its); return *this; }
+        template<std::integral I> const_iterator& operator+=( const I& ii) { apply_to_each(_AddEq{},_its,ii); return *this; }
+        template<std::integral I> const_iterator& operator-=( const I& ii) { apply_to_each(_MinEq{},_its,ii); return *this; }
         bool operator==( const const_iterator& other) const { return std::get<0>(_its) == std::get<0>(other._its);}
+        auto operator<=>( const const_iterator& other) const { return std::get<0>(_its) <=> std::get<0>(other._its);}
+        std::ptrdiff_t operator-( const const_iterator& other) const { return std::get<0>(_its) - std::get<0>(other._its);}
     };
 
-    const_iterator begin() const { return const_iterator(apply_to_each(Begin{},_args)); }
-    const_iterator end()   const { return const_iterator(apply_to_each(End{},_args)); }
+    const_iterator begin() const { return const_iterator(apply_to_each(_Begin{},_args)); }
+    const_iterator end()   const { return const_iterator(apply_to_each(_End{},_args)); }
 
     // Define stripe class
     // As element-wise operations are strictly non-modifying, only read_only stripes are permitted.
@@ -254,15 +271,27 @@ public:
             ItTuple _its;
             
             public:
+
+            Iterator() = delete;
+            Iterator( const Iterator& ) = default;
+            Iterator( Iterator&& ) = default;
+            Iterator& operator=( const Iterator& ) = default;
+            Iterator& operator=( Iterator&& ) = default;
             
             Iterator( ItTuple&& its) : _f{}, _its(std::move(its)) {}
-            decltype(auto) operator*() { return std::apply(_f,apply_to_each(Deref{},_its)); }
-            Iterator& operator++() { apply_to_each(PrefixInc{},_its); return *this; }
+
+            decltype(auto) operator*() { return std::apply(_f,apply_to_each(_Deref{},_its)); }
+            Iterator& operator++() { apply_to_each(_PrefixInc{},_its); return *this; }
+            Iterator& operator--() { apply_to_each(_PrefixDec{},_its); return *this; }
+            template<std::integral I> Iterator& operator+=( const I& ii) { apply_to_each(_AddEq{},_its,ii); return *this; }
+            template<std::integral I> Iterator& operator-=( const I& ii) { apply_to_each(_MinEq{},_its,ii); return *this; }
             bool operator==( const Iterator& other) const { return std::get<0>(_its) == std::get<0>(other._its);}
+            auto operator<=>( const Iterator& other) const { return std::get<0>(_its) <=> std::get<0>(other._its);}
+            std::ptrdiff_t operator-( const Iterator& other) const { return std::get<0>(_its) - std::get<0>(other._its);}
         };
         
-        Iterator begin() const { return Iterator(apply_to_each(Begin{},_stripes)); }
-        Iterator end()   const { return Iterator(apply_to_each(End{},_stripes)); }
+        Iterator begin() const { return Iterator(apply_to_each(_Begin{},_stripes)); }
+        Iterator end()   const { return Iterator(apply_to_each(_End{},_stripes)); }
     };
 
     // Get stripes from each Arg
@@ -325,11 +354,23 @@ public:
         value_type  _t;
         
         public:
+
+        const_iterator() = delete;
+        const_iterator( const const_iterator& ) = default;
+        const_iterator( const_iterator&& ) = default;
+        const_iterator& operator=( const const_iterator& ) = default;
+        const_iterator& operator=( const_iterator&& ) = default;
         
         const_iterator( value_type t, std::size_t idx) : _t(t), _idx(idx) {}
+
         decltype(auto) operator*() { return _t; }
         const_iterator& operator++() { ++_idx; return *this; }
+        const_iterator& operator--() { --_idx; return *this; }
+        template<std::integral I> const_iterator& operator+=( const I& ii) { _idx+=ii; return *this; }
+        template<std::integral I> const_iterator& operator-=( const I& ii) { _idx-=ii; return *this; }
         bool operator==( const const_iterator& other) const { return _idx == other._idx; }
+        auto operator<=>( const const_iterator& other) const { return _idx <=> other._idx; }
+        std::ptrdiff_t operator-( const const_iterator& other) const { return (std::ptrdiff_t)_idx - (std::ptrdiff_t)other._idx;}
     };
 
     const_iterator begin() const { return const_iterator(_scalar,0); }
@@ -494,6 +535,12 @@ public:
         std::size_t _stripe_inc;
         
         public:
+
+        const_iterator() = delete;
+        const_iterator( const const_iterator& ) = default;
+        const_iterator( const_iterator&& ) = default;
+        const_iterator& operator=( const const_iterator& ) = default;
+        const_iterator& operator=( const_iterator&& ) = default;
         
         const_iterator( const F& f, ref_t t, std::size_t stripe_dim, DenseOrder order, std::size_t stripe_num, std::size_t stripe_inc, value_type start_val) :
             FoldPolicy<F,ValueType,T>(start_val),
@@ -552,7 +599,12 @@ public:
         }
 
         const_iterator& operator++() { _stripe_num+=_stripe_inc; return *this; }
+        const_iterator& operator--() { _stripe_num-=_stripe_inc; return *this; }
+        template<std::integral I> const_iterator& operator+=( const I& ii) { _stripe_num+=ii*_stripe_inc; return *this; }
+        template<std::integral I> const_iterator& operator-=( const I& ii) { _stripe_num-=ii*_stripe_inc; return *this; }
         bool operator==(const const_iterator& it) const { return _stripe_num == it._stripe_num; }
+        auto operator<=>(const const_iterator& it) const { return _stripe_num <=> it._stripe_num; }
+        std::ptrdiff_t operator-(const const_iterator& it) const { return ((std::ptrdiff_t)_stripe_num - (std::ptrdiff_t)it._stripe_num)/_stripe_inc; }
     };
 
     const_iterator begin() const requires (is_general_fold) {
@@ -672,6 +724,7 @@ template<class F, class T> using BooleanFoldDenseExpression = FoldDenseExpressio
 // For multi-dimensional arrays, sums over the given dimension only. Defaults to zero.
 // Unlike FoldDenseExpression, only an accumulating version exists.
 // A more general implementation will only be included if a good use case can be demonstrated.
+// Only a foward iterator is implemented.
 
 template<class F, class T>
 class CumulativeDenseExpression : public DenseExpression<CumulativeDenseExpression<F,T>> {
@@ -841,11 +894,22 @@ public:
         std::size_t   _count;
 
         public:
+
+        const_iterator() = delete;
+        const_iterator( const const_iterator& ) = default;
+        const_iterator( const_iterator&& ) = default;
+        const_iterator& operator=( const const_iterator& ) = default;
+        const_iterator& operator=( const_iterator&& ) = default;
         
         const_iterator( const function_type& f, std::size_t count) : _f(f), _count(count) {}
         decltype(auto) operator*() { return _f(_count); }
         const_iterator& operator++() { ++_count; return *this; }
+        const_iterator& operator--() { --_count; return *this; }
+        template<std::integral I> const_iterator& operator+=( const I& ii) { _count+=ii; return *this; }
+        template<std::integral I> const_iterator& operator-=( const I& ii) { _count-=ii; return *this; }
         bool operator==( const const_iterator& other) const { return _count == other._count; }
+        auto operator<=>( const const_iterator& other) const { return _count <=> other._count; }
+        std::ptrdiff_t operator-( const const_iterator& other) const { return (std::ptrdiff_t)_count - (std::ptrdiff_t)other._count; }
     };
 
     const_iterator begin() const { return const_iterator(_f,0); }
@@ -965,11 +1029,22 @@ public:
         it_t<Right> _it_r;
         
         public:
+
+        const_iterator() = delete;
+        const_iterator( const const_iterator& ) = default;
+        const_iterator( const_iterator&& ) = default;
+        const_iterator& operator=( const const_iterator& ) = default;
+        const_iterator& operator=( const_iterator&& ) = default;
         
         const_iterator( it_t<Cond>&& it_cond, it_t<Left>&& it_l, it_t<Right>&& it_r) : _it_cond(std::move(it_cond)), _it_l(std::move(it_l)), _it_r(std::move(it_r)) {}
         decltype(auto) operator*() { return *_it_cond ? *_it_l : *_it_r; }
         const_iterator& operator++() { ++_it_cond; ++_it_l; ++_it_r; return *this; }
+        const_iterator& operator--() { --_it_cond; --_it_l; --_it_r; return *this; }
+        template<std::integral I> const_iterator& operator+=( const I& ii) { _it_cond+=ii; _it_l+=ii; _it_r+=ii; return *this; }
+        template<std::integral I> const_iterator& operator-=( const I& ii) { _it_cond-=ii; _it_l-=ii; _it_r-=ii; return *this; }
         bool operator==( const const_iterator& other) const { return _it_cond == other._it_cond; }
+        auto operator<=>( const const_iterator& other) const { return _it_cond <=> other._it_cond; }
+        std::ptrdiff_t operator-( const const_iterator& other) const { return _it_cond - other._it_cond; }
     };
 
     const_iterator begin() const { return const_iterator(_condition.begin(),_left_expression.begin(),_right_expression.begin()); }
@@ -1007,11 +1082,22 @@ public:
             it_t<Right> _it_r;
             
             public:
+
+            Iterator() = delete;
+            Iterator( const Iterator& ) = default;
+            Iterator( Iterator&& ) = default;
+            Iterator& operator=( const Iterator& ) = default;
+            Iterator& operator=( Iterator&& ) = default;
             
             Iterator( it_t<Cond>&& it_cond, it_t<Left>&& it_l, it_t<Right>&& it_r) : _it_cond(std::move(it_cond)), _it_l(std::move(it_l)), _it_r(std::move(it_r)) {}
             decltype(auto) operator*() { return *_it_cond ? *_it_l : *_it_r; }
             Iterator& operator++() { ++_it_cond; ++_it_l; ++_it_r; return *this; }
+            Iterator& operator--() { --_it_cond; --_it_l; --_it_r; return *this; }
+            template<std::integral I> Iterator& operator+=( const I& ii) { _it_cond+=ii; _it_l+=ii; _it_r+=ii; return *this; }
+            template<std::integral I> Iterator& operator-=( const I& ii) { _it_cond-=ii; _it_l-=ii; _it_r-=ii; return *this; }
             bool operator==( const Iterator* other) const { return _it_cond == other._it_cond; }
+            auto operator<=>( const Iterator* other) const { return _it_cond <=> other._it_cond; }
+            std::ptrdiff_t operator-( const Iterator& other) const { return _it_cond - other._it_cond; }
         };
         
         Iterator begin() const { return Iterator(_stripe_cond.begin(),_stripe_l.begin(),_stripe_r.begin()); }
