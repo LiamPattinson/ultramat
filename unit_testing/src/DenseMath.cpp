@@ -863,6 +863,17 @@ TEST(ArrayMathTest,SumTest){
     }
 }
 
+TEST(ArrayMathTest,PreciseSumTest){
+    Array<double,4> a;
+    a(0) = 1; a(1) = 1e100; a(2) = 1; a(3) = -1e100;
+    Array<double> fast = fast_sum(a);
+    Array<double> pairwise = pairwise_sum(a);
+    Array<double> precise = precise_sum(a);
+    EXPECT_NE( fast(0), 2);
+    EXPECT_NE( pairwise(0), 2);
+    EXPECT_EQ( precise(0), 2);
+}
+
 TEST(ArrayMathTest,BooleanFold){
     Array<bool> a(shape_vec{4,7});
     for( std::size_t ii=0; ii<a.shape(0); ++ii){

@@ -452,18 +452,71 @@ DENSE_MATH_TERNARY_FUNCTION_DEFINITIONS(Where,where,where_scalars)
 struct Min { template<class T> T operator()( const T& x, const T& y) const { return x < y ? x : y;}};
 struct Max { template<class T> T operator()( const T& x, const T& y) const { return x > y ? x : y;}};
 
-// Functions
+#ifndef ULTRA_PAIRWISE_SUM_BASE_CASE 
+#define ULTRA_PAIRWISE_SUM_BASE_CASE 10
+#endif
+
+struct PairwiseSum {
+    template<class Begin, class End, class T>
+    T operator()( Begin it, End end, const T& start){
+        std::ptrdiff_t size = end - it;
+        T result = start;
+        if( size < ULTRA_PAIRWISE_SUM_BASE_CASE ){
+            for(;it != end; ++it) result += *it;
+        } else {
+            result += operator()(it,it+size/2,T(0)) + operator()(it+size/2,end,T(0));
+        }
+        return result;
+    }
+};
+
+struct KahanSum {
+    // Computes Kahan Summation, technically the Neumaier sum (improved Kahan-Babuska)
+    // Very precise, though much slower than the naive implementatin or PairwiseSum.
+    template<class Begin, class End, class T>
+    T operator()( Begin it, End end, const T& start){
+        T sum = start;
+        T c = 0;
+        for(; it != end; ++it){
+            T x = *it;
+            volatile T t = sum + x;
+            if( std::fabs(sum) >= std::fabs(x) ){
+                volatile T z = sum - t;
+                c += z + x;
+            } else {
+                volatile T z = x - t;
+                c += z + sum;
+            }
+            sum = t;
+        }
+        return sum + c;
+    }
+};
+
+// General Functions
 
 template<class F, class T, class ValueType>
+requires (std::is_convertible< decltype(std::declval<F>()(std::declval<std::remove_cvref_t<T>>().begin(), std::declval<std::remove_cvref_t<T>>().end(), std::declval<ValueType>())), std::remove_cvref_t<ValueType>>::value )
 decltype(auto) fold( const F& f, const DenseExpression<T>& t, const ValueType& start_val, std::size_t dim=0){
-    static_assert(std::is_convertible< decltype(f(start_val,std::declval<typename std::remove_cvref_t<T>::value_type>())), std::remove_cvref_t<ValueType>>::value );
-    return FoldDenseExpression(f,static_cast<const T&>(t),start_val,dim);
+    return GeneralFoldDenseExpression(f,static_cast<const T&>(t),start_val,dim);
 }
 
 template<class F, class T, class ValueType>
+requires (std::is_convertible< decltype(std::declval<F>()(std::declval<std::remove_cvref_t<T>>().begin(), std::declval<std::remove_cvref_t<T>>().end(), std::declval<ValueType>())), std::remove_cvref_t<ValueType>>::value )
 decltype(auto) fold( const F& f, DenseExpression<T>&& t, const ValueType& start_val, std::size_t dim=0){
-    static_assert(std::is_convertible< decltype(f(start_val,std::declval<typename std::remove_cvref_t<T>::value_type>())), std::remove_cvref_t<ValueType>>::value);
-    return FoldDenseExpression(f,static_cast<T&&>(t),start_val,dim);
+    return GeneralFoldDenseExpression(f,static_cast<T&&>(t),start_val,dim);
+}
+
+template<class F, class T, class ValueType>
+requires (std::is_convertible< decltype(std::declval<F>()(std::declval<ValueType>(),std::declval<typename std::remove_cvref_t<T>::value_type>())), std::remove_cvref_t<ValueType>>::value )
+decltype(auto) fold( const F& f, const DenseExpression<T>& t, const ValueType& start_val, std::size_t dim=0){
+    return LinearFoldDenseExpression(f,static_cast<const T&>(t),start_val,dim);
+}
+
+template<class F, class T, class ValueType>
+requires (std::is_convertible< decltype(std::declval<F>()(std::declval<ValueType>(),std::declval<typename std::remove_cvref_t<T>::value_type>())), std::remove_cvref_t<ValueType>>::value )
+decltype(auto) fold( const F& f, DenseExpression<T>&& t, const ValueType& start_val, std::size_t dim=0){
+    return LinearFoldDenseExpression(f,static_cast<T&&>(t),start_val,dim);
 }
 
 template<class F, class T>
@@ -476,15 +529,53 @@ decltype(auto) accumulate( const F& f, DenseExpression<T>&& t, std::size_t dim=0
     return AccumulateDenseExpression(f,static_cast<T&&>(t),dim);
 }
 
+// sum
+// * fast_sum -> Naively accumulate into a single variable. Fastest, but most susceptible to numerical errors.
+// * pairwise_sum -> Sum recursively. Almost as fast, much less error.
+// * precise_sum -> Kahan summation. Slowest sum, but most precise
+// Pairwise sum is the default.
+
 template<class T>
-decltype(auto) sum( const DenseExpression<T>& t, std::size_t dim=0){
+decltype(auto) fast_sum( const DenseExpression<T>& t, std::size_t dim=0){
     return accumulate(Plus{},static_cast<const T&>(t),dim);
 }
 
 template<class T>
-decltype(auto) sum( DenseExpression<T>&& t, std::size_t dim=0){
+decltype(auto) fast_sum( DenseExpression<T>&& t, std::size_t dim=0){
     return accumulate(Plus{},static_cast<T&&>(t),dim);
 }
+
+template<class T>
+decltype(auto) pairwise_sum( const DenseExpression<T>& t, std::size_t dim=0){
+    return fold( PairwiseSum{}, static_cast<const T&>(t), (typename T::value_type)0, dim);
+}
+
+template<class T>
+decltype(auto) pairwise_sum( DenseExpression<T>&& t, std::size_t dim=0){
+    return fold( PairwiseSum{}, static_cast<T&&>(t), (typename T::value_type)0, dim);
+}
+
+template<class T>
+decltype(auto) precise_sum( const DenseExpression<T>& t, std::size_t dim=0){
+    return fold( KahanSum{}, static_cast<const T&>(t), (typename T::value_type)0, dim);
+}
+
+template<class T>
+decltype(auto) precise_sum( DenseExpression<T>&& t, std::size_t dim=0){
+    return fold( KahanSum{}, static_cast<T&&>(t), (typename T::value_type)0, dim);
+}
+
+template<class T>
+decltype(auto) sum( const DenseExpression<T>& t, std::size_t dim=0){
+    return pairwise_sum(static_cast<const T&>(t),dim);
+}
+
+template<class T>
+decltype(auto) sum( DenseExpression<T>&& t, std::size_t dim=0){
+    return pairwise_sum(static_cast<T&&>(t),dim);
+}
+
+// Product/min/max -- all simple accumulations
 
 template<class T>
 decltype(auto) prod( const DenseExpression<T>& t, std::size_t dim=0){
@@ -516,60 +607,69 @@ decltype(auto) max( DenseExpression<T>&& t, std::size_t dim=0){
     return accumulate(Max{},static_cast<T&&>(t),dim);
 }
 
-template<class T>
-decltype(auto) mean( const DenseExpression<T>& t, std::size_t dim=0){
-    return sum(static_cast<const T&>(t),dim) / t.shape(dim);
-}
+// mean/var/stddev
+// Similar to sum; includes fast, pairwise, and precise, with pairwise as the default.
+// Lots of repetition here, so implemented using macros
 
-template<class T>
-decltype(auto) mean( DenseExpression<T>&& t, std::size_t dim=0){
-    return sum(static_cast<T&&>(t),dim) / t.shape(dim);
-}
+#define ULTRA_VAR_MEAN_STDDEV(PREFIX)\
+\
+template<class T>\
+decltype(auto) PREFIX##mean( const DenseExpression<T>& t, std::size_t dim=0){\
+    return PREFIX##sum(static_cast<const T&>(t),dim) / t.shape(dim);\
+}\
+\
+template<class T>\
+decltype(auto) PREFIX##mean( DenseExpression<T>&& t, std::size_t dim=0){\
+    return PREFIX##sum(static_cast<T&&>(t),dim) / t.shape(dim);\
+}\
+\
+template<class T>\
+decltype(auto) PREFIX##average( const DenseExpression<T>& t, std::size_t dim=0){\
+    return PREFIX##mean(static_cast<const T&>(t),dim);\
+}\
+\
+template<class T>\
+decltype(auto) PREFIX##average( DenseExpression<T>&& t, std::size_t dim=0){\
+    return PREFIX##mean(static_cast<T&&>(t),dim);\
+}\
+\
+template<class T>\
+decltype(auto) PREFIX##var( const DenseExpression<T>& t, std::size_t dim=0, std::size_t ddof=0){\
+    /* As the input expression must be used twice, it must be evaluated here to avoid performing each calculation twice.*/\
+    auto x = eval(static_cast<const T&>(t));\
+    auto mu = eval(PREFIX##mean(x,dim));\
+    if( ddof >= x.shape(dim) ) throw std::runtime_error("Ultra var/stddev: choice of ddof would result in negative/zero denominator");\
+    std::size_t denom = x.shape(dim) - ddof;\
+    /* Also must evaluate result as broadcast creates a view to a temporary object*/\
+    return eval(PREFIX##sum(square(x - mu.broadcast(x))) / denom);\
+}\
+\
+template<class T>\
+decltype(auto) PREFIX##var( DenseExpression<T>&& t, std::size_t dim=0, std::size_t ddof=0){\
+    auto x = eval(static_cast<T&&>(t));\
+    auto mu = eval(PREFIX##mean(x,dim));\
+    if( ddof >= x.shape(dim) ) throw std::runtime_error("Ultra var/stddev: choice of ddof would result in negative/zero denominator");\
+    std::size_t denom = x.shape(dim) - ddof;\
+    return eval(PREFIX##sum(square(x - mu.broadcast(x))) / denom);\
+}\
+\
+template<class T>\
+decltype(auto) PREFIX##stddev( const DenseExpression<T>& t, std::size_t dim=0, std::size_t ddof=0){\
+    return sqrt(PREFIX##var(static_cast<const T&>(t),dim,ddof));\
+}\
+\
+template<class T>\
+decltype(auto) PREFIX##stddev( DenseExpression<T>&& t, std::size_t dim=0, std::size_t ddof=0){\
+    return sqrt(PREFIX##var(static_cast<T&&>(t),dim,ddof));\
+}\
 
-template<class T>
-decltype(auto) average( const DenseExpression<T>& t, std::size_t dim=0){
-    return mean(static_cast<const T&>(t),dim);
-}
+ULTRA_VAR_MEAN_STDDEV(fast_)
+ULTRA_VAR_MEAN_STDDEV(pairwise_)
+ULTRA_VAR_MEAN_STDDEV(precise_)
+ULTRA_VAR_MEAN_STDDEV()
 
-template<class T>
-decltype(auto) average( DenseExpression<T>&& t, std::size_t dim=0){
-    return mean(static_cast<T&&>(t),dim);
-}
-
-template<class T>
-decltype(auto) var( const DenseExpression<T>& t, std::size_t dim=0, std::size_t ddof=0){
-    // As the input expression must be used twice, it must be evaluated here to avoid performing each calculation twice.
-    auto x = eval(static_cast<const T&>(t));
-    auto mu = eval(mean(x,dim));
-    if( ddof >= x.shape(dim) ) throw std::runtime_error("Ultra var/stddev: choice of ddof would result in negative/zero denominator");
-    std::size_t denom = x.shape(dim) - ddof;
-    // Also must evaluate result as broadcast creates a view to a temporary object
-    return eval(sum(square(x - mu.broadcast(x))) / denom);
-}
-
-template<class T>
-decltype(auto) var( DenseExpression<T>&& t, std::size_t dim=0, std::size_t ddof=0){
-    // As the input expression must be used twice, it must be evaluated here to avoid performing each calculation twice.
-    auto x = eval(static_cast<T&&>(t));
-    auto mu = eval(mean(x,dim));
-    if( ddof >= x.shape(dim) ) throw std::runtime_error("Ultra var/stddev: choice of ddof would result in negative/zero denominator");
-    std::size_t denom = x.shape(dim) - ddof;
-    // Also must evaluate result as broadcast creates a view to a temporary object
-    return eval(sum(square(x - mu.broadcast(x))) / denom);
-}
-
-template<class T>
-decltype(auto) stddev( const DenseExpression<T>& t, std::size_t dim=0, std::size_t ddof=0){
-    return sqrt(var(static_cast<const T&>(t),dim,ddof));
-}
-
-template<class T>
-decltype(auto) stddev( DenseExpression<T>&& t, std::size_t dim=0, std::size_t ddof=0){
-    return sqrt(var(static_cast<T&&>(t),dim,ddof));
-}
-
-// =========================
-// BooleanFolds
+// Boolean Folds: all_of, any_of, none_of.
+// Optimised to stop early where appropriate.
 
 struct AllOf {
     template<class Y>

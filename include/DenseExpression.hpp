@@ -94,7 +94,7 @@ struct _Min { template<class T, class U> decltype(auto) operator()( T&& t, U&& u
 struct _IsContiguous { template<class T> bool operator()( T&& t) { return t.is_contiguous(); }};
 struct _IsOmpParallelisable { template<class T> bool operator()( T&& t) { return t.is_omp_parallelisable(); }};
 
-struct GetStripe {
+struct _GetStripe {
     std::size_t _stripe, _dim;
     DenseOrder _order;
     template<class T>
@@ -236,6 +236,8 @@ public:
         const_iterator& operator--() { apply_to_each(_PrefixDec{},_its); return *this; }
         template<std::integral I> const_iterator& operator+=( const I& ii) { apply_to_each(_AddEq{},_its,ii); return *this; }
         template<std::integral I> const_iterator& operator-=( const I& ii) { apply_to_each(_MinEq{},_its,ii); return *this; }
+        template<std::integral I> const_iterator operator+( const I& ii) { auto result(*this); result+=ii; return result; }
+        template<std::integral I> const_iterator operator-( const I& ii) { auto result(*this); result-=ii; return result; }
         bool operator==( const const_iterator& other) const { return std::get<0>(_its) == std::get<0>(other._its);}
         auto operator<=>( const const_iterator& other) const { return std::get<0>(_its) <=> std::get<0>(other._its);}
         std::ptrdiff_t operator-( const const_iterator& other) const { return std::get<0>(_its) - std::get<0>(other._its);}
@@ -285,6 +287,8 @@ public:
             Iterator& operator--() { apply_to_each(_PrefixDec{},_its); return *this; }
             template<std::integral I> Iterator& operator+=( const I& ii) { apply_to_each(_AddEq{},_its,ii); return *this; }
             template<std::integral I> Iterator& operator-=( const I& ii) { apply_to_each(_MinEq{},_its,ii); return *this; }
+            template<std::integral I> Iterator operator+( const I& ii) { auto result(*this); result+=ii; return result; }
+            template<std::integral I> Iterator operator-( const I& ii) { auto result(*this); result-=ii; return result; }
             bool operator==( const Iterator& other) const { return std::get<0>(_its) == std::get<0>(other._its);}
             auto operator<=>( const Iterator& other) const { return std::get<0>(_its) <=> std::get<0>(other._its);}
             std::ptrdiff_t operator-( const Iterator& other) const { return std::get<0>(_its) - std::get<0>(other._its);}
@@ -296,7 +300,7 @@ public:
 
     // Get stripes from each Arg
     decltype(auto) get_stripe( std::size_t stripe_num, std::size_t dim, DenseOrder order) const {
-        return Stripe(apply_to_each(GetStripe{stripe_num,dim,order},_args));
+        return Stripe(apply_to_each(_GetStripe{stripe_num,dim,order},_args));
     }
 };
 
@@ -368,6 +372,8 @@ public:
         const_iterator& operator--() { --_idx; return *this; }
         template<std::integral I> const_iterator& operator+=( const I& ii) { _idx+=ii; return *this; }
         template<std::integral I> const_iterator& operator-=( const I& ii) { _idx-=ii; return *this; }
+        template<std::integral I> const_iterator operator+( const I& ii) { auto result(*this); result+=ii; return result; }
+        template<std::integral I> const_iterator operator-( const I& ii) { auto result(*this); result-=ii; return result; }
         bool operator==( const const_iterator& other) const { return _idx == other._idx; }
         auto operator<=>( const const_iterator& other) const { return _idx <=> other._idx; }
         std::ptrdiff_t operator-( const const_iterator& other) const { return (std::ptrdiff_t)_idx - (std::ptrdiff_t)other._idx;}
@@ -402,24 +408,44 @@ public:
 // Binary operation over a single arg. Performs a 'fold' over a single dimension.
 // Full reductions are performed by iteratively folding until only 1 dimension is left.
 
-// Inherits from one of three 'policy' classes
-// - GeneralFold: start_val is provided of type StartT, takes function of form `StartT f(StartT,T) `
+// Inherits from one of four 'policy' classes
+// - GeneralFold: start_val is provided of type StartT, takes function of form `StartT f(T.begin(),T.end(),StartT) `
+// - LinearFold: start_val is provided of type StartT, takes function of form `StartT f(StartT,T) `
 // - Accumulate: start_val is not provided, takes function of form `T f(T,T)`. Includes min, max, sum, prod
 // - BooleanFold: all_of, any_of, none_of, all may stop early under the right conditions
 
 template<class F, class StartType, class T>
 class GeneralFoldPolicy {
 protected:
-    using input_value_type = typename std::remove_cvref_t<T>::value_type;
+    using input_type = typename std::remove_cvref_t<T>;
+    using input_value_type = typename input_type::value_type;
     using start_type = StartType;
-    using value_type = decltype(std::declval<F>()(std::declval<start_type>(),std::declval<input_value_type>()));
+    using value_type = decltype(std::declval<F>()(std::declval<input_type>().begin(),std::declval<input_type>().end(),std::declval<start_type>()));
     static_assert( std::is_convertible<start_type,std::remove_cvref_t<value_type>>::value );
     static constexpr bool is_general_fold = true;
+    static constexpr bool is_linear_fold = false;
     static constexpr bool is_accumulate = false;
     static constexpr bool is_boolean_fold = false;
     start_type _start_val;
 public:
     GeneralFoldPolicy( const start_type& start_val) : _start_val(start_val) {}
+    start_type get() const { return _start_val; }
+};
+
+template<class F, class StartType, class T>
+class LinearFoldPolicy {
+protected:
+    using input_value_type = typename std::remove_cvref_t<T>::value_type;
+    using start_type = StartType;
+    using value_type = decltype(std::declval<F>()(std::declval<start_type>(),std::declval<input_value_type>()));
+    static_assert( std::is_convertible<start_type,std::remove_cvref_t<value_type>>::value );
+    static constexpr bool is_general_fold = false;
+    static constexpr bool is_linear_fold = true;
+    static constexpr bool is_accumulate = false;
+    static constexpr bool is_boolean_fold = false;
+    start_type _start_val;
+public:
+    LinearFoldPolicy( const start_type& start_val) : _start_val(start_val) {}
     start_type get() const { return _start_val; }
 };
 
@@ -430,6 +456,7 @@ protected:
     using value_type = decltype(std::declval<F>()(std::declval<input_value_type>(),std::declval<input_value_type>()));
     static_assert( std::is_convertible<ValueType,input_value_type>::value );
     static constexpr bool is_general_fold = false;
+    static constexpr bool is_linear_fold = false;
     static constexpr bool is_accumulate = true;
     static constexpr bool is_boolean_fold = false;
 };
@@ -443,6 +470,7 @@ protected:
     using result_type = decltype(std::declval<F>()(std::declval<ValueType>(),std::declval<input_value_type>()));
     static_assert( std::is_same<result_type,value_type>::value );
     static constexpr bool is_general_fold = false;
+    static constexpr bool is_linear_fold = false;
     static constexpr bool is_accumulate = false;
     static constexpr bool is_boolean_fold = true;
 };
@@ -456,8 +484,10 @@ public:
     using value_type = FoldPolicy<F,ValueType,T>::value_type;
 
     static constexpr bool is_general_fold = FoldPolicy<F,ValueType,T>::is_general_fold;
+    static constexpr bool is_linear_fold = FoldPolicy<F,ValueType,T>::is_linear_fold;
     static constexpr bool is_accumulate = FoldPolicy<F,ValueType,T>::is_accumulate;
     static constexpr bool is_boolean_fold = FoldPolicy<F,ValueType,T>::is_boolean_fold;
+    static constexpr bool requires_start_val = is_general_fold || is_linear_fold;
 
 private:
 
@@ -573,6 +603,14 @@ public:
             F f = _f;
             value_type val = FoldPolicy<F,ValueType,T>::get();
             auto stripe = _t.get_stripe(_stripe_num,_stripe_dim,_order);
+            val = f( stripe.begin(), stripe.end(), val);
+            return val;
+        }
+
+        decltype(auto) operator*() requires (is_linear_fold) {
+            F f = _f;
+            value_type val = FoldPolicy<F,ValueType,T>::get();
+            auto stripe = _t.get_stripe(_stripe_num,_stripe_dim,_order);
             for( auto&& x : stripe ) val = f(val,x);
             return val;
         }
@@ -602,24 +640,26 @@ public:
         const_iterator& operator--() { _stripe_num-=_stripe_inc; return *this; }
         template<std::integral I> const_iterator& operator+=( const I& ii) { _stripe_num+=ii*_stripe_inc; return *this; }
         template<std::integral I> const_iterator& operator-=( const I& ii) { _stripe_num-=ii*_stripe_inc; return *this; }
+        template<std::integral I> const_iterator operator+( const I& ii) { auto result(*this); result+=ii; return result; }
+        template<std::integral I> const_iterator operator-( const I& ii) { auto result(*this); result-=ii; return result; }
         bool operator==(const const_iterator& it) const { return _stripe_num == it._stripe_num; }
         auto operator<=>(const const_iterator& it) const { return _stripe_num <=> it._stripe_num; }
         std::ptrdiff_t operator-(const const_iterator& it) const { return ((std::ptrdiff_t)_stripe_num - (std::ptrdiff_t)it._stripe_num)/_stripe_inc; }
     };
 
-    const_iterator begin() const requires (is_general_fold) {
+    const_iterator begin() const requires (requires_start_val) {
         return const_iterator(_f,_t,_fold_dim,0,1,FoldPolicy<F,ValueType,T>::get());
     }
     
-    const_iterator end() const requires (is_general_fold) {
+    const_iterator end() const requires (requires_start_val) {
         return const_iterator(_f,_t,_fold_dim,num_stripes(),1,FoldPolicy<F,ValueType,T>::get());
     }
 
-    const_iterator begin() const requires (!is_general_fold) {
+    const_iterator begin() const requires (!requires_start_val) {
         return const_iterator(_f,_t,_fold_dim,0,1);
     }
 
-    const_iterator end() const requires (!is_general_fold) {
+    const_iterator end() const requires (!requires_start_val) {
         return const_iterator(_f,_t,_fold_dim,num_stripes(),1);
     }
 
@@ -664,19 +704,19 @@ public:
         // Define iterator type
         using Iterator = const_iterator;
 
-        Iterator begin() const requires (is_general_fold) {
+        Iterator begin() const requires (requires_start_val) {
             return Iterator( _f, _t, _fold_dim, _order, _start_stripe_num, _stripe_num_inc, FoldPolicy<F,ValueType,T>::get());
         }
 
-        Iterator begin() const requires (!is_general_fold) {
+        Iterator begin() const requires (!requires_start_val) {
             return Iterator( _f, _t, _fold_dim, _order, _start_stripe_num, _stripe_num_inc);
         }
 
-        Iterator end() const requires (is_general_fold) {
+        Iterator end() const requires (requires_start_val) {
             return Iterator( _f, _t, _fold_dim, _order, _end_stripe_num, _stripe_num_inc, FoldPolicy<F,ValueType,T>::get());
         }
 
-        Iterator end() const requires (!is_general_fold) {
+        Iterator end() const requires (!requires_start_val) {
             return Iterator( _f, _t, _fold_dim, _order, _end_stripe_num, _stripe_num_inc);
         }
     };
@@ -702,20 +742,21 @@ public:
     }
 
     // Get stripe from _t
-    decltype(auto) get_stripe( std::size_t stripe_num, std::size_t dim, DenseOrder order) const requires (is_general_fold) {
+    decltype(auto) get_stripe( std::size_t stripe_num, std::size_t dim, DenseOrder order) const requires (requires_start_val) {
         std::size_t start_stripe_num, end_stripe_num, stripe_num_inc;
         std::tie(start_stripe_num,end_stripe_num,stripe_num_inc) = get_stripe_info(stripe_num,dim,order);
         return Stripe(_f,_t,_fold_dim,order,FoldPolicy<F,ValueType,T>::get(),start_stripe_num,end_stripe_num,stripe_num_inc);
     }
 
-    decltype(auto) get_stripe( std::size_t stripe_num, std::size_t dim, DenseOrder order) const requires (!is_general_fold) {
+    decltype(auto) get_stripe( std::size_t stripe_num, std::size_t dim, DenseOrder order) const requires (!requires_start_val) {
         std::size_t start_stripe_num, end_stripe_num, stripe_num_inc;
         std::tie(start_stripe_num,end_stripe_num,stripe_num_inc) = get_stripe_info(stripe_num,dim,order);
         return Stripe(_f,_t,_fold_dim,order,start_stripe_num,end_stripe_num,stripe_num_inc);
     }
 };
 
-template<class F, class ValueType, class T> using FoldDenseExpression = FoldDenseExpressionImpl<F,ValueType,T,GeneralFoldPolicy>;
+template<class F, class ValueType, class T> using GeneralFoldDenseExpression = FoldDenseExpressionImpl<F,ValueType,T,GeneralFoldPolicy>;
+template<class F, class ValueType, class T> using LinearFoldDenseExpression = FoldDenseExpressionImpl<F,ValueType,T,LinearFoldPolicy>;
 template<class F, class T> using AccumulateDenseExpression = FoldDenseExpressionImpl<F,typename std::remove_cvref_t<T>::value_type,T,AccumulatePolicy>;
 template<class F, class T> using BooleanFoldDenseExpression = FoldDenseExpressionImpl<F,bool,T,BooleanFoldPolicy>;
 
@@ -907,6 +948,8 @@ public:
         const_iterator& operator--() { --_count; return *this; }
         template<std::integral I> const_iterator& operator+=( const I& ii) { _count+=ii; return *this; }
         template<std::integral I> const_iterator& operator-=( const I& ii) { _count-=ii; return *this; }
+        template<std::integral I> const_iterator operator+( const I& ii) { auto result(*this); result+=ii; return result; }
+        template<std::integral I> const_iterator operator-( const I& ii) { auto result(*this); result-=ii; return result; }
         bool operator==( const const_iterator& other) const { return _count == other._count; }
         auto operator<=>( const const_iterator& other) const { return _count <=> other._count; }
         std::ptrdiff_t operator-( const const_iterator& other) const { return (std::ptrdiff_t)_count - (std::ptrdiff_t)other._count; }
@@ -1042,6 +1085,8 @@ public:
         const_iterator& operator--() { --_it_cond; --_it_l; --_it_r; return *this; }
         template<std::integral I> const_iterator& operator+=( const I& ii) { _it_cond+=ii; _it_l+=ii; _it_r+=ii; return *this; }
         template<std::integral I> const_iterator& operator-=( const I& ii) { _it_cond-=ii; _it_l-=ii; _it_r-=ii; return *this; }
+        template<std::integral I> const_iterator operator+( const I& ii) { auto result(*this); result+=ii; return result; }
+        template<std::integral I> const_iterator operator-( const I& ii) { auto result(*this); result-=ii; return result; }
         bool operator==( const const_iterator& other) const { return _it_cond == other._it_cond; }
         auto operator<=>( const const_iterator& other) const { return _it_cond <=> other._it_cond; }
         std::ptrdiff_t operator-( const const_iterator& other) const { return _it_cond - other._it_cond; }
@@ -1095,6 +1140,8 @@ public:
             Iterator& operator--() { --_it_cond; --_it_l; --_it_r; return *this; }
             template<std::integral I> Iterator& operator+=( const I& ii) { _it_cond+=ii; _it_l+=ii; _it_r+=ii; return *this; }
             template<std::integral I> Iterator& operator-=( const I& ii) { _it_cond-=ii; _it_l-=ii; _it_r-=ii; return *this; }
+            template<std::integral I> Iterator operator+( const I& ii) { auto result(*this); result+=ii; return result; }
+            template<std::integral I> Iterator operator-( const I& ii) { auto result(*this); result-=ii; return result; }
             bool operator==( const Iterator* other) const { return _it_cond == other._it_cond; }
             auto operator<=>( const Iterator* other) const { return _it_cond <=> other._it_cond; }
             std::ptrdiff_t operator-( const Iterator& other) const { return _it_cond - other._it_cond; }
