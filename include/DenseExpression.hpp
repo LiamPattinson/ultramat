@@ -66,18 +66,27 @@ decltype(auto) eval( DenseExpression<T>&& t){
     return eval_result<T>(static_cast<T&&>(t));
 }
 
-// reshape
+// evaluating transforms
 // Performs eval, then transforms.
-// Note: Other transforms, such as view/slice/permute/transpose must be performed on an lvalue, so cannot be used here.
 
 template<class T, shapelike Shape>
 eval_result<T> reshape( const DenseExpression<T>& t, const Shape& shape){
-    return eval(static_cast<const T&>(t)).reshape(shape);
+    return eval(eval(static_cast<const T&>(t)).reshape(shape));
 }
 
 template<class T, shapelike Shape>
 eval_result<T> reshape( DenseExpression<T>&& t, const Shape& shape){
-    return eval(static_cast<T&&>(t)).reshape(shape);
+    return eval(eval(static_cast<T&&>(t)).reshape(shape));
+}
+
+template<class T>
+decltype(auto) hermitian( const DenseExpression<T>& t) {
+    return conj(eval(eval(static_cast<const T&>(t)).transpose()));
+}
+
+template<class T>
+decltype(auto) hermitian( DenseExpression<T>&& t) {
+    return conj(eval(eval(static_cast<T&&>(t)).transpose()));
 }
 
 // Expressions utils
@@ -307,13 +316,12 @@ public:
 // ScalarDenseExpression
 // Broadcast a scalar to a given shape, allowing it to take part in DenseExpressions.
 
-template<class T, DenseOrder Order>
+template<class T, DenseOrder Order> requires arithmetic<T>
 class ScalarDenseExpression : public DenseExpression<ScalarDenseExpression<T,Order>> {
 
 public:
 
     using value_type = std::remove_cvref_t<T>;
-    static_assert( std::is_arithmetic<T>::value, "Ultramat: Cannot broadcast given type, must be arithmetic type");
 
 private:
     

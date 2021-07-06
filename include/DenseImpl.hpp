@@ -372,6 +372,14 @@ class DenseImpl {
     auto t() { return transpose(); }
     auto t() const { return transpose(); }
 
+    auto hermitian() const {
+        return hermitian(*this);
+    }
+
+    auto h() const {
+        return hermitian(*this);
+    }
+
     // ===============================================
     // Iteration
 

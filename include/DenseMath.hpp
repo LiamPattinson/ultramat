@@ -186,6 +186,17 @@ DENSE_MATH_UNARY_FUNCTION(  IsFinite, isfinite , std::isfinite )
 DENSE_MATH_UNARY_FUNCTION(  IsInf, isinf , std::isinf )
 DENSE_MATH_UNARY_FUNCTION(  IsNaN, isnan , std::isnan )
 DENSE_MATH_UNARY_FUNCTION(  IsNormal, isnormal , std::isnormal )
+DENSE_MATH_UNARY_FUNCTION(  Real, real , std::real )
+DENSE_MATH_UNARY_FUNCTION(  Imag, imag , std::imag )
+DENSE_MATH_UNARY_FUNCTION(  Arg, arg , std::arg )
+DENSE_MATH_UNARY_FUNCTION(  Norm, norm , std::norm )
+DENSE_MATH_UNARY_FUNCTION(  Conj, conj , std::conj )
+DENSE_MATH_UNARY_FUNCTION(  CompexSqrt, complex_sqrt , (std::sqrt<std::complex<std::conditional_t<std::is_floating_point<T>::value,T,double>>>) )
+DENSE_MATH_UNARY_FUNCTION(  CompexLog, complex_log , (std::log<std::complex<std::conditional_t<std::is_floating_point<T>::value,T,double>>>) )
+DENSE_MATH_UNARY_FUNCTION(  CompexLog10, complex_log10 , (std::log10<std::complex<std::conditional_t<std::is_floating_point<T>::value,T,double>>>) )
+DENSE_MATH_UNARY_FUNCTION(  CompexAcos, complex_acos , (std::acos<std::complex<std::conditional_t<std::is_floating_point<T>::value,T,double>>>) )
+DENSE_MATH_UNARY_FUNCTION(  CompexAsin, complex_asin , (std::asin<std::complex<std::conditional_t<std::is_floating_point<T>::value,T,double>>>) )
+DENSE_MATH_UNARY_FUNCTION(  CompexAtanh, complex_atanh , (std::atanh<std::complex<std::conditional_t<std::is_floating_point<T>::value,T,double>>>) )
 
 template<std::floating_point T>
 T to_radians_internal( const T& t){
@@ -278,6 +289,8 @@ DENSE_MATH_BINARY_FUNCTION(Pow,pow,std::pow)
 DENSE_MATH_BINARY_FUNCTION(Atan2,atan2,std::atan2)
 DENSE_MATH_BINARY_FUNCTION(Hypot2,hypot,std::hypot)
 DENSE_MATH_BINARY_FUNCTION(CopySign,copysign,std::copysign)
+DENSE_MATH_BINARY_FUNCTION(Polar,polar,std::polar)
+DENSE_MATH_BINARY_FUNCTION(CompexPow,complex_pow,(std::pow<std::complex<std::conditional_t<std::is_floating_point<L>::value,L,double>>,std::complex<std::conditional_t<std::is_floating_point<R>::value,R,double>>>) )
 
 // =========================
 // Ternary Functions
@@ -641,7 +654,7 @@ decltype(auto) PREFIX##var( const DenseExpression<T>& t, std::size_t dim=0, std:
     if( ddof >= x.shape(dim) ) throw std::runtime_error("Ultra var/stddev: choice of ddof would result in negative/zero denominator");\
     std::size_t denom = x.shape(dim) - ddof;\
     /* Also must evaluate result as broadcast creates a view to a temporary object*/\
-    return eval(PREFIX##sum(square(x - mu.broadcast(x))) / denom);\
+    return eval(PREFIX##sum(norm(x - mu.broadcast(x))) / denom);\
 }\
 \
 template<class T>\
@@ -650,7 +663,7 @@ decltype(auto) PREFIX##var( DenseExpression<T>&& t, std::size_t dim=0, std::size
     auto mu = eval(PREFIX##mean(x,dim));\
     if( ddof >= x.shape(dim) ) throw std::runtime_error("Ultra var/stddev: choice of ddof would result in negative/zero denominator");\
     std::size_t denom = x.shape(dim) - ddof;\
-    return eval(PREFIX##sum(square(x - mu.broadcast(x))) / denom);\
+    return eval(PREFIX##sum(norm(x - mu.broadcast(x))) / denom);\
 }\
 \
 template<class T>\

@@ -2,13 +2,12 @@
 
 ### Special consideration for std::complex
 
-    * need new type trait to fill the role of is_arithmetic. is_scalar?
-    * new expressions: real, imag, arg, norm, conj
-    * complex sqrt, complex log, complex pow, complex acos/asin/atanh
-        * std:: already deals with most complex variants on cmath functions. However, this deals only
-          with the case f(Complex) -> Complex. Special versions are necessary when f(Real) -> Complex.
-    * include abs in var/stddev
-    * hermitian transpose (will need an eval)
+    unit test:
+    * real, imag, arg, norm, conj, polar
+    * complex sqrt, log, acos/asin/atanh, pow
+    * var/stddev over complex
+    * hermitian
+    * while at it: implement and test generic reshape, view, broadcast, permute, transpose
 
 ### Linear algebra
 

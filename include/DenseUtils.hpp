@@ -7,6 +7,7 @@
 
 #include <cstdlib>
 #include <cmath>
+#include <complex>
 #include <utility>
 #include <stdexcept>
 #include <string>
@@ -110,9 +111,12 @@ class Bool {
     inline operator bool&() { return _x; }
 };
 
+template<class T> struct is_complex { static constexpr bool value = false; };
+template<std::floating_point T> struct is_complex<std::complex<T>> { static constexpr bool value = true; };
+
 // Custom concepts
 
-template<class T> concept arithmetic = std::is_arithmetic<T>::value;
+template<class T> concept arithmetic = std::is_arithmetic<T>::value || is_complex<T>::value;
 
 template<class T> concept shapelike = std::ranges::sized_range<T> && std::integral<typename T::value_type> && !is_dense<T>::value;
 
