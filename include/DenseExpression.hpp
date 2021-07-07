@@ -67,7 +67,7 @@ decltype(auto) eval( DenseExpression<T>&& t){
 }
 
 // evaluating transforms
-// Performs eval, then transforms. Creates a new Array in most cases, so not recommended in general (especially for broadcasting)
+// Performs eval, then transforms. Creates a new Array. so not recommended in general.
 
 template<class T, class... Slices> requires ( std::is_same<Slice,Slices>::value && ...)
 eval_result<T> view( const DenseExpression<T>& t, const Slices&... slices){
@@ -107,16 +107,6 @@ eval_result<T> reshape( const DenseExpression<T>& t, Ints... ints){
 template<class T, std::integral... Ints>
 eval_result<T> reshape( DenseExpression<T>&& t, Ints... ints){
     return eval(eval(static_cast<T&&>(t)).reshape(ints...));
-}
-
-template<class T, shapelike... Shapes>
-eval_result<T> broadcast( const DenseExpression<T>& t, const Shapes&... shapes){
-    return eval(eval(static_cast<const T&>(t)).broadcast(shapes...));
-}
-
-template<class T, shapelike... Shapes>
-eval_result<T> broadcast( DenseExpression<T>&& t, const Shapes&... shapes){
-    return eval(eval(static_cast<T&&>(t)).broadcast(shapes...));
 }
 
 template<class T, shapelike Shape>

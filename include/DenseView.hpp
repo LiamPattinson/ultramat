@@ -98,6 +98,7 @@ public:
     using DenseImpl<DenseView<T,rw>>::num_stripes;
     using DenseImpl<DenseView<T,rw>>::get_stripe;
     using DenseImpl<DenseView<T,rw>>::reshape;
+    using DenseImpl<DenseView<T,rw>>::required_stripe_dim;
     using DenseImpl<DenseView<T,rw>>::operator();
     using DenseImpl<DenseView<T,rw>>::operator[];
     using DenseImpl<DenseView<T,rw>>::operator=;

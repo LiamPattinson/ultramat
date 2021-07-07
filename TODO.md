@@ -1,11 +1,5 @@
 # TODO
 
-### Special consideration for std::complex
-
-    unit test:
-    * hermitian
-    * while at it: test generic reshape, view, broadcast, permute, transpose
-
 ### Linear algebra
 
     * Implement matrix generators (such as 'eye', 'identity')
@@ -28,9 +22,6 @@
     * Do not have this switched on by default. The end user may wish to use this library alongside
       their own parallelisation strategy, and therefore this would interfere. However, signpost it
       well!
-
-### Improve expressions
-
 
 ### Further linear algebra
 

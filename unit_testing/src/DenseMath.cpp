@@ -355,6 +355,28 @@ TEST(ArrayMathTest,Eval){
     bool g_correct=true;
     for( auto&& x : g ) if( x != -19.5 ) g_correct = false;
     EXPECT_TRUE(g_correct);
+
+    // Evaluating view
+    Array<double> h = view( a*b + c, Slice{Slice::all,2}, Slice{Slice::all,2},Slice{Slice::all,2});
+    EXPECT_TRUE( h.dims() == 3 );
+    EXPECT_TRUE( h.size() == 8 );
+    EXPECT_TRUE( h.shape(0) == 2 );
+    EXPECT_TRUE( h.shape(1) == 2 );
+    EXPECT_TRUE( h.shape(2) == 2 );
+    bool h_correct=true;
+    for( auto&& x : h ) if( x != -19.5 ) h_correct = false;
+    EXPECT_TRUE(h_correct);
+
+    // Evaluating Hermitian
+    Array<std::complex<double>> k(shape_vec{5,10}); k.fill(std::complex<double>(1,1));
+    Array<std::complex<double>> l = hermitian(2*k);
+    EXPECT_TRUE( l.dims() == 2 );
+    EXPECT_TRUE( l.size() == 50 );
+    EXPECT_TRUE( l.shape(0) == 10 );
+    EXPECT_TRUE( l.shape(1) == 5 );
+    bool l_correct=true;
+    for( auto&& x : l ) if( x != std::complex<double>(2,-2) ) l_correct = false;
+    EXPECT_TRUE(l_correct);
 }
 
 TEST(ArrayMathTest,CumulativeSum){

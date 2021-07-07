@@ -427,7 +427,7 @@ class DenseImpl {
         return DenseStripe<T,ReadWrite::read_only>( derived().data()+jump_to_stripe(stripe_num,dim,order), stride(dim+(Order==DenseOrder::row_major)), shape(dim));
     }
 
-    decltype(auto) required_stripe_dim() const { return dims(); }
+    constexpr std::size_t required_stripe_dim() const { return dims();}
 
     // ===============================================
     // Utils
