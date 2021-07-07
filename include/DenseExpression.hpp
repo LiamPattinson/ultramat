@@ -67,7 +67,27 @@ decltype(auto) eval( DenseExpression<T>&& t){
 }
 
 // evaluating transforms
-// Performs eval, then transforms.
+// Performs eval, then transforms. Creates a new Array in most cases, so not recommended in general (especially for broadcasting)
+
+template<class T, class... Slices> requires ( std::is_same<Slice,Slices>::value && ...)
+eval_result<T> view( const DenseExpression<T>& t, const Slices&... slices){
+    return eval(eval(static_cast<const T&>(t)).view(slices...));
+}
+
+template<class T, class... Slices> requires ( std::is_same<Slice,Slices>::value && ...)
+eval_result<T> view( DenseExpression<T>&& t, const Slices&... slices){
+    return eval(eval(static_cast<T&&>(t)).view(slices...));
+}
+
+template<class T, std::ranges::range Slices> requires ( std::is_same<Slice,typename Slices::value_type>::value )
+eval_result<T> view( const DenseExpression<T>& t, const Slices& slices){
+    return eval(eval(static_cast<const T&>(t)).view(slices));
+}
+
+template<class T, std::ranges::range Slices> requires ( std::is_same<Slice,typename Slices::value_type>::value )
+eval_result<T> view( DenseExpression<T>&& t, const Slices& slices){
+    return eval(eval(static_cast<T&&>(t)).view(slices));
+}
 
 template<class T, shapelike Shape>
 eval_result<T> reshape( const DenseExpression<T>& t, const Shape& shape){
@@ -77,6 +97,56 @@ eval_result<T> reshape( const DenseExpression<T>& t, const Shape& shape){
 template<class T, shapelike Shape>
 eval_result<T> reshape( DenseExpression<T>&& t, const Shape& shape){
     return eval(eval(static_cast<T&&>(t)).reshape(shape));
+}
+
+template<class T, std::integral... Ints>
+eval_result<T> reshape( const DenseExpression<T>& t, Ints... ints){
+    return eval(eval(static_cast<const T&>(t)).reshape(ints...));
+}
+
+template<class T, std::integral... Ints>
+eval_result<T> reshape( DenseExpression<T>&& t, Ints... ints){
+    return eval(eval(static_cast<T&&>(t)).reshape(ints...));
+}
+
+template<class T, shapelike... Shapes>
+eval_result<T> broadcast( const DenseExpression<T>& t, const Shapes&... shapes){
+    return eval(eval(static_cast<const T&>(t)).broadcast(shapes...));
+}
+
+template<class T, shapelike... Shapes>
+eval_result<T> broadcast( DenseExpression<T>&& t, const Shapes&... shapes){
+    return eval(eval(static_cast<T&&>(t)).broadcast(shapes...));
+}
+
+template<class T, shapelike Shape>
+eval_result<T> permute( const DenseExpression<T>& t, const Shape& shape){
+    return eval(eval(static_cast<const T&>(t)).permute(shape));
+}
+
+template<class T, shapelike Shape>
+eval_result<T> permute( DenseExpression<T>&& t, const Shape& shape){
+    return eval(eval(static_cast<T&&>(t)).permute(shape));
+}
+
+template<class T, std::integral... Perm>
+eval_result<T> permute( const DenseExpression<T>& t, Perm... permutations){
+    return eval(eval(static_cast<const T&>(t)).permute(permutations...));
+}
+
+template<class T, std::integral... Perm>
+eval_result<T> permute( DenseExpression<T>&& t, Perm... permutations){
+    return eval(eval(static_cast<const T&&>(t)).permute(permutations...));
+}
+
+template<class T>
+decltype(auto) transpose( const DenseExpression<T>& t) {
+    return eval(eval(static_cast<const T&>(t)).transpose());
+}
+
+template<class T>
+decltype(auto) transpose( DenseExpression<T>&& t) {
+    return eval(eval(static_cast<T&&>(t)).transpose());
 }
 
 template<class T>
@@ -316,7 +386,7 @@ public:
 // ScalarDenseExpression
 // Broadcast a scalar to a given shape, allowing it to take part in DenseExpressions.
 
-template<class T, DenseOrder Order> requires arithmetic<T>
+template<class T, DenseOrder Order> requires number<T>
 class ScalarDenseExpression : public DenseExpression<ScalarDenseExpression<T,Order>> {
 
 public:

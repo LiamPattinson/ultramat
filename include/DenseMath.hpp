@@ -87,22 +87,22 @@ DENSE_MATH_UNARY_OPERATOR( LogicalNot, !)
         return Name##DenseExpression(static_cast<L&&>(l),static_cast<R&&>(r));\
     }\
 \
-    template<class L, class R> requires arithmetic<R> \
+    template<class L, class R> requires number<R> \
     decltype(auto) operator Op ( const DenseExpression<L>& l, R r){\
         return static_cast<const L&>(l) Op ScalarDenseExpression<R,L::order()>(r,l.shape());\
     }\
 \
-    template<class L, class R> requires arithmetic<R> \
+    template<class L, class R> requires number<R> \
     decltype(auto) operator Op ( DenseExpression<L>&& l, R r){\
         return static_cast<L&&>(l) Op ScalarDenseExpression<R,L::order()>(r,l.shape());\
     }\
 \
-    template<class L, class R> requires arithmetic<L> \
+    template<class L, class R> requires number<L> \
     decltype(auto) operator Op ( L l, const DenseExpression<R>& r){\
         return ScalarDenseExpression<L,R::order()>(l,r.shape()) Op static_cast<const R&>(r);\
     }\
 \
-    template<class L, class R> requires arithmetic<L> \
+    template<class L, class R> requires number<L> \
     decltype(auto) operator Op ( L l, DenseExpression<R>&& r){\
         return ScalarDenseExpression<L,R::order()>(l,r.shape()) Op static_cast<R&&>(r);\
     }
@@ -146,7 +146,7 @@ DENSE_MATH_BINARY_OPERATOR( LogicalLe, <=)
         return Name##DenseExpression(static_cast<T&&>(t));\
     }\
 \
-    template<class T> requires arithmetic<T> \
+    template<class T> requires number<T> \
     decltype(auto) FuncName ( T t) {\
         return InternalFunc(t);\
     }
@@ -191,39 +191,44 @@ DENSE_MATH_UNARY_FUNCTION(  Imag, imag , std::imag )
 DENSE_MATH_UNARY_FUNCTION(  Arg, arg , std::arg )
 DENSE_MATH_UNARY_FUNCTION(  Norm, norm , std::norm )
 DENSE_MATH_UNARY_FUNCTION(  Conj, conj , std::conj )
-DENSE_MATH_UNARY_FUNCTION(  CompexSqrt, complex_sqrt , (std::sqrt<std::complex<std::conditional_t<std::is_floating_point<T>::value,T,double>>>) )
-DENSE_MATH_UNARY_FUNCTION(  CompexLog, complex_log , (std::log<std::complex<std::conditional_t<std::is_floating_point<T>::value,T,double>>>) )
-DENSE_MATH_UNARY_FUNCTION(  CompexLog10, complex_log10 , (std::log10<std::complex<std::conditional_t<std::is_floating_point<T>::value,T,double>>>) )
-DENSE_MATH_UNARY_FUNCTION(  CompexAcos, complex_acos , (std::acos<std::complex<std::conditional_t<std::is_floating_point<T>::value,T,double>>>) )
-DENSE_MATH_UNARY_FUNCTION(  CompexAsin, complex_asin , (std::asin<std::complex<std::conditional_t<std::is_floating_point<T>::value,T,double>>>) )
-DENSE_MATH_UNARY_FUNCTION(  CompexAtanh, complex_atanh , (std::atanh<std::complex<std::conditional_t<std::is_floating_point<T>::value,T,double>>>) )
 
 template<std::floating_point T>
-T to_radians_internal( const T& t){
+T _to_radians( const T& t){
     constexpr const double factor = pi/180;
     return t*factor;
 }
 
 template<std::floating_point T>
-T to_degrees_internal( const T& t){
+T _to_degrees( const T& t){
     constexpr const double factor = 180/pi;
     return t*factor;
 }
 
 template<class T>
-T square_internal( const T& t){
+T _square( const T& t){
     return t*t;
 }
 
 template<class T>
-T cube_internal( const T& t){
+T _cube( const T& t){
     return t*t*t;
 }
 
-DENSE_MATH_UNARY_FUNCTION(  ToRadians, to_radians , to_radians_internal )
-DENSE_MATH_UNARY_FUNCTION(  ToDegrees, to_degress , to_degrees_internal )
-DENSE_MATH_UNARY_FUNCTION(  Square, square , square_internal )
-DENSE_MATH_UNARY_FUNCTION(  Cube, cube , cube_internal )
+DENSE_MATH_UNARY_FUNCTION(  ToRadians, to_radians , _to_radians )
+DENSE_MATH_UNARY_FUNCTION(  ToDegrees, to_degress , _to_degrees )
+DENSE_MATH_UNARY_FUNCTION(  Square, square , _square )
+DENSE_MATH_UNARY_FUNCTION(  Cube, cube , _cube )
+
+#define DENSE_MATH_UNARY_COMPLEX_FUNC(NAME,FUNC)\
+template<class T> auto _complex_##FUNC ( const T& t){ return std::FUNC(static_cast<complex_upcast<T>>(t)); }\
+DENSE_MATH_UNARY_FUNCTION(  Complex##NAME, complex_##FUNC , _complex_##FUNC )
+
+DENSE_MATH_UNARY_COMPLEX_FUNC(Sqrt,sqrt)
+DENSE_MATH_UNARY_COMPLEX_FUNC(Log,log)
+DENSE_MATH_UNARY_COMPLEX_FUNC(Log10,log10)
+DENSE_MATH_UNARY_COMPLEX_FUNC(Acos,acos)
+DENSE_MATH_UNARY_COMPLEX_FUNC(Asin,asin)
+DENSE_MATH_UNARY_COMPLEX_FUNC(Atanh,atanh)
 
 // =========================
 // Binary Functions
@@ -260,27 +265,27 @@ DENSE_MATH_UNARY_FUNCTION(  Cube, cube , cube_internal )
         return Name##DenseExpression(static_cast<L&&>(l),static_cast<R&&>(r));\
     }\
 \
-    template<class L, class R> requires arithmetic<R> \
+    template<class L, class R> requires number<R> \
     decltype(auto) FuncName ( const DenseExpression<L>& l, R r){\
         return FuncName(static_cast<const L&>(l),ScalarDenseExpression<R,L::order()>(r,l.shape()));\
     }\
 \
-    template<class L, class R> requires arithmetic<R> \
+    template<class L, class R> requires number<R> \
     decltype(auto) FuncName ( DenseExpression<L>&& l, R r){\
         return FuncName(static_cast<L&&>(l),ScalarDenseExpression<R,L::order()>(r,l.shape()));\
     }\
 \
-    template<class L, class R> requires arithmetic<L> \
+    template<class L, class R> requires number<L> \
     decltype(auto) FuncName ( L l, const DenseExpression<R>& r){\
         return FuncName(ScalarDenseExpression<L,R::order()>(l,r.shape()),static_cast<const R&>(r));\
     }\
 \
-    template<class L, class R> requires arithmetic<L> \
+    template<class L, class R> requires number<L> \
     decltype(auto) FuncName ( L l, DenseExpression<R>&& r){\
         return FuncName(ScalarDenseExpression<L,R::order()>(l,r.shape()),static_cast<R&&>(r));\
     }\
 \
-    template<class L, class R> requires arithmetic<L> && arithmetic<R>\
+    template<class L, class R> requires number<L> && number<R>\
     decltype(auto) FuncName ( L l, R r){\
         return InternalFunc(l,r);\
     }\
@@ -290,7 +295,13 @@ DENSE_MATH_BINARY_FUNCTION(Atan2,atan2,std::atan2)
 DENSE_MATH_BINARY_FUNCTION(Hypot2,hypot,std::hypot)
 DENSE_MATH_BINARY_FUNCTION(CopySign,copysign,std::copysign)
 DENSE_MATH_BINARY_FUNCTION(Polar,polar,std::polar)
-DENSE_MATH_BINARY_FUNCTION(CompexPow,complex_pow,(std::pow<std::complex<std::conditional_t<std::is_floating_point<L>::value,L,double>>,std::complex<std::conditional_t<std::is_floating_point<R>::value,R,double>>>) )
+
+template<class T, class U>
+auto _complex_pow ( const T& t, const U& u){
+    return std::pow(static_cast<complex_upcast<T>>(t),static_cast<complex_upcast<U>>(u));
+}
+
+DENSE_MATH_BINARY_FUNCTION(ComplexPow,complex_pow,_complex_pow)
 
 // =========================
 // Ternary Functions
@@ -348,97 +359,97 @@ DENSE_MATH_BINARY_FUNCTION(CompexPow,complex_pow,(std::pow<std::complex<std::con
         return Name##DenseExpression(static_cast<X&&>(x),static_cast<Y&&>(y),static_cast<Z&&>(z));\
     }\
 \
-    template<class X, class Y,class Z> requires arithmetic<X> \
+    template<class X, class Y,class Z> requires number<X> \
     decltype(auto) FuncName ( X x, const DenseExpression<Y>& y, const DenseExpression<Z>& z){\
         return FuncName(ScalarDenseExpression<X,Y::order()>(x,y.shape()),static_cast<const Y&>(y),static_cast<const Z&>(z));\
     }\
 \
-    template<class X, class Y,class Z> requires arithmetic<X> \
+    template<class X, class Y,class Z> requires number<X> \
     decltype(auto) FuncName ( X x, DenseExpression<Y>&& y, const DenseExpression<Z>& z){\
         return FuncName(ScalarDenseExpression<X,Y::order()>(x,y.shape()),static_cast<Y&&>(y),static_cast<const Z&>(z));\
     }\
 \
-    template<class X, class Y,class Z> requires arithmetic<X> \
+    template<class X, class Y,class Z> requires number<X> \
     decltype(auto) FuncName ( X x, const DenseExpression<Y>& y, DenseExpression<Z>&& z){\
         return FuncName(ScalarDenseExpression<X,Y::order()>(x,y.shape()),static_cast<const Y&>(y),static_cast<Z&&>(z));\
     }\
 \
-    template<class X, class Y,class Z> requires arithmetic<X> \
+    template<class X, class Y,class Z> requires number<X> \
     decltype(auto) FuncName ( X x, DenseExpression<Y>&& y, DenseExpression<Z>&& z){\
         return FuncName(ScalarDenseExpression<X,Y::order()>(x,y.shape()),static_cast<Y&&>(y),static_cast<Z&&>(z));\
     }\
 \
-    template<class X, class Y,class Z> requires arithmetic<Y> \
+    template<class X, class Y,class Z> requires number<Y> \
     decltype(auto) FuncName ( const DenseExpression<X>& x, Y y, const DenseExpression<Z>& z){\
         return FuncName(static_cast<const X&>(x),ScalarDenseExpression<Y,X::order()>(y,x.shape()),static_cast<const Z&>(z));\
     }\
 \
-    template<class X, class Y,class Z> requires arithmetic<Y> \
+    template<class X, class Y,class Z> requires number<Y> \
     decltype(auto) FuncName ( DenseExpression<X>&& x, Y y, const DenseExpression<Z>& z){\
         return FuncName(static_cast<X&&>(x),ScalarDenseExpression<Y,X::order()>(y,x.shape()),static_cast<const Z&>(z));\
     }\
 \
-    template<class X, class Y,class Z> requires arithmetic<Y> \
+    template<class X, class Y,class Z> requires number<Y> \
     decltype(auto) FuncName ( const DenseExpression<X>& x, Y y, DenseExpression<Z>&& z){\
         return FuncName(static_cast<const X&>(x),ScalarDenseExpression<Y,X::order()>(y,x.shape()),static_cast<Z&&>(z));\
     }\
 \
-    template<class X, class Y,class Z> requires arithmetic<Y> \
+    template<class X, class Y,class Z> requires number<Y> \
     decltype(auto) FuncName ( DenseExpression<X>&& x, Y y, DenseExpression<Z>&& z){\
         return FuncName(static_cast<X&&>(x),ScalarDenseExpression<Y,X::order()>(y,x.shape()),static_cast<Z&&>(z));\
     }\
 \
-    template<class X, class Y,class Z> requires arithmetic<Z> \
+    template<class X, class Y,class Z> requires number<Z> \
     decltype(auto) FuncName ( const DenseExpression<X>& x, const DenseExpression<Y>& y, Z z){\
         return FuncName(static_cast<const X&>(x),static_cast<const Y&>(y),ScalarDenseExpression<Z,X::order()>(z,x.shape()));\
     }\
 \
-    template<class X, class Y,class Z> requires arithmetic<Z> \
+    template<class X, class Y,class Z> requires number<Z> \
     decltype(auto) FuncName ( DenseExpression<X>&& x, const DenseExpression<Y>&& y, Z z){\
         return FuncName(static_cast<X&&>(x),static_cast<const Y&>(y),ScalarDenseExpression<Z,X::order()>(z,x.shape()));\
     }\
 \
-    template<class X, class Y,class Z> requires arithmetic<Z> \
+    template<class X, class Y,class Z> requires number<Z> \
     decltype(auto) FuncName ( const DenseExpression<X>& x, DenseExpression<Y>&& y, Z z){\
         return FuncName(static_cast<const X&>(x),static_cast<Y&&>(y),ScalarDenseExpression<Z,X::order()>(z,x.shape()));\
     }\
 \
-    template<class X, class Y,class Z> requires arithmetic<Z> \
+    template<class X, class Y,class Z> requires number<Z> \
     decltype(auto) FuncName ( DenseExpression<X>&& x, DenseExpression<Y>&& y, Z z){\
         return FuncName(static_cast<X&&>(x),static_cast<Y&&>(y),ScalarDenseExpression<Z,X::order()>(z,x.shape()));\
     }\
 \
-    template<class X, class Y,class Z> requires arithmetic<X> && arithmetic<Y>\
+    template<class X, class Y,class Z> requires number<X> && number<Y>\
     decltype(auto) FuncName ( X x, Y y, const DenseExpression<Z>& z){\
         return FuncName(ScalarDenseExpression<X,Z::order()>(x,z.shape()),ScalarDenseExpression<Y,Z::order()>(y,z.shape()),static_cast<const Z&>(z));\
     }\
 \
-    template<class X, class Y,class Z> requires arithmetic<X> && arithmetic<Y>\
+    template<class X, class Y,class Z> requires number<X> && number<Y>\
     decltype(auto) FuncName ( X x, Y y, DenseExpression<Z>&& z){\
         return FuncName(ScalarDenseExpression<X,Z::order()>(x,z.shape()),ScalarDenseExpression<Y,Z::order()>(y,z.shape()),static_cast<Z&&>(z));\
     }\
 \
-    template<class X, class Y,class Z> requires arithmetic<X> && arithmetic<Z>\
+    template<class X, class Y,class Z> requires number<X> && number<Z>\
     decltype(auto) FuncName ( X x, const DenseExpression<Y>& y, Z z){\
         return FuncName(ScalarDenseExpression<X,Y::order()>(x,y.shape()),static_cast<const Y&>(y),ScalarDenseExpression<Z,Y::order()>(z,y.shape()));\
     }\
 \
-    template<class X, class Y,class Z> requires arithmetic<X> && arithmetic<Z>\
+    template<class X, class Y,class Z> requires number<X> && number<Z>\
     decltype(auto) FuncName ( X x, DenseExpression<Y>&& y, Z z){\
         return FuncName(ScalarDenseExpression<X,Y::order()>(x,y.shape()),static_cast<Y&&>(y),ScalarDenseExpression<Z,Y::order()>(z,y.shape()));\
     }\
 \
-    template<class X, class Y,class Z> requires arithmetic<Y> && arithmetic<Z>\
+    template<class X, class Y,class Z> requires number<Y> && number<Z>\
     decltype(auto) FuncName ( const DenseExpression<X>& x, Y y, Z z){\
         return FuncName(static_cast<const X&>(x),ScalarDenseExpression<Y,X::order()>(y,x.shape()),ScalarDenseExpression<Z,X::order()>(z,x.shape()));\
     }\
 \
-    template<class X, class Y,class Z> requires arithmetic<Y> && arithmetic<Z>\
+    template<class X, class Y,class Z> requires number<Y> && number<Z>\
     decltype(auto) FuncName ( DenseExpression<X>&& x, Y y, Z z){\
         return FuncName(static_cast<X&&>(x),ScalarDenseExpression<Y,X::order()>(y,x.shape()),ScalarDenseExpression<Z,X::order()>(z,x.shape()));\
     }\
 \
-    template<class X, class Y,class Z> requires arithmetic<X> && arithmetic<Y> && arithmetic<Z>\
+    template<class X, class Y,class Z> requires number<X> && number<Y> && number<Z>\
     decltype(auto) FuncName ( X x, Y y, Z z){\
         return InternalFunc(x,y,z);\
     }
@@ -451,11 +462,11 @@ DENSE_MATH_TERNARY_FUNCTION(Hypot3,hypot,std::hypot)
 DENSE_MATH_TERNARY_FUNCTION(MultiplyAdd,multiply_add,std::fma)
 
 template<class Cond, class L, class R>
-decltype(L()+R()) where_scalars( const Cond& c, const L& l, const R& r){
+decltype(L()+R()) _where( const Cond& c, const L& l, const R& r){
     return c ? l : r;
 }
 
-DENSE_MATH_TERNARY_FUNCTION_DEFINITIONS(Where,where,where_scalars)
+DENSE_MATH_TERNARY_FUNCTION_DEFINITIONS(Where,where,_where)
 
 // =========================
 // Reductions / Folds / Accumulations
@@ -929,7 +940,7 @@ decltype(auto) random_uniform( T1 min, T2 max, const Range& range) {
     return random( std::uniform_int_distribution<decltype(T1()*T2())>(min,max), range);
 }
 
-template<class T1, class T2> requires arithmetic<T1> && arithmetic<T2>
+template<class T1, class T2> requires number<T1> && number<T2>
 decltype(auto) random_uniform( T1 min, T2 max, std::size_t N) {
     return random_uniform( min, max, std::array<std::size_t,1>{N});
 }
@@ -940,24 +951,24 @@ decltype(auto) random_uniform( T1 min, T2 max, std::size_t N) {
 // where \mu is mean and \sigma is stddev
 
 template<class T1, class T2, shapelike Range>
-requires arithmetic<T1> && arithmetic<T2>
+requires number<T1> && number<T2>
 decltype(auto) random_normal( T1 mean, T2 stddev, const Range& range) {
     using real_t = std::conditional_t< std::is_floating_point<decltype(T1()*T2())>::value, decltype(T1()*T2()), double>;
     return random( std::normal_distribution<real_t>(mean,stddev), range);
 }
 
 template<class T1, class T2, shapelike Range>
-requires arithmetic<T1> && arithmetic<T2>
+requires number<T1> && number<T2>
 decltype(auto) random_gaussian( T1 mean, T2 stddev, const Range& range) {
     return random_normal( mean, stddev, range);
 }
 
-template<class T1, class T2> requires arithmetic<T1> && arithmetic<T2>
+template<class T1, class T2> requires number<T1> && number<T2>
 decltype(auto) random_normal( T1 mean, T2 stddev, std::size_t N) {
     return random_normal( mean, stddev, std::array<std::size_t,1>{N});
 }
 
-template<class T1, class T2> requires arithmetic<T1> && arithmetic<T2>
+template<class T1, class T2> requires number<T1> && number<T2>
 decltype(auto) random_gaussian( T1 mean, T2 stddev, std::size_t N) {
     return random_gaussian( mean, stddev, std::array<std::size_t,1>{N});
 }

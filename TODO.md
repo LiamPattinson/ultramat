@@ -3,11 +3,8 @@
 ### Special consideration for std::complex
 
     unit test:
-    * real, imag, arg, norm, conj, polar
-    * complex sqrt, log, acos/asin/atanh, pow
-    * var/stddev over complex
     * hermitian
-    * while at it: implement and test generic reshape, view, broadcast, permute, transpose
+    * while at it: test generic reshape, view, broadcast, permute, transpose
 
 ### Linear algebra
 

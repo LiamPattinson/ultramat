@@ -228,27 +228,27 @@ class DenseImpl {
 
     // Scalar in-place updates
 
-    template<class U> requires arithmetic<U>
+    template<class U> requires number<U>
     decltype(auto) operator=( U u) {
         return equal_expression(ScalarDenseExpression<U,order()>(u,shape()));
     }
 
-    template<class U> requires arithmetic<U>
+    template<class U> requires number<U>
     decltype(auto) operator+=( U u) {
         return add_equal_expression(ScalarDenseExpression<U,order()>(u,shape()));
     }
 
-    template<class U> requires arithmetic<U>
+    template<class U> requires number<U>
     decltype(auto) operator-=( U u) {
         return sub_equal_expression(ScalarDenseExpression<U,order()>(u,shape()));
     }
 
-    template<class U> requires arithmetic<U>
+    template<class U> requires number<U>
     decltype(auto) operator*=( U u) {
         return mul_equal_expression(ScalarDenseExpression<U,order()>(u,shape()));
     }
 
-    template<class U> requires arithmetic<U>
+    template<class U> requires number<U>
     decltype(auto) operator/=( U u) {
         return div_equal_expression(ScalarDenseExpression<U,order()>(u,shape()));
     }
