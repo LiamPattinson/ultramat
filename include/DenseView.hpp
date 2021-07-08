@@ -542,9 +542,9 @@ public:
             std::size_t idx = 0;
             while( diff != 0 && idx != _shape.size() ) {
                 // Go to end of current dimension, add the difference onto diff
-                _ptr += (_shape[idx]-_pos[idx]) * _stride[idx];
-                diff += (_shape[idx]-_pos[idx]);
-                _pos[idx] = _shape[idx];
+                _ptr += (_shape[idx]-1 - _pos[idx]) * _stride[idx];
+                diff += (_shape[idx]-1 - _pos[idx]);
+                _pos[idx] = _shape[idx]-1;
                 // Go back diff % shape, then divide diff by shape
                 _ptr -= (diff % _shape[idx]) * _stride[idx];
                 _pos[idx] -= (diff % _shape[idx]);
@@ -564,9 +564,9 @@ public:
             std::size_t idx = _shape.size();
             while( diff != 0 && idx != 0 ) {
                 // Go to end of current dimension, add the difference onto diff
-                _ptr += (_shape[idx-1]-_pos[idx]) * _stride[idx];
-                diff += (_shape[idx-1]-_pos[idx]);
-                _pos[idx] = _shape[idx-1];
+                _ptr += (_shape[idx-1]-1 - _pos[idx]) * _stride[idx];
+                diff += (_shape[idx-1]-1 - _pos[idx]);
+                _pos[idx] = _shape[idx-1]-1;
                 // Go back diff % shape, then divide diff by shape
                 _ptr -= (diff % _shape[idx-1]) * _stride[idx];
                 _pos[idx] -= (diff % _shape[idx-1]);

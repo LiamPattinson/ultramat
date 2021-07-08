@@ -2,7 +2,6 @@
 
 ### Linear algebra
 
-    * Implement matrix generators (such as 'eye', 'identity')
     * trace
     * dot
     * matmul
@@ -26,6 +25,8 @@
 ### Further linear algebra
 
     * inner, outer
+    * det
+    * norm (perhaps rename complex norm function to abs2?)
     * cond
     * rank
     * kronecker product

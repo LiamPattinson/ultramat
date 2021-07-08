@@ -6,7 +6,6 @@
 // Defines expressions for standard math functions.
 
 #include "DenseExpression.hpp"
-#include<iostream>
 
 namespace ultra {
 
@@ -847,13 +846,20 @@ public:
     }
 };
 
-template<class T1,class T2,class T3>
-decltype(auto) arange( const T1& start, const T2& stop, const T3& step) {
-    std::size_t num_vals = std::ceil((0.+stop-start)/step);
+template<class T>
+decltype(auto) arange( const T& start, const T& stop, const T& step) {
+    double size = (0.+stop-start)/step;
+    std::size_t num_vals = ( std::fabs(size - std::round(size)) < 1e-5*std::fabs(stop)  ? std::round(size) : std::ceil(size));
     if( num_vals <= 0 ){
         throw std::runtime_error("Ultra: arange, stop must be greater than start for positive step, or less than start for negative step");
     }
-    return GeneratorExpression( ArangeFunctor<decltype(T1()*T2()*T3())>(start,step), std::array<std::size_t,1>{num_vals});
+    return GeneratorExpression( ArangeFunctor<T>(start,step), std::array<std::size_t,1>{num_vals});
+}
+
+template<class T1,class T2,class T3>
+decltype(auto) arange( const T1& start, const T2& stop, const T3& step) {
+    using common_t = decltype(T1()*T2()*T3());
+    return arange( (common_t)start, (common_t)stop, (common_t)step);
 }
 
 template<class T1, class T2, class T3>
