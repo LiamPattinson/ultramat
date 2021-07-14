@@ -1,10 +1,67 @@
 # TODO
 
+### Automatic Broadcasting
+
+    * Rather than requesting a single 'stripe_num', instead pass a const ref to a 'Striper' object.
+      A 'Striper' contains two std::vector<std::size_t>: shape, and the current index. It also contains
+      the stripe dim, and additionally a DenseOrder object. The latter simply controls the order in which
+      the index is updated when incrementing/decrementing.
+    * Consider striping over dim 3, if the object's shape is (3,1,3,5) and the Striper index is (2,6,2,0).
+      The 5 in the shape is ignored, as we're striping over this dim. The 6 in the striper index is ignored,
+      as the corresponding shape is 1. Hence, automatic broadcasting. Since we're striping over dim 3, the
+      striper index should never have anything besides 0 in the [3] location.
+    * Now say we're striping over dim 1, and the object shape is (3,1,3,5). The stripe generated should simply
+      have 0 stride.
+    * Expressions require a new function: is_broadcasting. Similarly to is_contiguous, this will control whether
+      the receiving object uses standard iteration or striped. Striped is mandatory when broadcasting.
+    * Broadcasting should be forbidden when dealing with mixed DenseOrder operations.
+    * update broadcasting rules when adding new dimensions
+        * if row_major, the last 1/2 dimensions should be preserved when doing vector/matrix operations,
+          so new dimensions should be prepended (like numpy)
+        * if col_major the first 1/2 dimensions should be preserved when doing vector/matrix operations,
+          so new dimensions should be apended (like the current implementation)
+
 ### Linear algebra
 
-    * trace
+    * On hold
+    * Would be handy if some sort of DenseLinearAlgebraExpression could be defined, but it'll be tricky
+      to generalise it.
+        * Vector Operations
+            * If operating on vectors, and given a row_major object of size (N_a,N_b,...,N_w,N_x), any second
+              args must also have size (N_a,N_b,...,N_w,N_x). If it acts effectively as a reduction operation,
+              such as a dot product, the result will have size (N_a,N_b,...,N_w), as the preceding dimensions
+              are treated as a 'stack' of vectors of size N_x. If the operation instead preserves the vector
+              size, such as the cross product, we require N_x==3, and it produces an object of the same size.
+            * If instead we operate on col_major objects, the first dimension is considered to be the 'vector'
+              dimension, so we instead have objects of size (N_x,N_a,N_b,...,N_w). They otherwise behave the
+              same. Mixed row_major/col_major operations should respect this.
+            * Unary vector operations will operate on the last row if row_major, or first row if col_major.
+            * Outer product should accept row_major arrays of size (N_a,N_b,...,N_w,N_x) and (N_a,N_b,...,N_w,N_y).
+              It will produce an array of size (N_a,N_b,...,N_w,N_x,N_y)
+        * Matrix Operations
+            * Similar to vector operations, but the first/last two dimensions are considered when col/row_major.
+            * Special case of matrix-vector multiplication. Matmul should handle both matrix-matrix and matrix-
+              vector cases, depending on whether the args have the same number of dims or one of them has
+              one less dim than the other. If the first arg has one less dim, we interpret this as a stack of
+              row vectors. If the second arg has one less dim, we interpret this as a stack of column vectors.
+        * A generic DenseLinearAlgebraExpression should be defined, with variances between different operation
+          types implemented via CRTP policy classes.
+        * Will need a way to iterate over vector/matrix stacks as if they're a regular array.
+            * Implement DenseLinearAlgebraStack, which is a variant on a DenseView
+            * Holds a DenseView over the vector/matrix, and on iterating it 'refocuses' the view with a new
+              data pointer while keeping its shape and stride.
+            * It should be broadcastable as usual, and unlike most expressions it should do this by default.
+
     * dot
+        * Give two vectors, return scalar. 
+        * Does not do matmul as other libraries do, with some exceptions where it happens to give the same result.
+            * dot(3x5,5) interpretted as a stack of 3 5-vectors, dotted with a single 5-vector using broadcasting.
+            * dot(5,5x3) intepretted as a single 5-vector dotted with a stack of 5 3-vectors, which is an error.
+            * When using col_major, the former will fail while the latter will succeed.
+    * cross
+        * Give two vectors of size 3, return vector of size 3.
     * matmul
+        * should handle matrix-matrix, matrix-vector, and vector-matrix multiplication.
     * GaussianElimination solver
     * LU factorisation
     * Set BLAS/LAPACK usage at compile time
@@ -13,20 +70,23 @@
 
 ### OpenMP
 
-    * Depends on successful implementation of striping expressions.
-    * Requires custom copy construct/assigns.
     * Will allow most expressions to be calculated in parallel. The exceptions are those that
       must be stepped through linearly, and a special case must be made for these. Examples include
       cumulative sum/product. Perhaps these should be evaluating expressions if OpenMP is activated.
     * Do not have this switched on by default. The end user may wish to use this library alongside
       their own parallelisation strategy, and therefore this would interfere. However, signpost it
       well!
+        * Alternative: Have this switched on by default, but have the code read from the user's
+          environment variables for something called ULTRA_NUM_THREADS. If it can't find this,
+          set num threads to 1. Otherwise, set num threads to this environment variable.
+        * Also require the user to compile with -fopenmp
 
 ### Further linear algebra
 
     * inner, outer
-    * det
+    * det (uses LU factorisation, unless input matrix is particularly small, in which case it's hardcoded)
     * norm (perhaps rename complex norm function to abs2?)
+    * trace (unary matrix operation, tricky iteration method required)
     * cond
     * rank
     * kronecker product
@@ -64,12 +124,8 @@
 
 ### Sparse Matrices
 
-    * compressed sparse row/col mainly
+    * compressed sparse row/col
     * not technically 'sparse' but consider types for packed and banded matrices
-
-### Automatic Broadcasting
-
-    * Requires a complete rethink of striped iteration to do this efficiently
 
 ### Distributed
 
