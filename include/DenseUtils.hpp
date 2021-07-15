@@ -153,6 +153,211 @@ using complex_upcast = std::conditional_t< is_complex<T>::value, T,
 >;
 
 // ==========================
+// Striped iteration utils
+
+class DenseStriper {
+
+    std::size_t                 _dim;
+    DenseOrder                  _order;
+    std::vector<std::ptrdiff_t> _idx;
+    std::vector<std::size_t>    _shape;
+
+    public:
+
+    DenseStriper() = delete;
+    DenseStriper( const DenseStriper& ) = default;
+    DenseStriper( DenseStriper&& ) = default;
+    DenseStriper& operator=( const DenseStriper& ) = default;
+    DenseStriper& operator=( DenseStriper&& ) = default;
+
+    DenseStriper( std::size_t dim, DenseOrder order, const std::vector<std::size_t>& shape, bool end=false) :
+        _dim(dim),
+        _order(order),
+        _idx(shape.size()+1,0),
+        _shape(shape)
+    {
+        if( end ){
+            _idx[ _order==DenseOrder::col_major ? dims() : 0 ] = 1;
+        }
+    }
+
+    std::size_t num_stripes() const {
+        return std::accumulate( _shape.begin(), _shape.end(), 1, std::multiplies<std::size_t>{})/_shape[_dim];
+    }
+
+    std::size_t stripe_dim() const {
+        return _dim;
+    }
+
+    std::size_t stripe_size() const {
+        return _shape[_dim];
+    }
+
+    std::size_t dims() const {
+        return _shape.size();
+    }
+
+    std::vector<std::size_t> shape() const {
+        return _shape;
+    }
+
+    std::size_t shape( std::size_t ii) const {
+        return _shape[ii];
+    }
+
+    std::size_t& shape( std::size_t ii) {
+        return _shape[ii];
+    }
+
+    std::vector<std::ptrdiff_t> index() const {
+        return _idx;
+    }
+
+    std::ptrdiff_t index( std::size_t ii) const {
+        return _idx[ii];
+    }
+
+    std::ptrdiff_t& index( std::size_t ii) {
+        return _idx[ii];
+    }
+
+    DenseStriper& operator++() {
+        if( _order == DenseOrder::col_major ){
+            for( std::size_t ii=0; ii <= dims(); ++ii) {
+                if( ii == stripe_dim()  ) continue;
+                ++index(ii);
+                if( ii < dims() && index(ii) == shape(ii) ) {
+                    index(ii) = 0;
+                } else {
+                    break;
+                }
+            }
+        } else {
+            for( std::ptrdiff_t ii=dims(); ii >= 0; --ii) {
+                if( ii == stripe_dim()+1  ) continue;
+                ++index(ii);
+                if( ii > 0 && index(ii) == shape(ii-1) ) {
+                    index(ii) = 0;
+                } else {
+                    break;
+                }
+            }
+        }
+        return *this;
+    }
+
+    DenseStriper& operator--() {
+        if( _order == DenseOrder::col_major ){
+            for( std::size_t ii=0; ii <= dims(); ++ii) {
+                if( ii == stripe_dim()  ) continue;
+                --index(ii);
+                if( ii < dims() && index(ii) == -1 ) {
+                    index(ii) = shape(ii)-1;
+                } else {
+                    break;
+                }
+            }
+        } else {
+            for( std::ptrdiff_t ii=dims(); ii >= 0; --ii) {
+                if( ii == stripe_dim()+1  ) continue;
+                --index(ii);
+                if( ii>0 && index(ii) == -1 ) {
+                    index(ii) = shape(ii-1)-1;
+                } else {
+                    break;
+                }
+            }
+        }
+        return *this;
+    }
+
+    std::size_t get_scalar_index() const {
+        std::size_t scalar_index = 0;
+        std::size_t scalar_index_factor = 1;
+        if( _order == DenseOrder::col_major) {
+            for( std::size_t ii=0; ii != dims(); ++ii) {
+                if( ii == stripe_dim() ) continue;
+                scalar_index += scalar_index_factor * index(ii);
+                scalar_index_factor *= shape(ii);
+            }
+        } else {
+            for( std::size_t ii=dims(); ii != 0; --ii) {
+                if( ii == stripe_dim()+1 ) continue;
+                scalar_index += scalar_index_factor * index(ii);
+                scalar_index_factor *= shape(ii-1);
+            }
+        }
+        return scalar_index;
+    }
+
+    void set_from_scalar_index( std::size_t scalar_index) {
+        if( _order == DenseOrder::col_major) {
+            for( std::size_t ii=0; ii != dims(); ++ii) {
+                if( ii == stripe_dim() ) continue;
+                index(ii) = scalar_index % shape(ii);
+                scalar_index /= shape(ii);
+            }
+        } else {
+            for( std::size_t ii=dims(); ii != 0; --ii) {
+                if( ii == stripe_dim() +1 ) continue;
+                index(ii) = scalar_index % shape(ii-1);
+                scalar_index /= shape(ii-1);
+            }
+        }
+    }
+
+    void set_from_index( const std::vector<std::size_t>& idx) {
+        if( idx.size() != _idx.size() ) throw std::runtime_error("Ultramat DenseStrider: Tried to set with index of incorrect size");
+        std::ranges::copy( idx, _idx.begin());
+    }
+
+    DenseStriper& operator+=( std::ptrdiff_t diff) {
+        // Determine current scalar index, add diff, set index accordingly
+        std::size_t scalar_index = get_scalar_index();
+        scalar_index += diff;
+        set_from_scalar_index(scalar_index);
+        return *this;
+    }
+
+    DenseStriper& operator-=( std::ptrdiff_t diff) {
+        // Determine current scalar index, subtract diff, set index accordingly
+        std::size_t scalar_index = get_scalar_index();
+        scalar_index -= diff;
+        set_from_scalar_index(scalar_index);
+        return *this;
+    }
+
+    bool operator==( const DenseStriper& other) const {
+        for( std::size_t ii=0; ii <= dims(); ++ii) {
+            if( index(ii) != other.index(ii) ) return false;
+        }
+        return true;
+    }
+
+    auto operator<=>( const DenseStriper& other) const {
+        if( _order == DenseOrder::col_major ) {
+            for( std::size_t ii=dims(); ii != 0; --ii) {
+                if( index(ii) == other.index(ii) ) {
+                    continue;
+                } else {
+                    return index(ii) <=> other.index(ii);
+                }
+            }
+        } else {
+            for( std::size_t ii=0; ii != dims(); ++ii) {
+                if( index(ii) == other.index(ii) ) {
+                    continue;
+                } else {
+                    return index(ii) <=> other.index(ii);
+                }
+            }
+
+        }
+        return std::strong_ordering::equal;
+    }
+};
+
+// ==========================
 // Fixed-Size Dense Utils
 // Lots of compile-time template nonsense ahead.
 
