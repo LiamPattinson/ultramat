@@ -663,8 +663,7 @@ decltype(auto) PREFIX##var( const DenseExpression<T>& t, std::size_t dim=0, std:
     auto mu = eval(PREFIX##mean(x,dim));\
     if( ddof >= x.shape(dim) ) throw std::runtime_error("Ultra var/stddev: choice of ddof would result in negative/zero denominator");\
     std::size_t denom = x.shape(dim) - ddof;\
-    /* Also must evaluate result as broadcast creates a view to a temporary object*/\
-    return eval(PREFIX##sum(norm(x - mu.broadcast(x))) / denom);\
+    return eval(PREFIX##sum(norm(x - mu)) / denom);\
 }\
 \
 template<class T>\
@@ -673,7 +672,7 @@ decltype(auto) PREFIX##var( DenseExpression<T>&& t, std::size_t dim=0, std::size
     auto mu = eval(PREFIX##mean(x,dim));\
     if( ddof >= x.shape(dim) ) throw std::runtime_error("Ultra var/stddev: choice of ddof would result in negative/zero denominator");\
     std::size_t denom = x.shape(dim) - ddof;\
-    return eval(PREFIX##sum(norm(x - mu.broadcast(x))) / denom);\
+    return eval(PREFIX##sum(norm(x - mu)) / denom);\
 }\
 \
 template<class T>\

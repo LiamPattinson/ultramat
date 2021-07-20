@@ -170,12 +170,14 @@ class DenseStriper {
     DenseStriper& operator=( const DenseStriper& ) = default;
     DenseStriper& operator=( DenseStriper&& ) = default;
 
-    DenseStriper( std::size_t dim, DenseOrder order, const std::vector<std::size_t>& shape, bool end=false) :
+    template<shapelike Shape>
+    DenseStriper( std::size_t dim, DenseOrder order, const Shape& shape, bool end=false) :
         _dim(dim),
         _order(order),
         _idx(shape.size()+1,0),
-        _shape(shape)
+        _shape(shape.size())
     {
+        std::ranges::copy( shape, _shape.begin());
         if( end ){
             _idx[ _order==DenseOrder::col_major ? dims() : 0 ] = 1;
         }
@@ -197,6 +199,10 @@ class DenseStriper {
         return _shape.size();
     }
 
+    DenseOrder order() const {
+        return _order;
+    }
+
     std::vector<std::size_t> shape() const {
         return _shape;
     }
@@ -209,7 +215,7 @@ class DenseStriper {
         return _shape[ii];
     }
 
-    std::vector<std::ptrdiff_t> index() const {
+    const std::vector<std::ptrdiff_t>& index() const {
         return _idx;
     }
 
@@ -327,6 +333,10 @@ class DenseStriper {
         return *this;
     }
 
+    std::ptrdiff_t operator-( const DenseStriper& other) const {
+        return static_cast<std::ptrdiff_t>(get_scalar_index()) - static_cast<std::ptrdiff_t>(other.get_scalar_index());
+    }
+
     bool operator==( const DenseStriper& other) const {
         for( std::size_t ii=0; ii <= dims(); ++ii) {
             if( index(ii) != other.index(ii) ) return false;
@@ -356,6 +366,34 @@ class DenseStriper {
         return std::strong_ordering::equal;
     }
 };
+
+template<DenseOrder order, shapelike... Shapes> 
+std::vector<std::size_t> get_broadcast_shape( const Shapes&... shapes) {
+    // If row_major, prepend dims
+    // If col_major, apend dims
+    std::size_t max_dims = std::max({shapes.size()...});
+    std::vector<std::size_t> bcast_shape(max_dims,1);
+    if( order == DenseOrder::col_major ){
+        for( std::size_t ii=0; ii<max_dims; ++ii){
+            bcast_shape[ii] = std::max({ (ii < shapes.size() ? shapes[ii] : 0) ...});
+            // throw exception if any of the shapes included have a dimension which is neither bcast_shape[ii] nor 1.
+            auto errors = std::array<bool,sizeof...(Shapes)>{
+                ( ii < shapes.size() ? ( shapes[ii] == 1 || shapes[ii] == bcast_shape[ii] ? false : true) : false)...
+            };
+            if( std::ranges::any_of(errors,[](bool b){return b;}) ) throw std::runtime_error("Ultramat: Cannot broadcast shapes");   
+        }
+    } else {
+        for( std::size_t ii=0; ii<max_dims; ++ii){
+            bcast_shape[max_dims-ii-1] = std::max({ (ii < shapes.size() ? shapes[shapes.size()-ii-1] : 0) ...});
+            // throw exception if any of the shapes included have a dimension which is neither bcast_shape[ii] nor 1.
+            auto errors = std::array<bool,sizeof...(Shapes)>{
+                ( ii < shapes.size() ? ( shapes[shapes.size()-ii-1] == 1 || shapes[shapes.size()-ii-1] == bcast_shape[max_dims-ii-1] ? false : true) : false)...
+            };
+            if( std::ranges::any_of(errors,[](bool b){return b;}) ) throw std::runtime_error("Ultramat: Cannot broadcast shapes");   
+        }
+    }
+    return bcast_shape;
+}
 
 // ==========================
 // Fixed-Size Dense Utils
@@ -435,6 +473,67 @@ struct variadic_stride {
         typename variadic_stride_impl<typename reverse_index_sequence<std::index_sequence<ShapeInts...,1>>::type,std::index_sequence<>>::type()
     );
 };
+
+// ==========================
+// Expressions utils
+
+struct _Begin { template<class T> decltype(auto) operator()( T&& t) const { return t.begin(); }};
+struct _End { template<class T> decltype(auto) operator()( T&& t) const { return t.end(); }};
+struct _Deref { template<class T> decltype(auto) operator()( T&& t) const { return *t; }};
+struct _PrefixInc { template<class T> decltype(auto) operator()( T&& t) const { return ++t; }};
+struct _PrefixDec { template<class T> decltype(auto) operator()( T&& t) const { return --t; }};
+struct _AddEq { template<class T, class U> decltype(auto) operator()( T&& t, U&& u) const { return t+=u; }};
+struct _MinEq { template<class T, class U> decltype(auto) operator()( T&& t, U&& u) const { return t-=u; }};
+struct _Add { template<class T, class U> decltype(auto) operator()( T&& t, U&& u) const { return t+u; }};
+struct _Min { template<class T, class U> decltype(auto) operator()( T&& t, U&& u) const { return t-u; }};
+struct _IsContiguous { template<class T> bool operator()( T&& t) const { return t.is_contiguous(); }};
+struct _IsOmpParallelisable { template<class T> bool operator()( T&& t) const { return t.is_omp_parallelisable(); }};
+
+struct _GetStripe {
+    const DenseStriper& _striper;
+    template<class T>
+    decltype(auto) operator()( T&& t) const { return t.get_stripe(_striper); }
+};
+
+// apply_to_each
+// std::apply(f,tuple) calls a function f with args given by the tuple.
+// apply_to_each returns a tuple given by (f(tuple_args[0]),f(tuple_args[1]),...) where f is unary.
+// Similar to the possible implementation of std::apply from https://en.cppreference.com/w/cpp/utility/apply
+
+template<class F,class Tuple,std::size_t... I, class... Args>
+constexpr decltype(auto) apply_to_each_impl( F&& f, Tuple&& t, std::index_sequence<I...>, Args&&... args){
+    return std::make_tuple( std::invoke(std::forward<F>(f), std::get<I>(std::forward<Tuple>(t)), std::forward<Args>(args)... )...);
+}
+
+template<class F, class Tuple, class... Args>
+constexpr decltype(auto) apply_to_each( F&& f, Tuple&& t, Args&&... args){
+    return apply_to_each_impl( std::forward<F>(f), std::forward<Tuple>(t), 
+            std::make_index_sequence<std::tuple_size<std::remove_reference_t<Tuple>>::value>{},
+            std::forward<Args>(args)...);
+}
+
+// all_of_tuple/any_of_tuple
+// For a tuple of bools, determine all_of/any_of
+
+template<class Tuple, std::size_t... I>
+constexpr bool all_of_tuple_impl(Tuple&& t, std::index_sequence<I...>){
+    return (std::get<I>(std::forward<Tuple>(t)) & ...);
+}
+
+template<class Tuple, std::size_t... I>
+constexpr bool any_of_tuple_impl(Tuple&& t, std::index_sequence<I...>){
+    return (std::get<I>(std::forward<Tuple>(t)) | ...);
+}
+
+template<class Tuple>
+constexpr bool all_of_tuple(Tuple&& t){
+    return all_of_tuple_impl(std::forward<Tuple>(t), std::make_index_sequence<std::tuple_size<std::remove_reference_t<Tuple>>::value>{});
+}
+
+template<class Tuple>
+constexpr bool any_of_tuple(Tuple&& t){
+    return any_of_tuple_impl(std::forward<Tuple>(t), std::make_index_sequence<std::tuple_size<std::remove_reference_t<Tuple>>::value>{});
+}
 
 } // namespace
 #endif

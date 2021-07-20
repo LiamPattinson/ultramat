@@ -501,6 +501,7 @@ TEST(ViewTest,Reshape){
 
 }
 
+/* TODO rewrite this test
 TEST(ViewTest,Broadcasting){
     using shape = std::vector<std::size_t>;
 
@@ -582,6 +583,7 @@ TEST(ViewTest,Broadcasting){
     }
     EXPECT_TRUE(field_dy_correct);
 }
+*/
 
 TEST(ViewTest,Permuting){
     using shape = std::vector<std::size_t>;

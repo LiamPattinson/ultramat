@@ -15,6 +15,8 @@ namespace ultra {
 // * eye -- Produces NxM array with ones down the kth diagonal
 // * identity -- Produces NxN array with ones down the main diagonal
 
+/* TODO Sort out new striping method and broadcasting, then fix this
+
 template<class T>
 class DenseEyeGenerator : public DenseExpression<DenseEyeGenerator<T>> {
     
@@ -113,7 +115,7 @@ public:
  
     class Stripe {
 
-        using stripe_t = decltype(std::declval<const view_type>().get_stripe(0,0,DenseOrder::col_major));
+        using stripe_t = decltype(std::declval<const view_type>().get_stripe(std::declval<DenseStriper>()));
 
         stripe_t _row_stripe;
         stripe_t _col_stripe;
@@ -130,8 +132,8 @@ public:
         Iterator end() const { return Iterator(_row_stripe.end(),_col_stripe.end()); }
     };
 
-    decltype(auto) get_stripe( std::size_t stripe_num, std::size_t dim, DenseOrder order) const {
-        return Stripe(_bcast_rows.get_stripe(stripe_num,dim,order),_bcast_cols.get_stripe(stripe_num,dim,order));
+    decltype(auto) get_stripe( const DenseStriper& striper) const {
+        return Stripe(_bcast_rows.get_stripe(striper),_bcast_cols.get_stripe(striper));
     }
 };
 
@@ -144,6 +146,8 @@ template<class T=double>
 decltype(auto) identity( std::size_t size){
     return eye<T>(size,size,0);
 }
+
+*/
 
 // =========================
 // Vector Operations

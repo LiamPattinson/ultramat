@@ -1,5 +1,7 @@
 #ifndef __ULTRA_DENSE_HPP
 #define __ULTRA_DENSE_HPP
+// FIXME
+#include <iostream>
 
 // Dense.hpp
 //
@@ -100,10 +102,11 @@ class DenseImpl {
         } else {
             std::size_t stripe_dim = expression.required_stripe_dim();
             if( stripe_dim == dims() ) stripe_dim = ( Order == DenseOrder::row_major ? dims()-1 : 0 );
-            std::size_t stripes = num_stripes(stripe_dim);
-            for( std::size_t stripe_num=0; stripe_num != stripes; ++stripe_num){
-                auto stripe = get_stripe(stripe_num,stripe_dim,Order);
-                auto expr_stripe = expression.get_stripe(stripe_num,stripe_dim,Order);
+            DenseStriper striper( stripe_dim, Order, shape(), 0);
+            DenseStriper end( stripe_dim, Order, shape(), 1);
+            for( ; striper != end; ++striper){
+                auto stripe = get_stripe(striper);
+                auto expr_stripe = expression.get_stripe(striper);
                 auto expr_it = expr_stripe.begin();
                 for(auto it=stripe.begin(), it_end=stripe.end(); it != it_end; ++it, ++expr_it) f(*it,*expr_it);
             }
@@ -330,19 +333,6 @@ class DenseImpl {
     }
 
     // ===============================================
-    // Broadcasting
-
-    template<shapelike... Shapes>
-    auto broadcast( const Shapes&... shapes) const {
-        return derived().view().broadcast(shapes...);
-    }
-
-    template<class... Denses> requires ( is_dense<Denses>::value && ... )
-    auto broadcast( const Denses&... denses) const {
-        return derived().view().broadcast(denses...);
-    }
-
-    // ===============================================
     // Permuting/Transposing
 
     template<shapelike Perm>
@@ -399,39 +389,61 @@ class DenseImpl {
     // ===============================================
     // Striped Iteration
     
-    std::size_t num_stripes( std::size_t dim) const {
-        return std::accumulate(derived()._shape.begin(),derived()._shape.end(),1,std::multiplies<std::size_t>{}) / derived()._shape[dim];
+    auto get_stripe( const DenseStriper& striper){
+#define ULTRA_GET_STRIPE_BODY;\
+        auto* stripe_ptr = derived().data();\
+        std::ptrdiff_t stripe_stride;\
+        bool broadcasting = ( dims() < striper.dims());\
+        bool mixed_order = ( order() != striper.order());\
+        if( broadcasting && mixed_order ) throw std::runtime_error("Ultramat: Can't broadcast row-major and col-major objects at once.");\
+        if( striper.order() == DenseOrder::col_major ){\
+            for( std::size_t ii=0; ii<dims(); ++ii){\
+                if( ii==striper.stripe_dim() ){\
+                    /* ptr stays the same, do nothing */ \
+                } else if( shape(ii)==1 ){\
+                    /* ptr stays the same, but note if we're broadcasting */ \
+                    if( striper.shape(ii) != 1 ) broadcasting=true;\
+                } else {\
+                    stripe_ptr += striper.index(ii) * stride(ii+(Order==DenseOrder::row_major));\
+                }\
+            }\
+            if( striper.stripe_dim() >= dims() || (shape(striper.stripe_dim()) == 1 && striper.shape(striper.stripe_dim()) != 1 )) {\
+                stripe_stride = 0;\
+                broadcasting = true;\
+            } else {\
+                stripe_stride = stride(striper.stripe_dim()+(Order==DenseOrder::row_major));\
+            }\
+        } else {\
+            std::size_t extra_dims = striper.dims() - dims();\
+            for( std::size_t ii=striper.dims(); ii!=extra_dims; --ii){\
+                std::size_t jj = ii - extra_dims;\
+                if( ii==striper.stripe_dim()+1 ){\
+                    /* ptr stays the same, do nothing */ \
+                } else if ( shape(jj-1)==1 ){\
+                    /* ptr stays the same, but note if we're broadcasting */ \
+                    if( striper.shape(ii-1) != 1 ) broadcasting=true;\
+                } else {\
+                    stripe_ptr += striper.index(ii) * stride(jj-(Order==DenseOrder::col_major));\
+                }\
+            }\
+            if( striper.stripe_dim() < extra_dims || (shape(striper.stripe_dim()-extra_dims) == 1 && striper.shape(striper.stripe_dim()) != 1)) {\
+                stripe_stride = 0;\
+                broadcasting = true;\
+            } else {\
+                stripe_stride = stride(striper.stripe_dim()-extra_dims+(Order==DenseOrder::row_major));\
+            }\
+        }\
+        if( broadcasting && mixed_order) throw std::runtime_error("Ultramat: Can't broadcast row-major and col-major objects at once.");
+        ULTRA_GET_STRIPE_BODY
+        return DenseStripe<T,ReadWrite::writeable>( stripe_ptr, stripe_stride, striper.stripe_size());
     }
 
-    std::size_t num_stripes() const { return num_stripes((derived().dims()-1)*(Order == DenseOrder::row_major)); }
-
-    std::ptrdiff_t jump_to_stripe( std::size_t stripe, std::size_t dim, DenseOrder order) const {
-        std::ptrdiff_t result=0;
-        if( order == DenseOrder::col_major){
-            for(std::size_t ii=0; ii!=dims(); ++ii){
-                if( ii == dim ) continue;
-                if( !stripe ) break;
-                result += ( stripe % derived()._shape[ii]) * derived()._stride[ii+(Order==DenseOrder::row_major)];
-                stripe /= derived()._shape[ii];
-            }
-        } else {
-            for(std::size_t ii=dims(); ii!=0; --ii){
-                if( ii-1 == dim ) continue;
-                if( !stripe ) break;
-                result += ( stripe % derived()._shape[ii-1]) * derived()._stride[ii-1+(Order==DenseOrder::row_major)];
-                stripe /= derived()._shape[ii-1];
-            }
-        }
-        return result;
+    auto get_stripe( const DenseStriper& striper) const{
+        ULTRA_GET_STRIPE_BODY
+        return DenseStripe<T,ReadWrite::read_only>( stripe_ptr, stripe_stride, striper.stripe_size());
     }
 
-    auto get_stripe( std::size_t stripe_num, std::size_t dim, DenseOrder order){
-        return DenseStripe<T,ReadWrite::writeable>( derived().data()+jump_to_stripe(stripe_num,dim,order), stride(dim+(Order==DenseOrder::row_major)), shape(dim));
-    }
-
-    auto get_stripe( std::size_t stripe_num, std::size_t dim, DenseOrder order) const {
-        return DenseStripe<T,ReadWrite::read_only>( derived().data()+jump_to_stripe(stripe_num,dim,order), stride(dim+(Order==DenseOrder::row_major)), shape(dim));
-    }
+#undef ULTRA_GET_STRIPE_BODY
 
     constexpr std::size_t required_stripe_dim() const { return dims();}
 
@@ -613,7 +625,6 @@ public:
     using DenseImpl<DenseView<T,rw>>::shape;
     using DenseImpl<DenseView<T,rw>>::stride;
     using DenseImpl<DenseView<T,rw>>::fill;
-    using DenseImpl<DenseView<T,rw>>::num_stripes;
     using DenseImpl<DenseView<T,rw>>::get_stripe;
     using DenseImpl<DenseView<T,rw>>::reshape;
     using DenseImpl<DenseView<T,rw>>::required_stripe_dim;
@@ -691,30 +702,6 @@ public:
     }
 
     // ===============================================
-    // Striped Iteration
-
-    auto begin_stripe( std::size_t stripe, std::size_t dim) {
-         return _data + jump_to_stripe(stride,dim);   
-    }
-
-    auto begin_stripe( std::size_t stripe, std::size_t dim) const {
-         return _data + jump_to_stripe(stride,dim);   
-    }
-
-    auto end_stripe( std::size_t stripe, std::size_t dim) {
-         return _data + jump_to_stripe(stride,dim) + _shape[dim] * _stride[dim+(Order==DenseOrder::row_major)];
-    }
-
-    auto end_stripe( std::size_t stripe, std::size_t dim) const {
-         return _data + jump_to_stripe(stride,dim) + _shape[dim] * _stride[dim+(Order==DenseOrder::row_major)];
-    }
-
-    auto begin_stripe( std::size_t stripe) { return begin_stripe(stripe,(dims()-1)*(Order == DenseOrder::row_major)); }
-    auto begin_stripe( std::size_t stripe) const { return begin_stripe(stripe,(dims()-1)*(Order == DenseOrder::row_major)); }
-    auto end_stripe( std::size_t stripe) { return end_stripe(stripe,(dims()-1)*(Order == DenseOrder::row_major)); }
-    auto end_stripe( std::size_t stripe) const { return end_stripe(stripe,(dims()-1)*(Order == DenseOrder::row_major)); }
-    
-    // ===============================================
     // Special view methods:
     // - Slicing
     // - Broadcasting
@@ -764,69 +751,6 @@ public:
     template<class... Slices> requires ( std::is_same<Slices,Slice>::value && ... )
     DenseView slice( const Slices&... var_slices) const {
         return slice(std::array<Slice,sizeof...(Slices)>{ var_slices... });
-    }
-
-
-    template<shapelike... Shapes> 
-    static std::vector<std::size_t> get_broadcast_shape( const Shapes&... shapes) {
-        std::size_t max_dims = std::max({shapes.size()...});
-        std::vector<std::size_t> bcast_shape(max_dims,1);
-        for( std::size_t ii=0; ii<max_dims; ++ii){
-            bcast_shape[ii] = std::max({ (ii < shapes.size() ? shapes[ii] : 0) ...});
-            // throw exception if any of the shapes included have a dimension which is neither bcast_shape[ii] nor 1.
-            auto errors = std::array<bool,sizeof...(Shapes)>{
-                ( ii < shapes.size() ? ( shapes[ii] == 1 || shapes[ii] == bcast_shape[ii] ? false : true) : false)...
-            };
-            if( std::ranges::any_of(errors,[](bool b){return b;}) ) throw std::runtime_error("Ultramat: Cannot broadcast shapes");   
-        }
-        return bcast_shape;
-    }
-
-    template<shapelike... Shapes>
-    DenseView<T,ReadWrite::read_only> broadcast( const Shapes&... shapes) const {
-        static const std::string err = "Ultramat: Cannot broadcast to given shape";
-        auto bcast_shape = get_broadcast_shape(_shape,shapes...);
-        // Check bcast_shape is valid
-        for(std::size_t ii=0; ii<dims(); ++ii){
-            // Account for broadcasting down
-            if( ii > bcast_shape.size() ){
-                if( _shape[ii] > 1 ){
-                    throw std::runtime_error(err);
-                } else {
-                    continue;
-                }
-            }
-            // Check that shapes agree, or that this view has shape 1
-            if( _shape[ii] != bcast_shape[ii] && _shape[ii] != 1 ) throw std::runtime_error(err);
-        }
-        // Create copy to work with
-        DenseView<T,ReadWrite::read_only> bcast_view(*this);
-        bcast_view.resize_shape_and_stride(bcast_shape.size());
-        std::ranges::copy( bcast_shape, bcast_view._shape.begin());
-        bcast_view._size = std::accumulate( bcast_shape.begin(), bcast_shape.end(), 1, std::multiplies<std::size_t>{});
-        // Broadcasting stride rules:
-        // - If _shape[ii] == 1 and bcast_shape[ii] > 1, stride=0
-        // - If ii > dims(), stride=0
-        // - If _shape[ii] == bcast_shape[ii], stride[ii] = _stride[ii]
-        if( Order == DenseOrder::col_major ){
-            for( std::size_t ii=0; ii<bcast_shape.size(); ++ii){
-                bcast_view._stride[ii] = ( (_shape[ii]==1 && bcast_shape[ii]>1) || ii>dims() ? 0 : _stride[ii]); 
-            }
-            bcast_view._stride[ bcast_shape.size() ] = bcast_view._size;
-        } else {
-            for( std::size_t ii=bcast_shape.size(); ii!=0; --ii){
-                bcast_view._stride[ii] = ( (_shape[ii-1]==1 && bcast_shape[ii-1]>1) || ii>dims() ? 0 : _stride[ii]); 
-            }
-            bcast_view._stride[0] = bcast_view._size;
-        }
-        // Set contiguous
-        bcast_view._is_contiguous = bcast_view.test_contiguous();
-        return bcast_view;
-    }
-
-    template<class... Denses> requires ( is_dense<Denses>::value && ... )
-    DenseView<T,ReadWrite::read_only> broadcast( const Denses&... denses) const {
-        return broadcast(denses.shape()...);
     }
 
     template<shapelike Perm>
@@ -1520,13 +1444,11 @@ public:
     using DenseImpl<Dense<T,Type,Order>>::fill;
     using DenseImpl<Dense<T,Type,Order>>::view;
     using DenseImpl<Dense<T,Type,Order>>::reshape;
-    using DenseImpl<Dense<T,Type,Order>>::broadcast;
     using DenseImpl<Dense<T,Type,Order>>::permute;
     using DenseImpl<Dense<T,Type,Order>>::transpose;
     using DenseImpl<Dense<T,Type,Order>>::t;
     using DenseImpl<Dense<T,Type,Order>>::begin;
     using DenseImpl<Dense<T,Type,Order>>::end;
-    using DenseImpl<Dense<T,Type,Order>>::num_stripes;
     using DenseImpl<Dense<T,Type,Order>>::get_stripe;
     using DenseImpl<Dense<T,Type,Order>>::required_stripe_dim;
     using DenseImpl<Dense<T,Type,Order>>::operator();
@@ -1635,13 +1557,11 @@ public:
     using DenseImpl<DenseFixed<T,Order,Dims...>>::data;
     using DenseImpl<DenseFixed<T,Order,Dims...>>::fill;
     using DenseImpl<DenseFixed<T,Order,Dims...>>::view;
-    using DenseImpl<DenseFixed<T,Order,Dims...>>::broadcast;
     using DenseImpl<DenseFixed<T,Order,Dims...>>::permute;
     using DenseImpl<DenseFixed<T,Order,Dims...>>::transpose;
     using DenseImpl<DenseFixed<T,Order,Dims...>>::t;
     using DenseImpl<DenseFixed<T,Order,Dims...>>::begin;
     using DenseImpl<DenseFixed<T,Order,Dims...>>::end;
-    using DenseImpl<DenseFixed<T,Order,Dims...>>::num_stripes;
     using DenseImpl<DenseFixed<T,Order,Dims...>>::get_stripe;
     using DenseImpl<DenseFixed<T,Order,Dims...>>::required_stripe_dim;
     using DenseImpl<DenseFixed<T,Order,Dims...>>::operator();
