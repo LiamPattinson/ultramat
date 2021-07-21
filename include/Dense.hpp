@@ -1,7 +1,5 @@
 #ifndef __ULTRA_DENSE_HPP
 #define __ULTRA_DENSE_HPP
-// FIXME
-#include <iostream>
 
 // Dense.hpp
 //

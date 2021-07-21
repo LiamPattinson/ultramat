@@ -1,7 +1,5 @@
 #ifndef __ULTRA_DENSE_EXPRESSION_HPP
 #define __ULTRA_DENSE_EXPRESSION_HPP
-// FIXME
-#include <iostream>
 
 // DenseExpression.hpp
 //
@@ -677,19 +675,7 @@ public:
             _fold_size(fold_size),
             _fold_1d(fold_1d),
             _striper(striper)
-        {
-            std::cerr << "creating stripe, fold_dim  = " << fold_dim << std::endl;
-            std::cerr << "                 fold_size = " << fold_size << std::endl;
-            std::cerr << "stripe striper:\nshape [";
-            for( std::size_t  ii=0; ii<striper.dims(); ++ii){
-                std::cerr << striper.shape(ii) << ',';
-            }
-            std::cerr << "]\nindex [";
-            for( std::size_t  ii=0; ii<=striper.dims(); ++ii){
-                std::cerr << striper.index(ii) << ',';
-            }
-            std::cerr << "]\norder " << ( striper.order() == DenseOrder::col_major ? "col_major" : "row_major") << std::endl;
-        }
+        {}
 
         // Define iterator type
         class Iterator : public FoldPolicy<F,ValueType,T> {
@@ -723,30 +709,12 @@ public:
                 _stripe_dim(stripe_dim + (striper.order()==DenseOrder::row_major) + (stripe_dim >= fold_dim)),
                 _fold_dim(fold_dim + (striper.order()==DenseOrder::row_major)),
                 _striper(striper)
-            {
-                std::cerr << "creating stripe iterator, fold_dim = " << _fold_dim << ", stripe_dim = " << _stripe_dim << std::endl;
-                std::cerr << "stripe iterator striper:\nshape [";
-                for( std::size_t  ii=0; ii<striper.dims(); ++ii){
-                    std::cerr << striper.shape(ii) << ',';
-                }
-                std::cerr << "]\nindex [";
-                for( std::size_t  ii=0; ii<=striper.dims(); ++ii){
-                    std::cerr << striper.index(ii) << ',';
-                }
-                std::cerr << "]\norder " << ( striper.order() == DenseOrder::col_major ? "col_major" : "row_major") << std::endl;
-            }
+            {}
 
             ULTRA_FOLD_DEREF
 #undef ULTRA_FOLD_DEREF
 
-            Iterator& operator++() { ++_striper.index(_stripe_dim);
-                std::cerr << "    index [";
-                for( std::size_t  ii=0; ii<=_striper.dims(); ++ii){
-                    std::cerr << _striper.index(ii) << ',';
-                }
-                std::cerr << "]" << std::endl;
-                return *this; 
-            }
+            Iterator& operator++() { ++_striper.index(_stripe_dim); return *this; }
             Iterator& operator--() { --_striper.index(_stripe_dim); return *this; }
             template<std::integral I> Iterator& operator+=( const I& ii) { _striper.index(_stripe_dim) += ii; return *this; }
             template<std::integral I> Iterator& operator-=( const I& ii) { _striper.index(_stripe_dim) -= ii; return *this; }
@@ -772,7 +740,7 @@ public:
             if( _fold_1d){
                 inner_striper.index(0) = _striper.index(0); 
             } else {
-                for( std::size_t ii=0; ii<_striper.dims(); ++ii){
+                for( std::size_t ii=0; ii<=_striper.dims(); ++ii){
                     inner_striper.index(ii + (ii>=(_fold_dim+(_striper.order()==DenseOrder::row_major)))) = _striper.index(ii); 
                 }
             }

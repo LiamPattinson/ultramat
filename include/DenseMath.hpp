@@ -660,7 +660,8 @@ template<class T>\
 decltype(auto) PREFIX##var( const DenseExpression<T>& t, std::size_t dim=0, std::size_t ddof=0){\
     /* As the input expression must be used twice, it must be evaluated here to avoid performing each calculation twice.*/\
     auto x = eval(static_cast<const T&>(t));\
-    auto mu = eval(PREFIX##mean(x,dim));\
+    auto shape = x.shape(); shape[dim] = 1;\
+    auto mu = eval(PREFIX##mean(x,dim)).reshape(shape);\
     if( ddof >= x.shape(dim) ) throw std::runtime_error("Ultra var/stddev: choice of ddof would result in negative/zero denominator");\
     std::size_t denom = x.shape(dim) - ddof;\
     return eval(PREFIX##sum(norm(x - mu)) / denom);\
@@ -669,7 +670,8 @@ decltype(auto) PREFIX##var( const DenseExpression<T>& t, std::size_t dim=0, std:
 template<class T>\
 decltype(auto) PREFIX##var( DenseExpression<T>&& t, std::size_t dim=0, std::size_t ddof=0){\
     auto x = eval(static_cast<T&&>(t));\
-    auto mu = eval(PREFIX##mean(x,dim));\
+    auto shape = x.shape(); shape[dim] = 1;\
+    auto mu = eval(PREFIX##mean(x,dim)).reshape(shape);\
     if( ddof >= x.shape(dim) ) throw std::runtime_error("Ultra var/stddev: choice of ddof would result in negative/zero denominator");\
     std::size_t denom = x.shape(dim) - ddof;\
     return eval(PREFIX##sum(norm(x - mu)) / denom);\

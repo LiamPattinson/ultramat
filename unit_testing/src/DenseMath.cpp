@@ -764,12 +764,12 @@ TEST(ArrayMathTest,SumTest){
         EXPECT_TRUE( test_3D_single<Array<std::size_t>::col_major>( row_3D, ii));
         for( std::size_t jj=0; jj<2; ++jj){
             EXPECT_TRUE( test_3D_double<Array<std::size_t>::col_major>( col_3D, ii, jj));
-            //EXPECT_TRUE( test_3D_double<Array<std::size_t>::row_major>( row_3D, ii, jj));
-            //EXPECT_TRUE( test_3D_double<Array<std::size_t>::row_major>( col_3D, ii, jj));
+            EXPECT_TRUE( test_3D_double<Array<std::size_t>::row_major>( row_3D, ii, jj));
+            EXPECT_TRUE( test_3D_double<Array<std::size_t>::row_major>( col_3D, ii, jj));
             EXPECT_TRUE( test_3D_double<Array<std::size_t>::col_major>( row_3D, ii, jj));
             EXPECT_TRUE( test_3D_triple<Array<std::size_t>::col_major>( col_3D, ii, jj));
-            //EXPECT_TRUE( test_3D_triple<Array<std::size_t>::row_major>( row_3D, ii, jj));
-            //EXPECT_TRUE( test_3D_triple<Array<std::size_t>::row_major>( col_3D, ii, jj));
+            EXPECT_TRUE( test_3D_triple<Array<std::size_t>::row_major>( row_3D, ii, jj));
+            EXPECT_TRUE( test_3D_triple<Array<std::size_t>::row_major>( col_3D, ii, jj));
             EXPECT_TRUE( test_3D_triple<Array<std::size_t>::col_major>( row_3D, ii, jj));
         }
     }
@@ -782,17 +782,17 @@ TEST(ArrayMathTest,SumTest){
         EXPECT_TRUE( test_4D_single<Array<std::size_t>::col_major>( row_4D, ii));
         for( std::size_t jj=0; jj<3; ++jj){
             EXPECT_TRUE( test_4D_double<Array<std::size_t>::col_major>( col_4D, ii, jj));
-            //EXPECT_TRUE( test_4D_double<Array<std::size_t>::row_major>( row_4D, ii, jj));
-            //EXPECT_TRUE( test_4D_double<Array<std::size_t>::row_major>( col_4D, ii, jj));
+            EXPECT_TRUE( test_4D_double<Array<std::size_t>::row_major>( row_4D, ii, jj));
+            EXPECT_TRUE( test_4D_double<Array<std::size_t>::row_major>( col_4D, ii, jj));
             EXPECT_TRUE( test_4D_double<Array<std::size_t>::col_major>( row_4D, ii, jj));
             for( std::size_t kk=0; kk<2; ++kk){
                 EXPECT_TRUE( test_4D_triple<Array<std::size_t>::col_major>( col_4D, ii, jj, kk));
-                //EXPECT_TRUE( test_4D_triple<Array<std::size_t>::row_major>( row_4D, ii, jj, kk));
-                //EXPECT_TRUE( test_4D_triple<Array<std::size_t>::row_major>( col_4D, ii, jj, kk));
+                EXPECT_TRUE( test_4D_triple<Array<std::size_t>::row_major>( row_4D, ii, jj, kk));
+                EXPECT_TRUE( test_4D_triple<Array<std::size_t>::row_major>( col_4D, ii, jj, kk));
                 EXPECT_TRUE( test_4D_triple<Array<std::size_t>::col_major>( row_4D, ii, jj, kk));
                 EXPECT_TRUE( test_4D_quad<Array<std::size_t>::col_major>( col_4D, ii, jj, kk));
-                //EXPECT_TRUE( test_4D_quad<Array<std::size_t>::row_major>( row_4D, ii, jj, kk));
-                //EXPECT_TRUE( test_4D_quad<Array<std::size_t>::row_major>( col_4D, ii, jj, kk));
+                EXPECT_TRUE( test_4D_quad<Array<std::size_t>::row_major>( row_4D, ii, jj, kk));
+                EXPECT_TRUE( test_4D_quad<Array<std::size_t>::row_major>( col_4D, ii, jj, kk));
                 EXPECT_TRUE( test_4D_quad<Array<std::size_t>::col_major>( row_4D, ii, jj, kk));
             }
         }
@@ -800,7 +800,6 @@ TEST(ArrayMathTest,SumTest){
 }
 
 TEST(ArrayMathTest,PreciseSumTest){
-    /* FIXME
     Array<double,4> a;
     a(0) = 1; a(1) = 1e100; a(2) = 1; a(3) = -1e100;
     Array<double> fast = fast_sum(a);
@@ -809,11 +808,9 @@ TEST(ArrayMathTest,PreciseSumTest){
     EXPECT_NE( fast(0), 2);
     EXPECT_NE( pairwise(0), 2);
     EXPECT_EQ( precise(0), 2);
-*/
 }
 
 TEST(ArrayMathTest,BooleanFold){
-    /* FIXME
     Array<bool> a(shape_vec{4,7});
     for( std::size_t ii=0; ii<a.shape(0); ++ii){
         for( std::size_t jj=0; jj<a.shape(1); ++jj){
@@ -846,11 +843,9 @@ TEST(ArrayMathTest,BooleanFold){
     EXPECT_FALSE(all(3));
     EXPECT_TRUE(any(3));
     EXPECT_FALSE(none(3));
-*/
 }
 
 TEST(ArrayMathTest,Accumulate){
-    /* FIXME
     // test min,max,prod
     Array<std::size_t> a(shape_vec{3,4});
     a(0,0) = 3; a(0,1) = 3; a(0,2) = 7; a(0,3) = 0;
@@ -887,11 +882,9 @@ TEST(ArrayMathTest,Accumulate){
     EXPECT_EQ(prod_1(2),0);
     EXPECT_EQ(minmax_0(0),3);
     EXPECT_EQ(minmax_1(0),2);
-*/
 }
 
 TEST(ArrayMathTest,Fold){
-    /* FIXME
     // Test with lambda function. Have 2D Array of 2D FixedArrays, get maximum norm in each dimension
     Array<Array<double,2>> vector_field(shape_vec{6,7});
     for(std::size_t ii=0; ii<6; ++ii){
@@ -917,7 +910,6 @@ TEST(ArrayMathTest,Fold){
     EXPECT_TRUE( std::fabs(max_norm_1(3) - std::sqrt(4*4+3*3)) < 1e-5);
     EXPECT_TRUE( std::fabs(max_norm_1(4) - std::sqrt(5*5+4*4)) < 1e-5);
     EXPECT_TRUE( std::fabs(max_norm_1(5) - std::sqrt(6*6+5*5)) < 1e-5);
-*/
 }
 
 TEST(ArrayMathTest,OnesAndZeros){
@@ -1100,16 +1092,14 @@ TEST(ArrayMathTest,Random){
 }
 
 TEST(ArrayMathTest,MeanAndStddev){
-    /* FIXME
     Array<double> m = mean(random_normal(10,2,10000));
     Array<double> v = var(random_normal(10,2,10000));
     Array<double> s = stddev(random_normal(10,2,10000));
     EXPECT_LT( std::abs(m(0) - 10), 1e-1 );
     EXPECT_LT( std::abs(v(0) - 4), 1e-1 );
     EXPECT_LT( std::abs(s(0) - 2), 1e-1 );
-    */
 }
-/*
+
 TEST(ArrayMathTest,Where){
     Array<std::size_t> a(shape_vec{3,3});
     Array<double> b(shape_vec{3,3}); b.fill(pi);
@@ -1122,4 +1112,3 @@ TEST(ArrayMathTest,Where){
     for( auto&& x : d ) if ( std::abs(x - (e + (((count++)%3) ? pi : 0))) > 1e-2 )  where_correct=false;
     EXPECT_TRUE( where_correct);
 }
-*/
