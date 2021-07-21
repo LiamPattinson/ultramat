@@ -739,71 +739,63 @@ TEST(ArrayMathTest,SumTest){
     count = 0; for( auto&& x : row_4D ) x = count++;
     
     // 1D
-    //EXPECT_TRUE( test_1D<Array<std::size_t>::col_major>( col_1D));
-    //EXPECT_TRUE( test_1D<Array<std::size_t>::row_major>( row_1D));
-    //EXPECT_TRUE( test_1D<Array<std::size_t>::row_major>( col_1D));
-    //EXPECT_TRUE( test_1D<Array<std::size_t>::col_major>( row_1D));
+    EXPECT_TRUE( test_1D<Array<std::size_t>::col_major>( col_1D));
+    EXPECT_TRUE( test_1D<Array<std::size_t>::row_major>( row_1D));
+    EXPECT_TRUE( test_1D<Array<std::size_t>::row_major>( col_1D));
+    EXPECT_TRUE( test_1D<Array<std::size_t>::col_major>( row_1D));
 
     // 2D
     for( std::size_t ii=0; ii<2; ++ii){
-        //EXPECT_TRUE( test_2D_single<Array<std::size_t>::col_major>( col_2D, ii));
-        //EXPECT_TRUE( test_2D_single<Array<std::size_t>::row_major>( row_2D, ii));
+        EXPECT_TRUE( test_2D_single<Array<std::size_t>::col_major>( col_2D, ii));
+        EXPECT_TRUE( test_2D_single<Array<std::size_t>::row_major>( row_2D, ii));
         EXPECT_TRUE( test_2D_single<Array<std::size_t>::row_major>( col_2D, ii));
         EXPECT_TRUE( test_2D_single<Array<std::size_t>::col_major>( row_2D, ii));
-        /*
         EXPECT_TRUE( test_2D_double<Array<std::size_t>::col_major>( col_2D, ii));
         EXPECT_TRUE( test_2D_double<Array<std::size_t>::row_major>( row_2D, ii));
         EXPECT_TRUE( test_2D_double<Array<std::size_t>::row_major>( col_2D, ii));
         EXPECT_TRUE( test_2D_double<Array<std::size_t>::col_major>( row_2D, ii));
-        */
     }
 
     // 3D
     for( std::size_t ii=0; ii<3; ++ii){
-        //EXPECT_TRUE( test_3D_single<Array<std::size_t>::col_major>( col_3D, ii));
-        //EXPECT_TRUE( test_3D_single<Array<std::size_t>::row_major>( row_3D, ii));
-        /*
+        EXPECT_TRUE( test_3D_single<Array<std::size_t>::col_major>( col_3D, ii));
+        EXPECT_TRUE( test_3D_single<Array<std::size_t>::row_major>( row_3D, ii));
         EXPECT_TRUE( test_3D_single<Array<std::size_t>::row_major>( col_3D, ii));
         EXPECT_TRUE( test_3D_single<Array<std::size_t>::col_major>( row_3D, ii));
-        */
         for( std::size_t jj=0; jj<2; ++jj){
-            /*
             EXPECT_TRUE( test_3D_double<Array<std::size_t>::col_major>( col_3D, ii, jj));
-            EXPECT_TRUE( test_3D_double<Array<std::size_t>::row_major>( row_3D, ii, jj));
-            EXPECT_TRUE( test_3D_double<Array<std::size_t>::row_major>( col_3D, ii, jj));
+            //EXPECT_TRUE( test_3D_double<Array<std::size_t>::row_major>( row_3D, ii, jj));
+            //EXPECT_TRUE( test_3D_double<Array<std::size_t>::row_major>( col_3D, ii, jj));
             EXPECT_TRUE( test_3D_double<Array<std::size_t>::col_major>( row_3D, ii, jj));
             EXPECT_TRUE( test_3D_triple<Array<std::size_t>::col_major>( col_3D, ii, jj));
-            EXPECT_TRUE( test_3D_triple<Array<std::size_t>::row_major>( row_3D, ii, jj));
-            EXPECT_TRUE( test_3D_triple<Array<std::size_t>::row_major>( col_3D, ii, jj));
+            //EXPECT_TRUE( test_3D_triple<Array<std::size_t>::row_major>( row_3D, ii, jj));
+            //EXPECT_TRUE( test_3D_triple<Array<std::size_t>::row_major>( col_3D, ii, jj));
             EXPECT_TRUE( test_3D_triple<Array<std::size_t>::col_major>( row_3D, ii, jj));
-            */
         }
     }
 
     // 4D
     for( std::size_t ii=0; ii<4; ++ii){
-        //EXPECT_TRUE( test_4D_single<Array<std::size_t>::col_major>( col_4D, ii));
-        //EXPECT_TRUE( test_4D_single<Array<std::size_t>::row_major>( row_4D, ii));
-        /*
+        EXPECT_TRUE( test_4D_single<Array<std::size_t>::col_major>( col_4D, ii));
+        EXPECT_TRUE( test_4D_single<Array<std::size_t>::row_major>( row_4D, ii));
         EXPECT_TRUE( test_4D_single<Array<std::size_t>::row_major>( col_4D, ii));
         EXPECT_TRUE( test_4D_single<Array<std::size_t>::col_major>( row_4D, ii));
         for( std::size_t jj=0; jj<3; ++jj){
             EXPECT_TRUE( test_4D_double<Array<std::size_t>::col_major>( col_4D, ii, jj));
-            EXPECT_TRUE( test_4D_double<Array<std::size_t>::row_major>( row_4D, ii, jj));
-            EXPECT_TRUE( test_4D_double<Array<std::size_t>::row_major>( col_4D, ii, jj));
+            //EXPECT_TRUE( test_4D_double<Array<std::size_t>::row_major>( row_4D, ii, jj));
+            //EXPECT_TRUE( test_4D_double<Array<std::size_t>::row_major>( col_4D, ii, jj));
             EXPECT_TRUE( test_4D_double<Array<std::size_t>::col_major>( row_4D, ii, jj));
             for( std::size_t kk=0; kk<2; ++kk){
                 EXPECT_TRUE( test_4D_triple<Array<std::size_t>::col_major>( col_4D, ii, jj, kk));
-                EXPECT_TRUE( test_4D_triple<Array<std::size_t>::row_major>( row_4D, ii, jj, kk));
-                EXPECT_TRUE( test_4D_triple<Array<std::size_t>::row_major>( col_4D, ii, jj, kk));
+                //EXPECT_TRUE( test_4D_triple<Array<std::size_t>::row_major>( row_4D, ii, jj, kk));
+                //EXPECT_TRUE( test_4D_triple<Array<std::size_t>::row_major>( col_4D, ii, jj, kk));
                 EXPECT_TRUE( test_4D_triple<Array<std::size_t>::col_major>( row_4D, ii, jj, kk));
                 EXPECT_TRUE( test_4D_quad<Array<std::size_t>::col_major>( col_4D, ii, jj, kk));
-                EXPECT_TRUE( test_4D_quad<Array<std::size_t>::row_major>( row_4D, ii, jj, kk));
-                EXPECT_TRUE( test_4D_quad<Array<std::size_t>::row_major>( col_4D, ii, jj, kk));
+                //EXPECT_TRUE( test_4D_quad<Array<std::size_t>::row_major>( row_4D, ii, jj, kk));
+                //EXPECT_TRUE( test_4D_quad<Array<std::size_t>::row_major>( col_4D, ii, jj, kk));
                 EXPECT_TRUE( test_4D_quad<Array<std::size_t>::col_major>( row_4D, ii, jj, kk));
             }
         }
-        */
     }
 }
 

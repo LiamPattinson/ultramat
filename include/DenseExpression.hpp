@@ -696,6 +696,7 @@ public:
 
             F            _f;
             ref_t        _t;
+            std::size_t  _stripe_dim;
             std::size_t  _fold_dim;
             DenseStriper _striper;
 
@@ -707,21 +708,23 @@ public:
             Iterator& operator=( const Iterator& ) = default;
             Iterator& operator=( Iterator&& ) = default;
             
-            Iterator( const F& f, ref_t t, std::size_t fold_dim, const DenseStriper& striper, value_type start_val) :
+            Iterator( const F& f, ref_t t, std::size_t stripe_dim, std::size_t fold_dim, const DenseStriper& striper, value_type start_val) :
                 FoldPolicy<F,ValueType,T>(start_val),
                 _f(f),
                 _t(t),
-                _fold_dim(fold_dim + (_striper.order()==DenseOrder::row_major)),
+                _stripe_dim(stripe_dim + (striper.order()==DenseOrder::row_major) + (stripe_dim >= fold_dim)),
+                _fold_dim(fold_dim + (striper.order()==DenseOrder::row_major)),
                 _striper(striper)
             {}
 
-            Iterator( const F& f, ref_t t, std::size_t fold_dim, const DenseStriper& striper) :
+            Iterator( const F& f, ref_t t, std::size_t stripe_dim, std::size_t fold_dim, const DenseStriper& striper) :
                 _f(f),
                 _t(t),
-                _fold_dim(fold_dim + (_striper.order()==DenseOrder::row_major)),
+                _stripe_dim(stripe_dim + (striper.order()==DenseOrder::row_major) + (stripe_dim >= fold_dim)),
+                _fold_dim(fold_dim + (striper.order()==DenseOrder::row_major)),
                 _striper(striper)
             {
-                std::cerr << "creating stripe iterator, fold_dim = " << fold_dim << std::endl;
+                std::cerr << "creating stripe iterator, fold_dim = " << _fold_dim << ", stripe_dim = " << _stripe_dim << std::endl;
                 std::cerr << "stripe iterator striper:\nshape [";
                 for( std::size_t  ii=0; ii<striper.dims(); ++ii){
                     std::cerr << striper.shape(ii) << ',';
@@ -736,15 +739,22 @@ public:
             ULTRA_FOLD_DEREF
 #undef ULTRA_FOLD_DEREF
 
-            Iterator& operator++() { ++_striper.index(_fold_dim); return *this; }
-            Iterator& operator--() { --_striper.index(_fold_dim); return *this; }
-            template<std::integral I> Iterator& operator+=( const I& ii) { _striper.index(_fold_dim) += ii; return *this; }
-            template<std::integral I> Iterator& operator-=( const I& ii) { _striper.index(_fold_dim) -= ii; return *this; }
+            Iterator& operator++() { ++_striper.index(_stripe_dim);
+                std::cerr << "    index [";
+                for( std::size_t  ii=0; ii<=_striper.dims(); ++ii){
+                    std::cerr << _striper.index(ii) << ',';
+                }
+                std::cerr << "]" << std::endl;
+                return *this; 
+            }
+            Iterator& operator--() { --_striper.index(_stripe_dim); return *this; }
+            template<std::integral I> Iterator& operator+=( const I& ii) { _striper.index(_stripe_dim) += ii; return *this; }
+            template<std::integral I> Iterator& operator-=( const I& ii) { _striper.index(_stripe_dim) -= ii; return *this; }
             template<std::integral I> Iterator operator+( const I& ii) { auto result(*this); result+=ii; return result; }
             template<std::integral I> Iterator operator-( const I& ii) { auto result(*this); result-=ii; return result; }
-            bool operator==( const Iterator& other) const { return _striper.index(_fold_dim) == other._striper.index(_fold_dim);}
-            auto operator<=>( const Iterator& other) const { return _striper.index(_fold_dim) <=> other._striper.index(_fold_dim);}
-            std::ptrdiff_t operator-( const Iterator& other) const { return _striper.index(_fold_dim) - other._striper.index(_fold_dim);}
+            bool operator==( const Iterator& other) const { return _striper.index(_stripe_dim) == other._striper.index(_stripe_dim);}
+            auto operator<=>( const Iterator& other) const { return _striper.index(_stripe_dim) <=> other._striper.index(_stripe_dim);}
+            std::ptrdiff_t operator-( const Iterator& other) const { return _striper.index(_stripe_dim) - other._striper.index(_stripe_dim);}
 
         };
 
@@ -767,10 +777,11 @@ public:
                 }
             }
             if( end ){
+                std::size_t end_dim = _striper.stripe_dim() + (_striper.stripe_dim() >= _fold_dim);
                 if( _fold_1d) {
-                    inner_striper.index(0) = _fold_size;
+                    inner_striper.index(0) = inner_striper.shape(0);
                 } else {
-                    inner_striper.index(_fold_dim + (_striper.order() == DenseOrder::row_major)) = _fold_size;
+                    inner_striper.index(end_dim + (_striper.order() == DenseOrder::row_major)) = inner_striper.shape(end_dim);
                 }
             }
             return inner_striper;
@@ -778,22 +789,22 @@ public:
 
         Iterator begin() const requires (requires_start_val) {
             auto inner_striper = get_inner_striper(0);
-            return Iterator( _f, _t, _fold_dim, inner_striper, FoldPolicy<F,ValueType,T>::get());
+            return Iterator( _f, _t, _striper.stripe_dim(), _fold_dim, inner_striper, FoldPolicy<F,ValueType,T>::get());
         }
 
         Iterator begin() const requires (!requires_start_val) {
             auto inner_striper = get_inner_striper(0);
-            return Iterator( _f, _t, _fold_dim, inner_striper);
+            return Iterator( _f, _t, _striper.stripe_dim() ,_fold_dim, inner_striper);
         }
 
         Iterator end() const requires (requires_start_val) {
             auto inner_striper = get_inner_striper(1);
-            return Iterator( _f, _t, _fold_dim, inner_striper, FoldPolicy<F,ValueType,T>::get());
+            return Iterator( _f, _t, _striper.stripe_dim(), _fold_dim, inner_striper, FoldPolicy<F,ValueType,T>::get());
         }
 
         Iterator end() const requires (!requires_start_val) {
             auto inner_striper = get_inner_striper(1);
-            return Iterator( _f, _t, _fold_dim, inner_striper);
+            return Iterator( _f, _t, _striper.stripe_dim(), _fold_dim, inner_striper);
         }
     };
 
