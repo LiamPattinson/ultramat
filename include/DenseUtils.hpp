@@ -487,7 +487,27 @@ struct _MinEq { template<class T, class U> decltype(auto) operator()( T&& t, U&&
 struct _Add { template<class T, class U> decltype(auto) operator()( T&& t, U&& u) const { return t+u; }};
 struct _Min { template<class T, class U> decltype(auto) operator()( T&& t, U&& u) const { return t-u; }};
 struct _IsContiguous { template<class T> bool operator()( T&& t) const { return t.is_contiguous(); }};
+struct _IsBroadcasting { template<class T> bool operator()( T&& t) const { return t.is_broadcasting(); }};
 struct _IsOmpParallelisable { template<class T> bool operator()( T&& t) const { return t.is_omp_parallelisable(); }};
+struct _Dims { template<class T> decltype(auto) operator()( T&& t) const { return t.dims(); }};
+
+struct _DimsNeq { 
+    std::size_t _dims;
+    template<class T>
+    decltype(auto) operator()( T&& t) const { return _dims != t.dims(); }
+};
+
+struct _ShapeNeq { 
+    const std::vector<std::size_t>& _shape;
+    template<class T>
+    decltype(auto) operator()( T&& t) const {
+        bool result = false;
+        for( std::size_t ii=0; ii<_shape.size(); ++ii){
+            result |= (_shape[ii] != t.shape(ii));
+        }
+        return result;
+    }
+};
 
 struct _GetStripe {
     const DenseStriper& _striper;

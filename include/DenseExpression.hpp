@@ -30,6 +30,7 @@ class DenseExpression {
     static constexpr decltype(auto) order() { return T::order(); }
 
     constexpr bool is_contiguous() const noexcept { return derived().is_contiguous(); }
+    constexpr bool is_broadcasting() const noexcept { return derived().is_broadcasting(); }
     constexpr bool is_omp_parallelisable() const noexcept { return derived().is_omp_parallelisable(); }
 
     constexpr decltype(auto) begin() { return derived().begin(); }
@@ -192,6 +193,18 @@ public:
     constexpr bool is_contiguous() const noexcept { return all_of_tuple(apply_to_each(_IsContiguous{},_args)); }
     constexpr bool is_omp_parallelisable() const noexcept { return all_of_tuple(apply_to_each(_IsOmpParallelisable{},_args)); }
 
+    bool is_broadcasting() const { 
+        // Are args broadcasting?
+        bool result = any_of_tuple(apply_to_each(_IsBroadcasting{},_args));
+        if( result ) return result;
+        // Do args have mismatching dims?
+        result |= any_of_tuple(apply_to_each(_DimsNeq{dims()},_args));
+        if( result ) return result;
+        // Do args have mismatching shapes?
+        result |= any_of_tuple(apply_to_each(_ShapeNeq{_shape},_args));
+        return result;
+    }
+
     // Define const_iterator class
  
     // Notes:
@@ -289,7 +302,8 @@ public:
 
 // ScalarDenseExpression
 // Broadcast a scalar to a given shape, allowing it to take part in DenseExpressions.
-// DEPRECATED, WILL NOT WORK IN SOME CASES
+// Was previously used for all scalar broadcasting, now is used in only a handful of special cases.
+// Should be deprecated as the remaining edge cases are smoothed out.
 
 template<class T, DenseOrder Order> requires number<T>
 class ScalarDenseExpression : public DenseExpression<ScalarDenseExpression<T,Order>> {
@@ -330,6 +344,7 @@ public:
     static constexpr DenseOrder order() { return Order; }
 
     constexpr bool is_contiguous() const noexcept { return true; }
+    constexpr bool is_broadcasting() const noexcept { return false; }
     constexpr bool is_omp_parallelisable() const noexcept { return true; }
 
     // Define const_iterator class
@@ -516,6 +531,7 @@ public:
     std::size_t dims() const { return std::max((std::size_t)1,_t.dims()-1); }
     decltype(auto) shape(std::size_t ii) const { return (_t.dims()==1 ? 1 : _t.shape(ii < _fold_dim ? ii : ii+1)); }
     constexpr bool is_contiguous() const noexcept { return _t.is_contiguous(); }
+    constexpr bool is_broadcasting() const noexcept { return _t.is_broadcasting(); }
     constexpr bool is_omp_parallelisable() const noexcept { return _t.is_omp_parallelisable(); }
     decltype(auto) required_stripe_dim() const { return dims(); }
 
@@ -837,6 +853,7 @@ public:
     // CumulativeDenseExpressions cannot be performed in parallel and must make use of striped iteration, hence will
     // appear as non-contiguous and non-omp-parallel. Each stripe may still be determined in parallel however.
     constexpr bool is_contiguous() const noexcept { return false; }
+    constexpr bool is_broadcasting() const noexcept { return _t.is_broadcasting(); }
     constexpr bool is_omp_parallelisable() const noexcept { return false; }
 
     // Define stripe class
@@ -946,6 +963,7 @@ public:
     decltype(auto) required_stripe_dim() const { return dims(); }
 
     constexpr bool is_contiguous() const noexcept { return true; }
+    constexpr bool is_broadcasting() const noexcept { return false; }
     constexpr bool is_omp_parallelisable() const noexcept { return true; }
 
     // Define iterator class
@@ -1060,6 +1078,20 @@ public:
 
     constexpr bool is_omp_parallelisable() const noexcept {
         return _condition.is_omp_parallelisable() && _left_expression.is_omp_parallelisable() && _right_expression.is_omp_parallelisable();
+    }
+
+    bool is_broadcasting() const { 
+        // Are args broadcasting?
+        bool result = _condition.is_broadcasting() || _left_expression.is_broadcasting() || _right_expression.is_broadcasting();
+        if( result ) return result;
+        // Do args have mismatching dims?
+        result |= _condition.dims() != dims() || _left_expression.dims() != dims() || _right_expression.dims() != dims();
+        if( result ) return result;
+        // Do args have mismatching shapes?
+        for( std::size_t ii=0; ii<dims(); ++ii){
+            result |= _condition.shape(ii) != shape(ii) || _left_expression.shape(ii) != shape(ii) || _right_expression.shape(ii) != shape(ii);
+        }
+        return result;
     }
 
     // Define const_iterator class

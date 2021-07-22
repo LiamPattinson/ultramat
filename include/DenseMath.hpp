@@ -88,22 +88,22 @@ DENSE_MATH_UNARY_OPERATOR( LogicalNot, !)
 \
     template<class L, class R> requires number<R> \
     decltype(auto) operator Op ( const DenseExpression<L>& l, R r){\
-        return static_cast<const L&>(l) Op ScalarDenseExpression<R,L::order()>(r,l.shape());\
+        return static_cast<const L&>(l) Op DenseFixed<R,L::order(),1>(r);\
     }\
 \
     template<class L, class R> requires number<R> \
     decltype(auto) operator Op ( DenseExpression<L>&& l, R r){\
-        return static_cast<L&&>(l) Op ScalarDenseExpression<R,L::order()>(r,l.shape());\
+        return static_cast<L&&>(l) Op DenseFixed<R,L::order(),1>(r);\
     }\
 \
     template<class L, class R> requires number<L> \
     decltype(auto) operator Op ( L l, const DenseExpression<R>& r){\
-        return ScalarDenseExpression<L,R::order()>(l,r.shape()) Op static_cast<const R&>(r);\
+        return DenseFixed<L,R::order(),1>(l) Op static_cast<const R&>(r);\
     }\
 \
     template<class L, class R> requires number<L> \
     decltype(auto) operator Op ( L l, DenseExpression<R>&& r){\
-        return ScalarDenseExpression<L,R::order()>(l,r.shape()) Op static_cast<R&&>(r);\
+        return DenseFixed<L,R::order(),1>(l) Op static_cast<R&&>(r);\
     }
 
 DENSE_MATH_BINARY_OPERATOR( Plus, +)
@@ -266,22 +266,22 @@ DENSE_MATH_UNARY_COMPLEX_FUNC(Atanh,atanh)
 \
     template<class L, class R> requires number<R> \
     decltype(auto) FuncName ( const DenseExpression<L>& l, R r){\
-        return FuncName(static_cast<const L&>(l),ScalarDenseExpression<R,L::order()>(r,l.shape()));\
+        return FuncName(static_cast<const L&>(l),DenseFixed<R,L::order(),1>(r));\
     }\
 \
     template<class L, class R> requires number<R> \
     decltype(auto) FuncName ( DenseExpression<L>&& l, R r){\
-        return FuncName(static_cast<L&&>(l),ScalarDenseExpression<R,L::order()>(r,l.shape()));\
+        return FuncName(static_cast<L&&>(l),DenseFixed<R,L::order(),1>(r));\
     }\
 \
     template<class L, class R> requires number<L> \
     decltype(auto) FuncName ( L l, const DenseExpression<R>& r){\
-        return FuncName(ScalarDenseExpression<L,R::order()>(l,r.shape()),static_cast<const R&>(r));\
+        return FuncName(DenseFixed<L,R::order(),1>(l),static_cast<const R&>(r));\
     }\
 \
     template<class L, class R> requires number<L> \
     decltype(auto) FuncName ( L l, DenseExpression<R>&& r){\
-        return FuncName(ScalarDenseExpression<L,R::order()>(l,r.shape()),static_cast<R&&>(r));\
+        return FuncName(DenseFixed<L,R::order(),1>(l),static_cast<R&&>(r));\
     }\
 \
     template<class L, class R> requires number<L> && number<R>\
@@ -360,92 +360,92 @@ DENSE_MATH_BINARY_FUNCTION(ComplexPow,complex_pow,_complex_pow)
 \
     template<class X, class Y,class Z> requires number<X> \
     decltype(auto) FuncName ( X x, const DenseExpression<Y>& y, const DenseExpression<Z>& z){\
-        return FuncName(ScalarDenseExpression<X,Y::order()>(x,y.shape()),static_cast<const Y&>(y),static_cast<const Z&>(z));\
+        return FuncName(DenseFixed<X,Y::order(),1>(x),static_cast<const Y&>(y),static_cast<const Z&>(z));\
     }\
 \
     template<class X, class Y,class Z> requires number<X> \
     decltype(auto) FuncName ( X x, DenseExpression<Y>&& y, const DenseExpression<Z>& z){\
-        return FuncName(ScalarDenseExpression<X,Y::order()>(x,y.shape()),static_cast<Y&&>(y),static_cast<const Z&>(z));\
+        return FuncName(DenseFixed<X,Y::order(),1>(x),static_cast<Y&&>(y),static_cast<const Z&>(z));\
     }\
 \
     template<class X, class Y,class Z> requires number<X> \
     decltype(auto) FuncName ( X x, const DenseExpression<Y>& y, DenseExpression<Z>&& z){\
-        return FuncName(ScalarDenseExpression<X,Y::order()>(x,y.shape()),static_cast<const Y&>(y),static_cast<Z&&>(z));\
+        return FuncName(DenseFixed<X,Y::order(),1>(x),static_cast<const Y&>(y),static_cast<Z&&>(z));\
     }\
 \
     template<class X, class Y,class Z> requires number<X> \
     decltype(auto) FuncName ( X x, DenseExpression<Y>&& y, DenseExpression<Z>&& z){\
-        return FuncName(ScalarDenseExpression<X,Y::order()>(x,y.shape()),static_cast<Y&&>(y),static_cast<Z&&>(z));\
+        return FuncName(DenseFixed<X,Y::order(),1>(x),static_cast<Y&&>(y),static_cast<Z&&>(z));\
     }\
 \
     template<class X, class Y,class Z> requires number<Y> \
     decltype(auto) FuncName ( const DenseExpression<X>& x, Y y, const DenseExpression<Z>& z){\
-        return FuncName(static_cast<const X&>(x),ScalarDenseExpression<Y,X::order()>(y,x.shape()),static_cast<const Z&>(z));\
+        return FuncName(static_cast<const X&>(x),DenseFixed<Y,X::order(),1>(y),static_cast<const Z&>(z));\
     }\
 \
     template<class X, class Y,class Z> requires number<Y> \
     decltype(auto) FuncName ( DenseExpression<X>&& x, Y y, const DenseExpression<Z>& z){\
-        return FuncName(static_cast<X&&>(x),ScalarDenseExpression<Y,X::order()>(y,x.shape()),static_cast<const Z&>(z));\
+        return FuncName(static_cast<X&&>(x),DenseFixed<Y,X::order(),1>(y),static_cast<const Z&>(z));\
     }\
 \
     template<class X, class Y,class Z> requires number<Y> \
     decltype(auto) FuncName ( const DenseExpression<X>& x, Y y, DenseExpression<Z>&& z){\
-        return FuncName(static_cast<const X&>(x),ScalarDenseExpression<Y,X::order()>(y,x.shape()),static_cast<Z&&>(z));\
+        return FuncName(static_cast<const X&>(x),DenseFixed<Y,X::order(),1>(y),static_cast<Z&&>(z));\
     }\
 \
     template<class X, class Y,class Z> requires number<Y> \
     decltype(auto) FuncName ( DenseExpression<X>&& x, Y y, DenseExpression<Z>&& z){\
-        return FuncName(static_cast<X&&>(x),ScalarDenseExpression<Y,X::order()>(y,x.shape()),static_cast<Z&&>(z));\
+        return FuncName(static_cast<X&&>(x),DenseFixed<Y,X::order(),1>(y),static_cast<Z&&>(z));\
     }\
 \
     template<class X, class Y,class Z> requires number<Z> \
     decltype(auto) FuncName ( const DenseExpression<X>& x, const DenseExpression<Y>& y, Z z){\
-        return FuncName(static_cast<const X&>(x),static_cast<const Y&>(y),ScalarDenseExpression<Z,X::order()>(z,x.shape()));\
+        return FuncName(static_cast<const X&>(x),static_cast<const Y&>(y),DenseFixed<Z,X::order(),1>(z));\
     }\
 \
     template<class X, class Y,class Z> requires number<Z> \
     decltype(auto) FuncName ( DenseExpression<X>&& x, const DenseExpression<Y>&& y, Z z){\
-        return FuncName(static_cast<X&&>(x),static_cast<const Y&>(y),ScalarDenseExpression<Z,X::order()>(z,x.shape()));\
+        return FuncName(static_cast<X&&>(x),static_cast<const Y&>(y),DenseFixed<Z,X::order(),1>(z));\
     }\
 \
     template<class X, class Y,class Z> requires number<Z> \
     decltype(auto) FuncName ( const DenseExpression<X>& x, DenseExpression<Y>&& y, Z z){\
-        return FuncName(static_cast<const X&>(x),static_cast<Y&&>(y),ScalarDenseExpression<Z,X::order()>(z,x.shape()));\
+        return FuncName(static_cast<const X&>(x),static_cast<Y&&>(y),DenseFixed<Z,X::order(),1>(z));\
     }\
 \
     template<class X, class Y,class Z> requires number<Z> \
     decltype(auto) FuncName ( DenseExpression<X>&& x, DenseExpression<Y>&& y, Z z){\
-        return FuncName(static_cast<X&&>(x),static_cast<Y&&>(y),ScalarDenseExpression<Z,X::order()>(z,x.shape()));\
+        return FuncName(static_cast<X&&>(x),static_cast<Y&&>(y),DenseFixed<Z,X::order(),1>(z));\
     }\
 \
     template<class X, class Y,class Z> requires number<X> && number<Y>\
     decltype(auto) FuncName ( X x, Y y, const DenseExpression<Z>& z){\
-        return FuncName(ScalarDenseExpression<X,Z::order()>(x,z.shape()),ScalarDenseExpression<Y,Z::order()>(y,z.shape()),static_cast<const Z&>(z));\
+        return FuncName(DenseFixed<X,Z::order(),1>(x),DenseFixed<Y,Z::order(),1>(y),static_cast<const Z&>(z));\
     }\
 \
     template<class X, class Y,class Z> requires number<X> && number<Y>\
     decltype(auto) FuncName ( X x, Y y, DenseExpression<Z>&& z){\
-        return FuncName(ScalarDenseExpression<X,Z::order()>(x,z.shape()),ScalarDenseExpression<Y,Z::order()>(y,z.shape()),static_cast<Z&&>(z));\
+        return FuncName(DenseFixed<X,Z::order(),1>(x),DenseFixed<Y,Z::order(),1>(y),static_cast<Z&&>(z));\
     }\
 \
     template<class X, class Y,class Z> requires number<X> && number<Z>\
     decltype(auto) FuncName ( X x, const DenseExpression<Y>& y, Z z){\
-        return FuncName(ScalarDenseExpression<X,Y::order()>(x,y.shape()),static_cast<const Y&>(y),ScalarDenseExpression<Z,Y::order()>(z,y.shape()));\
+        return FuncName(DenseFixed<X,Y::order(),1>(x),static_cast<const Y&>(y),DenseFixed<Z,Y::order(),1>(z));\
     }\
 \
     template<class X, class Y,class Z> requires number<X> && number<Z>\
     decltype(auto) FuncName ( X x, DenseExpression<Y>&& y, Z z){\
-        return FuncName(ScalarDenseExpression<X,Y::order()>(x,y.shape()),static_cast<Y&&>(y),ScalarDenseExpression<Z,Y::order()>(z,y.shape()));\
+        return FuncName(DenseFixed<X,Y::order(),1>(x),static_cast<Y&&>(y),DenseFixed<Z,Y::order(),1>(z));\
     }\
 \
     template<class X, class Y,class Z> requires number<Y> && number<Z>\
     decltype(auto) FuncName ( const DenseExpression<X>& x, Y y, Z z){\
-        return FuncName(static_cast<const X&>(x),ScalarDenseExpression<Y,X::order()>(y,x.shape()),ScalarDenseExpression<Z,X::order()>(z,x.shape()));\
+        return FuncName(static_cast<const X&>(x),DenseFixed<Y,X::order(),1>(y),DenseFixed<Z,X::order(),1>(z));\
     }\
 \
     template<class X, class Y,class Z> requires number<Y> && number<Z>\
     decltype(auto) FuncName ( DenseExpression<X>&& x, Y y, Z z){\
-        return FuncName(static_cast<X&&>(x),ScalarDenseExpression<Y,X::order()>(y,x.shape()),ScalarDenseExpression<Z,X::order()>(z,x.shape()));\
+        return FuncName(static_cast<X&&>(x),DenseFixed<Y,X::order(),1>(y),DenseFixed<Z,X::order(),1>(z));\
     }\
 \
     template<class X, class Y,class Z> requires number<X> && number<Y> && number<Z>\

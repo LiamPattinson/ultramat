@@ -21,7 +21,7 @@ namespace ultra {
 // CRTP Base Class
 // Defines a base class for all dense array-like objects, including Arrays, Vectors, Matrices, and their fixed-size counterparts.
 
-    template<class T>
+template<class T>
 class DenseImpl {
     constexpr T& derived() noexcept { return static_cast<T&>(*this); }
     constexpr const T& derived() const noexcept { return static_cast<const T&>(*this); }
@@ -94,7 +94,7 @@ class DenseImpl {
     template<class F, class E>
     void accept_expression( E&& expression ){
         F f{};
-        if( derived().is_contiguous() && expression.is_contiguous() && expression.order() == Order ){
+        if( derived().is_contiguous() && expression.is_contiguous() && expression.order() == Order && !expression.is_broadcasting() ){
             auto expr_it = expression.begin();
             for(auto it=begin(), it_end=end(); it != it_end; ++it, ++expr_it) f(*it,*expr_it);
         } else {
@@ -501,6 +501,10 @@ class DenseImpl {
     // is trivial. DenseView shadows it with a much more interesting function.
     constexpr bool is_contiguous() const noexcept { return true;}
 
+    // is_broadcasting
+    // Always false for dense objects, though expressions of dense objects might be.
+    constexpr bool is_broadcasting() const noexcept { return false;}
+
     // is_omp_parallelisable
     // Determine if iterator is OpenMP compatible.
     // Is true for all dense containers, but must be defined for compatibility with DenseExpressions, some of which
@@ -635,6 +639,7 @@ public:
     using DenseImpl<DenseView<T,rw>>::operator/=;
     using DenseImpl<DenseView<T,rw>>::check_expression;
     using DenseImpl<DenseView<T,rw>>::is_omp_parallelisable;
+    using DenseImpl<DenseView<T,rw>>::is_broadcasting;
 
     std::size_t size() const noexcept { return _size;}
     pointer data() const noexcept { return _data; }
@@ -1461,6 +1466,7 @@ public:
     using DenseImpl<Dense<T,Type,Order>>::set_stride;
     using DenseImpl<Dense<T,Type,Order>>::is_contiguous;
     using DenseImpl<Dense<T,Type,Order>>::is_omp_parallelisable;
+    using DenseImpl<Dense<T,Type,Order>>::is_broadcasting;
 
 private:
 
@@ -1572,6 +1578,7 @@ public:
     using DenseImpl<DenseFixed<T,Order,Dims...>>::check_expression;
     using DenseImpl<DenseFixed<T,Order,Dims...>>::is_contiguous;
     using DenseImpl<DenseFixed<T,Order,Dims...>>::is_omp_parallelisable;
+    using DenseImpl<DenseFixed<T,Order,Dims...>>::is_broadcasting;
 };
 
 } // namespace
