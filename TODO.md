@@ -66,8 +66,6 @@
     * LU factorisation
     * Set BLAS/LAPACK usage at compile time
 
-## Wishlist
-
 ### OpenMP
 
     * Will allow most expressions to be calculated in parallel. The exceptions are those that
@@ -80,6 +78,8 @@
           environment variables for something called ULTRA_NUM_THREADS. If it can't find this,
           set num threads to 1. Otherwise, set num threads to this environment variable.
         * Also require the user to compile with -fopenmp
+
+## Wishlist
 
 ### Further linear algebra
 
