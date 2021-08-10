@@ -92,12 +92,64 @@ class DenseImpl {
     struct DivEqual{ template<class U, class V> void operator()( U& u, const V& v) const { u /= v; }};
 
     template<class F, class E>
-    void accept_expression( E&& expression ){
+    decltype(auto) accept_expression( E&& expression ){
         F f{};
-        if( derived().is_contiguous() && expression.is_contiguous() && expression.order() == Order && !expression.is_broadcasting() ){
+
+        // broadcasting bits
+        bool is_broadcasting = expression.is_broadcasting();
+        if( dims() > expression.dims()){
+            is_broadcasting = true;
+        }
+        if( dims() < expression.dims()){
+            throw ExpressionException("Ultramat: Tried to construct/assign array-like object of dims " + std::to_string(dims()) 
+                    + " with expression of dims " + std::to_string(expression.dims()) +
+                    ". Under broadcasting rules, you cannot write to an object with fewer dimensions.");
+        }
+        bool broadcasting_failed = false;
+        if( order() == DenseOrder::col_major) {
+            for( std::size_t ii=0; ii<expression.dims(); ++ii){
+                if( shape(ii) != expression.shape(ii)){
+                    if ( expression.shape(ii) == 1 ){
+                       is_broadcasting = true;
+                    } else {
+                        broadcasting_failed = true;
+                    }
+                }
+            }
+        } else {
+            for( std::size_t ii=0; ii<expression.dims(); ++ii){
+                std::size_t jj= ii +(dims() - expression.dims());
+                if( expression.shape(ii) != expression.shape(jj)){
+                    if( expression.shape(jj) == 1 ){
+                        is_broadcasting = true;
+                    } else {
+                        broadcasting_failed = true;
+                    }
+                }
+            }
+        }
+        if(broadcasting_failed){
+            std::string array_shape("( ");
+            std::string expression_shape("( ");
+            for( std::size_t ii=0; ii<dims(); ++ii){
+                array_shape += std::to_string(shape(ii)) + ' ';
+            }
+            for( std::size_t ii=0; ii<expression.dims(); ++ii){
+                expression_shape += std::to_string(expression.shape(ii)) + ' ';
+            }
+            array_shape += ')';
+            expression_shape += ')';
+            throw ExpressionException("Ultramat: Tried to construct/assign array-like object of shape " + array_shape 
+                            + "with expression of shape " + expression_shape +
+                            ". This is not permitted under broadcasting rules.");
+        }
+
+        if( derived().is_contiguous() && expression.is_contiguous() && expression.order() == Order && !is_broadcasting){
+            // simple linear update
             auto expr_it = expression.begin();
             for(auto it=begin(), it_end=end(); it != it_end; ++it, ++expr_it) f(*it,*expr_it);
         } else {
+            // general 'striped' update
             std::size_t stripe_dim = expression.required_stripe_dim();
             if( stripe_dim == dims() ) stripe_dim = ( Order == DenseOrder::row_major ? dims()-1 : 0 );
             DenseStriper striper( stripe_dim, Order, shape(), 0);
@@ -109,155 +161,97 @@ class DenseImpl {
                 for(auto it=stripe.begin(), it_end=stripe.end(); it != it_end; ++it, ++expr_it) f(*it,*expr_it);
             }
         }
-    }
 
-    template<class U>
-    decltype(auto) equal_expression( const DenseExpression<U>& expression) {
-        accept_expression<Equal>(expression);
         return derived();
     }
 
     template<class U>
-    decltype(auto) equal_expression( DenseExpression<U>&& expression) {
-        accept_expression<Equal>(std::move(expression));
-        return derived();
+    decltype(auto) equal_expression( const DenseExpression<U>& expression){
+        return accept_expression<Equal>(expression);
     }
 
     template<class U>
-    decltype(auto) add_equal_expression( const DenseExpression<U>& expression) {
-        accept_expression<AddEqual>(expression);
-        return derived();
-    }
-
-    template<class U>
-    decltype(auto) add_equal_expression( DenseExpression<U>&& expression) {
-        accept_expression<AddEqual>(std::move(expression));
-        return derived();
-    }
-
-    template<class U>
-    decltype(auto) sub_equal_expression( const DenseExpression<U>& expression) {
-        accept_expression<SubEqual>(expression);
-        return derived();
-    }
-
-    template<class U>
-    decltype(auto) sub_equal_expression( DenseExpression<U>&& expression) {
-        accept_expression<SubEqual>(std::move(expression));
-        return derived();
-    }
-
-    template<class U>
-    decltype(auto) mul_equal_expression( const DenseExpression<U>& expression) {
-        accept_expression<MulEqual>(expression);
-        return derived();
-    }
-
-    template<class U>
-    decltype(auto) mul_equal_expression( DenseExpression<U>&& expression) {
-        accept_expression<MulEqual>(std::move(expression));
-        return derived();
-    }
-
-    template<class U>
-    decltype(auto) div_equal_expression( const DenseExpression<U>& expression) {
-        accept_expression<DivEqual>(expression);
-        return derived();
-    }
-
-    template<class U>
-    decltype(auto) div_equal_expression( DenseExpression<U>&& expression) {
-        accept_expression<DivEqual>(std::move(expression));
-        return derived();
+    decltype(auto) equal_expression( DenseExpression<U>&& expression){
+        return accept_expression<Equal>(std::move(expression));
     }
 
     // In-place operators
 
     template<class U>
     decltype(auto) operator=( const DenseExpression<U>& expression) {
-        check_expression(expression);
-        return equal_expression(expression);
+        return accept_expression<Equal>(expression);
     }
 
     template<class U>
     decltype(auto) operator=( DenseExpression<U>&& expression) {
-        check_expression(expression);
-        return equal_expression(std::move(expression));
+        return accept_expression<Equal>(std::move(expression));
     }
 
     template<class U>
     decltype(auto) operator+=( const DenseExpression<U>& expression ){
-        check_expression(expression);
-        return add_equal_expression(expression);
+        return accept_expression<AddEqual>(expression);
     }
 
     template<class U>
     decltype(auto) operator+=( DenseExpression<U>&& expression ){
-        check_expression(expression);
-        return add_equal_expression(std::move(expression));
+        return accept_expression<AddEqual>(std::move(expression));
     }
 
     template<class U>
     decltype(auto) operator-=( const DenseExpression<U>& expression ){
-        check_expression(expression);
-        return sub_equal_expression(expression);
+        return accept_expression<SubEqual>(expression);
     }
 
     template<class U>
     decltype(auto) operator-=( DenseExpression<U>&& expression ){
-        check_expression(expression);
-        return sub_equal_expression(std::move(expression));
+        return accept_expression<SubEqual>(std::move(expression));
     }
 
     template<class U>
     decltype(auto) operator*=( const DenseExpression<U>& expression ){
-        check_expression(expression);
-        return mul_equal_expression(expression);
+        return accept_expression<MulEqual>(expression);
     }
 
     template<class U>
     decltype(auto) operator*=( DenseExpression<U>&& expression ){
-        check_expression(expression);
-        return mul_equal_expression(std::move(expression));
+        return accept_expression<MulEqual>(std::move(expression));
     }
 
     template<class U>
     decltype(auto) operator/=( const DenseExpression<U>& expression ){
-        check_expression(expression);
-        return div_equal_expression(expression);
+        return accept_expression<DivEqual>(expression);
     }
     
     template<class U>
     decltype(auto) operator/=( DenseExpression<U>&& expression ){
-        check_expression(expression);
-        return div_equal_expression(std::move(expression));
+        return accept_expression<DivEqual>(std::move(expression));
     }
 
     // Scalar in-place updates
 
     template<class U> requires number<U>
     decltype(auto) operator=( U u) {
-        return equal_expression(ScalarDenseExpression<U,order()>(u,shape()));
+        return operator=(DenseFixed<U,Order,1>(u));
     }
 
     template<class U> requires number<U>
     decltype(auto) operator+=( U u) {
-        return add_equal_expression(ScalarDenseExpression<U,order()>(u,shape()));
+        return operator+=(DenseFixed<U,Order,1>(u));
     }
 
     template<class U> requires number<U>
     decltype(auto) operator-=( U u) {
-        return sub_equal_expression(ScalarDenseExpression<U,order()>(u,shape()));
+        return operator-=(DenseFixed<U,Order,1>(u));
     }
 
     template<class U> requires number<U>
     decltype(auto) operator*=( U u) {
-        return mul_equal_expression(ScalarDenseExpression<U,order()>(u,shape()));
+        return operator*=(DenseFixed<U,Order,1>(u));
     }
 
     template<class U> requires number<U>
     decltype(auto) operator/=( U u) {
-        return div_equal_expression(ScalarDenseExpression<U,order()>(u,shape()));
+        return operator/=(DenseFixed<U,Order,1>(u));
     }
 
     // ===============================================
@@ -449,7 +443,7 @@ class DenseImpl {
     // Utils
     
     // check_expression
-    // Tests whether an expression is compatible.
+    // Tests whether an expression is exactly compatible -- same dims and shape
 
     template<class U>
     void check_expression( const DenseExpression<U>& expression){
@@ -637,7 +631,6 @@ public:
     using DenseImpl<DenseView<T,rw>>::operator-=;
     using DenseImpl<DenseView<T,rw>>::operator*=;
     using DenseImpl<DenseView<T,rw>>::operator/=;
-    using DenseImpl<DenseView<T,rw>>::check_expression;
     using DenseImpl<DenseView<T,rw>>::is_omp_parallelisable;
     using DenseImpl<DenseView<T,rw>>::is_broadcasting;
 
@@ -1575,7 +1568,6 @@ public:
     using DenseImpl<DenseFixed<T,Order,Dims...>>::operator-=;
     using DenseImpl<DenseFixed<T,Order,Dims...>>::operator*=;
     using DenseImpl<DenseFixed<T,Order,Dims...>>::operator/=;
-    using DenseImpl<DenseFixed<T,Order,Dims...>>::check_expression;
     using DenseImpl<DenseFixed<T,Order,Dims...>>::is_contiguous;
     using DenseImpl<DenseFixed<T,Order,Dims...>>::is_omp_parallelisable;
     using DenseImpl<DenseFixed<T,Order,Dims...>>::is_broadcasting;

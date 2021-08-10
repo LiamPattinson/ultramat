@@ -1,29 +1,7 @@
 # TODO
 
-### Automatic Broadcasting
-
-    * Rather than requesting a single 'stripe_num', instead pass a const ref to a 'Striper' object.
-      A 'Striper' contains two std::vector<std::size_t>: shape, and the current index. It also contains
-      the stripe dim, and additionally a DenseOrder object. The latter simply controls the order in which
-      the index is updated when incrementing/decrementing.
-    * Consider striping over dim 3, if the object's shape is (3,1,3,5) and the Striper index is (2,6,2,0).
-      The 5 in the shape is ignored, as we're striping over this dim. The 6 in the striper index is ignored,
-      as the corresponding shape is 1. Hence, automatic broadcasting. Since we're striping over dim 3, the
-      striper index should never have anything besides 0 in the [3] location.
-    * Now say we're striping over dim 1, and the object shape is (3,1,3,5). The stripe generated should simply
-      have 0 stride.
-    * Expressions require a new function: is_broadcasting. Similarly to is_contiguous, this will control whether
-      the receiving object uses standard iteration or striped. Striped is mandatory when broadcasting.
-    * Broadcasting should be forbidden when dealing with mixed DenseOrder operations.
-    * update broadcasting rules when adding new dimensions
-        * if row_major, the last 1/2 dimensions should be preserved when doing vector/matrix operations,
-          so new dimensions should be prepended (like numpy)
-        * if col_major the first 1/2 dimensions should be preserved when doing vector/matrix operations,
-          so new dimensions should be apended (like the current implementation)
-
 ### Linear algebra
 
-    * On hold
     * Would be handy if some sort of DenseLinearAlgebraExpression could be defined, but it'll be tricky
       to generalise it.
         * Vector Operations

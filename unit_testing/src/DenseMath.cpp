@@ -180,6 +180,7 @@ TEST(ArrayMathTest,ScalarArithmetic){
     EXPECT_TRUE(e_correct);
 
     // Test in-place
+    // Assigning to a 
     a = 13;
     c += 3;
     d *= 2;

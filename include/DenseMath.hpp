@@ -779,11 +779,20 @@ decltype(auto) cumprod( DenseExpression<T>&& t, std::size_t dim){
 // Generators
 
 // Zeros/Ones
-// (Actually uses ScalarDenseExpression as opposed to Generators)
 
-template<shapelike Shape, class T=double>
+template<class T>
+class ConstantFunctor {
+    T _t;
+public:
+    ConstantFunctor( const T& t) : _t(t){}
+    T operator()( std::size_t) const {
+        return _t;
+    }
+};
+
+template<class T=double, shapelike Shape>
 decltype(auto) zeros( const Shape& shape) {
-    return ScalarDenseExpression<T,default_order>(0,shape);
+    return GeneratorExpression( ConstantFunctor<T>(0), shape);
 }
 
 template<class T=double>
@@ -791,9 +800,9 @@ decltype(auto) zeros( std::size_t N) {
     return zeros(std::array<std::size_t,1>{N});
 }
 
-template<shapelike Shape, class T=double>
+template<class T=double, shapelike Shape>
 decltype(auto) ones( const Shape& shape) {
-    return ScalarDenseExpression<T,default_order>(1,shape);
+    return GeneratorExpression( ConstantFunctor<T>(1), shape);
 }
 
 template<class T=double>
