@@ -905,21 +905,28 @@ private:
     RNG             _rng;
     static rng_result_type _static_seed;
 
+    rng_result_type _get_seed() const {
+        rng_result_type seed;
+        #pragma omp atomic capture
+        seed = _static_seed++;
+        return seed;
+    }
+
 public:
     
     RandomFunctor( const Dist& dist ) : 
         _dist(dist),
-        _rng(_static_seed++)
+        _rng(_get_seed())
     {}
 
     RandomFunctor( const RandomFunctor& other ) :
         _dist(other._dist),
-        _rng(_static_seed++)
+        _rng(_get_seed())
     {}
 
     RandomFunctor( RandomFunctor&& other ) :
         _dist(std::move(other._dist)),
-        _rng(other._rng)
+        _rng(std::move(other._rng))
     {}
 
     dist_result_type operator()( std::size_t ) {

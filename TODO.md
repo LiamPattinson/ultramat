@@ -1,5 +1,20 @@
 # TODO
 
+### OpenMP
+
+    * Will allow most expressions to be calculated in parallel.
+    * Switched on by default, but have the code read from the user's
+      environment variables for something called ULTRA_NUM_THREADS. If it can't find this,
+      set num threads to 1. Otherwise, set num threads to this environment variable.
+        * Currently just reads from OMP_NUM_THREADS. Should move it to ULTRA_NUM_THREADS to avoid
+          conflicts with any openmp stuff the end-user wants to do.
+        * Will require a singleton class that reads the environment variable and converts to int.
+        * Unsure how to enforce openmp as a dependency in cmake.
+    * Working already for straightforward iteration. Further work needed for striping in parallel.
+        * Some thought needed for working in parallel over each stripe
+    * While at it: remove 'apply_to_each', it was found to be a huge source of slowdown when coupled
+      with openmp. Replace with some tuple logic in a new generic utils file.
+
 ### Linear algebra
 
     * Would be handy if some sort of DenseLinearAlgebraExpression could be defined, but it'll be tricky
@@ -44,18 +59,6 @@
     * LU factorisation
     * Set BLAS/LAPACK usage at compile time
 
-### OpenMP
-
-    * Will allow most expressions to be calculated in parallel. The exceptions are those that
-      must be stepped through linearly, and a special case must be made for these. Examples include
-      cumulative sum/product. Perhaps these should be evaluating expressions if OpenMP is activated.
-    * Do not have this switched on by default. The end user may wish to use this library alongside
-      their own parallelisation strategy, and therefore this would interfere. However, signpost it
-      well!
-        * Alternative: Have this switched on by default, but have the code read from the user's
-          environment variables for something called ULTRA_NUM_THREADS. If it can't find this,
-          set num threads to 1. Otherwise, set num threads to this environment variable.
-        * Also require the user to compile with -fopenmp
 
 ## Wishlist
 

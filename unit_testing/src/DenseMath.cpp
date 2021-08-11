@@ -1055,10 +1055,13 @@ TEST(ArrayMathTest,Random){
     EXPECT_TRUE(d.shape(1) == 10);
     EXPECT_TRUE(d.shape(2) == 20);
     
-    // Test that the numbers generated don't match (there is a very slim chance that this will fail!)
+    // Test that the numbers generated don't repeat
+    // This mostly tests that random numbers generated in parallel are in fact unique across different threads
+    // (there is a very slim chance that this will fail even if things are working correctly!)
     bool random_double_correct = true;
-    for( auto c_it = c.begin(), d_it = d.begin(), c_end = c.end(); c_it != c_end; ++c_it, ++d_it){
-        if( *c_it == *d_it ) random_double_correct = false;
+    std::sort(b.begin(),b.end());
+    for( auto it = b.begin(), end = b.end()-1; it != end; ++it){
+        if( *it == *(it+1) ) random_double_correct = false;
     }
     EXPECT_TRUE(random_double_correct);
     
@@ -1088,8 +1091,8 @@ TEST(ArrayMathTest,Random){
     }
     double percent_within_1_stddev = (100.*within_1_stddev) / num_vals;
     double percent_within_2_stddev = (100.*within_2_stddev) / num_vals;
-    EXPECT_TRUE( std::fabs(percent_within_1_stddev-68.27) < 0.5 );
-    EXPECT_TRUE( std::fabs(percent_within_2_stddev-95.45) < 0.5 );
+    EXPECT_LT( std::fabs(percent_within_1_stddev-68.27), 1 );
+    EXPECT_LT( std::fabs(percent_within_2_stddev-95.45), 1 );
 }
 
 TEST(ArrayMathTest,MeanAndStddev){
@@ -1097,7 +1100,7 @@ TEST(ArrayMathTest,MeanAndStddev){
     Array<double> v = var(random_normal(10,2,10000));
     Array<double> s = stddev(random_normal(10,2,10000));
     EXPECT_LT( std::abs(m(0) - 10), 1e-1 );
-    EXPECT_LT( std::abs(v(0) - 4), 1e-1 );
+    EXPECT_LT( std::abs(v(0) - 4), 2e-1 );
     EXPECT_LT( std::abs(s(0) - 2), 1e-1 );
 }
 

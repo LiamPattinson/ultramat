@@ -35,6 +35,8 @@ class DenseExpression {
 
     constexpr decltype(auto) begin() { return derived().begin(); }
     constexpr decltype(auto) begin() const { return derived().begin(); }
+    constexpr decltype(auto) end() { return derived().end(); }
+    constexpr decltype(auto) end() const { return derived().end(); }
 
     decltype(auto) get_stripe( const DenseStriper& striper) { return derived().get_stripe(striper); }
     decltype(auto) get_stripe( const DenseStriper& striper) const { return derived().get_stripe(striper); }
@@ -229,10 +231,10 @@ public:
         const_iterator( ItTuple&& its) : f{}, _its(std::move(its)) {}
 
         decltype(auto) operator*() { return std::apply(f,apply_to_each(_Deref{},_its)); }
-        const_iterator& operator++() { apply_to_each(_PrefixInc{},_its); return *this; }
-        const_iterator& operator--() { apply_to_each(_PrefixDec{},_its); return *this; }
-        template<std::integral I> const_iterator& operator+=( const I& ii) { apply_to_each(_AddEq{},_its,ii); return *this; }
-        template<std::integral I> const_iterator& operator-=( const I& ii) { apply_to_each(_MinEq{},_its,ii); return *this; }
+        const_iterator& operator++() { increment_tuple(_its); return *this; }
+        const_iterator& operator--() { decrement_tuple(_its); return *this; }
+        template<std::integral I> const_iterator& operator+=( const I& ii) { add_in_place_tuple(_its,ii); return *this; }
+        template<std::integral I> const_iterator& operator-=( const I& ii) { sub_in_place_tuple(_its,ii); return *this; }
         template<std::integral I> const_iterator operator+( const I& ii) { auto result(*this); result+=ii; return result; }
         template<std::integral I> const_iterator operator-( const I& ii) { auto result(*this); result-=ii; return result; }
         bool operator==( const const_iterator& other) const { return std::get<0>(_its) == std::get<0>(other._its);}
@@ -280,10 +282,10 @@ public:
             Iterator( ItTuple&& its) : _f{}, _its(std::move(its)) {}
 
             decltype(auto) operator*() { return std::apply(_f,apply_to_each(_Deref{},_its)); }
-            Iterator& operator++() { apply_to_each(_PrefixInc{},_its); return *this; }
-            Iterator& operator--() { apply_to_each(_PrefixDec{},_its); return *this; }
-            template<std::integral I> Iterator& operator+=( const I& ii) { apply_to_each(_AddEq{},_its,ii); return *this; }
-            template<std::integral I> Iterator& operator-=( const I& ii) { apply_to_each(_MinEq{},_its,ii); return *this; }
+            Iterator& operator++() { increment_tuple(_its); return *this; }
+            Iterator& operator--() { decrement_tuple(_its); return *this; }
+            template<std::integral I> Iterator& operator+=( const I& ii) { add_in_place_tuple(_its,ii); return *this; }
+            template<std::integral I> Iterator& operator-=( const I& ii) { sub_in_place_tuple(_its,ii); return *this; }
             template<std::integral I> Iterator operator+( const I& ii) { auto result(*this); result+=ii; return result; }
             template<std::integral I> Iterator operator-( const I& ii) { auto result(*this); result-=ii; return result; }
             bool operator==( const Iterator& other) const { return std::get<0>(_its) == std::get<0>(other._its);}
@@ -811,7 +813,14 @@ public:
         const_iterator() { throw std::runtime_error("Ultramat CumulativeDenseExpression: Must use striped iteration!");}
         decltype(auto) operator*() { return 0; }
         const_iterator& operator++() { return *this; }
+        const_iterator& operator--() { return *this; }
+        template<std::integral I> const_iterator& operator+=( const I& ){ return *this;}
+        template<std::integral I> const_iterator& operator-=( const I& ){ return *this;}
+        template<std::integral I> const_iterator operator+( const I& ){ return *this;}
+        template<std::integral I> const_iterator operator-( const I& ){ return *this;}
         bool operator==( const const_iterator& other) const { return true; }
+        auto operator<=>( const const_iterator& other) const { return std::strong_ordering::equal;}
+        std::ptrdiff_t operator-( const const_iterator& other) const { return 0;}
     };
     const_iterator begin() const { return const_iterator(); }
     const_iterator end()   const { return const_iterator(); }

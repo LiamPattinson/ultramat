@@ -2,14 +2,13 @@
 #
 # To build, first hop in the 'build' directory and call "cmake ..".
 # You can specify where to build with the flag "-DCMAKE_INSTALL_PREFIX:PATH=/your/installation/path"
-# (You could do this from the root directory of this project, but it'll mess things up a bit)
+# (You could do this from the root directory of this project, but it'll make a mess)
 #
-# To install, then call "cmake --build . --target install".
-# You may need administrative privileges to do this. Try 'sudo' if you're in an environment where
-# you don't have a vengeful sys-admin watching your every move.
+# To install, then call "sudo cmake --build . --target install".
+# You'll need administrative privileges to do this.
 #
-# Shout out to Dominik Berner for the helpful cmake guide:  "dominikberner.ch/cmake-interface-lib/"
-# This is shamelessly copied almost word for word.
+# Massive thanks to Dominik Berner for the helpful cmake guide:  "dominikberner.ch/cmake-interface-lib/"
+# TODO figure out how to set up variables ultramat_CXX_FLAGS and ultramat_EXE_LINKER_FLAGS
 
 cmake_minimum_required(VERSION 3.5)
 project("ultramat"
