@@ -147,7 +147,7 @@ class DenseImpl {
         if( derived().is_contiguous() && expression.is_contiguous() && expression.order() == Order && !is_broadcasting){
             // simple linear update
             auto it_end = end();
-#pragma omp parallel for schedule(static) default(none) shared(f,expression) firstprivate(it_end)
+#pragma omp parallel for schedule(guided,16) default(none) shared(f,expression) firstprivate(it_end)
             for(auto it=IteratorTuple(begin(),expression.begin()); it != it_end; ++it){
                 f(*it,*get<1>(it));
             }
@@ -155,9 +155,10 @@ class DenseImpl {
             // general 'striped' update
             std::size_t stripe_dim = expression.required_stripe_dim();
             if( stripe_dim == dims() ) stripe_dim = ( Order == DenseOrder::row_major ? dims()-1 : 0 );
-            DenseStriper end( stripe_dim, Order, shape(), 1);
-//#pragma omp parallel for schedule(static)
-            for( auto striper = DenseStriper( stripe_dim, Order, shape(), 0); striper != end; ++striper){
+            auto s = shape();
+            DenseStriper end( stripe_dim, Order, s, 1);
+#pragma omp parallel for schedule(dynamic,1) default(none) shared(f,expression,stripe_dim,s) firstprivate(end)
+            for( auto striper = DenseStriper(stripe_dim,Order,s,0); striper != end; ++striper){
                 auto stripe = get_stripe(striper);
                 auto expr_stripe = expression.get_stripe(striper);
                 auto expr_it = expr_stripe.begin();

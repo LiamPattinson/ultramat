@@ -232,12 +232,14 @@ class DenseStriper {
                 scalar_index += scalar_index_factor * index(ii);
                 scalar_index_factor *= shape(ii);
             }
+            scalar_index += scalar_index_factor * index(dims());
         } else {
             for( std::size_t ii=dims(); ii != 0; --ii) {
                 if( ii == stripe_dim()+1 ) continue;
                 scalar_index += scalar_index_factor * index(ii);
                 scalar_index_factor *= shape(ii-1);
             }
+            scalar_index += scalar_index_factor * index(0);
         }
         return scalar_index;
     }
@@ -249,12 +251,14 @@ class DenseStriper {
                 index(ii) = scalar_index % shape(ii);
                 scalar_index /= shape(ii);
             }
+            index(dims()) = (scalar_index > 0);
         } else {
             for( std::size_t ii=dims(); ii != 0; --ii) {
                 if( ii == stripe_dim() +1 ) continue;
                 index(ii) = scalar_index % shape(ii-1);
                 scalar_index /= shape(ii-1);
             }
+            index(0) = (scalar_index > 0);
         }
     }
 
@@ -279,6 +283,18 @@ class DenseStriper {
         return *this;
     }
 
+    DenseStriper operator+( std::ptrdiff_t diff) const {
+        DenseStriper copy(*this);
+        copy += diff;
+        return copy;
+    }
+
+    DenseStriper operator-( std::ptrdiff_t diff) const {
+        DenseStriper copy(*this);
+        copy -= diff;
+        return copy;
+    }
+
     std::ptrdiff_t operator-( const DenseStriper& other) const {
         return static_cast<std::ptrdiff_t>(get_scalar_index()) - static_cast<std::ptrdiff_t>(other.get_scalar_index());
     }
@@ -292,7 +308,7 @@ class DenseStriper {
 
     auto operator<=>( const DenseStriper& other) const {
         if( _order == DenseOrder::col_major ) {
-            for( std::size_t ii=dims(); ii != 0; --ii) {
+            for( std::ptrdiff_t ii=dims(); ii >= 0; --ii) {
                 if( index(ii) == other.index(ii) ) {
                     continue;
                 } else {
@@ -300,7 +316,7 @@ class DenseStriper {
                 }
             }
         } else {
-            for( std::size_t ii=0; ii != dims(); ++ii) {
+            for( std::size_t ii=0; ii <= dims(); ++ii) {
                 if( index(ii) == other.index(ii) ) {
                     continue;
                 } else {
