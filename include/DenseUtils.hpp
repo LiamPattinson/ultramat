@@ -3,28 +3,9 @@
 
 // DenseUtils.hpp
 //
-// Defines any utility functions/structs deemed useful.
+// Defines any utility functions/structs deemed useful for Dense objects.
 
-#include <cstdlib>
-#include <cmath>
-#include <complex>
-#include <utility>
-#include <stdexcept>
-#include <string>
-#include <vector>
-#include <array>
-#include <tuple>
-#include <functional>
-#include <algorithm>
-#include <numeric>
-#include <limits>
-#include <random>
-#include <type_traits>
-#include <concepts>
-#include <ranges>
-#include <compare>
-
-#include <omp.h>
+#include "Utils.hpp"
 
 namespace ultra {
 
@@ -88,6 +69,9 @@ template<class T, DenseType Type, DenseOrder Order> struct is_dense<Dense<T,Type
 template<class T, DenseOrder Order, std::size_t... dims> struct is_dense<DenseFixed<T,Order,dims...>> { static constexpr bool value = true; };
 template<class T, ReadWrite RW> struct is_dense<DenseView<T,RW>> { static constexpr bool value = true; };
 
+// shapelike concept: a range of integers, but not a dense object, e.g. std::vector<std::size_t>
+template<class T> concept shapelike = std::ranges::sized_range<T> && std::integral<typename T::value_type> && !is_dense<T>::value;
+
 // Define slice : a tool for generating views of Arrays and related objects.
 // Is an 'aggregate'/'pod' type, so should have a relatively intuitive interface by default.
 
@@ -113,46 +97,6 @@ class Bool {
     inline operator bool() const { return _x; }
     inline operator bool&() { return _x; }
 };
-
-template<class T> struct is_complex { static constexpr bool value = false; };
-template<std::floating_point T> struct is_complex<std::complex<T>> { static constexpr bool value = true; };
-
-// Custom concepts
-
-template<class T> concept arithmetic = std::is_arithmetic<T>::value;
-
-template<class T> concept number = std::is_arithmetic<T>::value || is_complex<T>::value;
-
-template<class T> concept shapelike = std::ranges::sized_range<T> && std::integral<typename T::value_type> && !is_dense<T>::value;
-
-// Better complex overloading
-
-#define ULTRA_COMPLEX_OVERLOAD(OP)\
-template<std::floating_point T1, std::floating_point T2> requires (!std::is_same<T1,T2>::value)\
-constexpr auto operator OP ( const std::complex<T1>& lhs, const std::complex<T2>& rhs){\
-   return static_cast<std::complex<decltype(T1()*T2())>>(lhs) OP static_cast<std::complex<decltype(T1()*T2())>>(rhs);\
-}\
-\
-template<std::floating_point T1, arithmetic T2> requires (!std::is_same<T1,T2>::value)\
-constexpr auto operator OP ( const std::complex<T1>& lhs, const T2& rhs){\
-   return static_cast<std::complex<decltype(T1()*T2())>>(lhs) OP static_cast<decltype(T1()*T2())>(rhs);\
-}\
-\
-template<arithmetic T1, std::floating_point T2> requires (!std::is_same<T1,T2>::value)\
-constexpr auto operator OP ( const T1& lhs, const std::complex<T2>& rhs){\
-   return static_cast<decltype(T1()*T2())>(lhs) OP static_cast<std::complex<decltype(T1()*T2())>>(rhs);\
-}
-
-ULTRA_COMPLEX_OVERLOAD(+)
-ULTRA_COMPLEX_OVERLOAD(-)
-ULTRA_COMPLEX_OVERLOAD(*)
-ULTRA_COMPLEX_OVERLOAD(/)
-ULTRA_COMPLEX_OVERLOAD(==)
-
-template<class T>
-using complex_upcast = std::conditional_t< is_complex<T>::value, T,
-    std::conditional_t< std::is_floating_point<T>::value, std::complex<T>, std::complex<double>>
->;
 
 // ==========================
 // Striped iteration utils
@@ -475,201 +419,6 @@ struct variadic_stride {
         typename variadic_stride_impl<typename reverse_index_sequence<std::index_sequence<ShapeInts...,1>>::type,std::index_sequence<>>::type()
     );
 };
-
-// ==========================
-// Expressions utils
-
-struct _Begin { template<class T> decltype(auto) operator()( T&& t) const { return t.begin(); }};
-struct _End { template<class T> decltype(auto) operator()( T&& t) const { return t.end(); }};
-struct _Deref { template<class T> decltype(auto) operator()( T&& t) const { return *t; }};
-struct _Add { template<class T, class U> decltype(auto) operator()( T&& t, U&& u) const { return t+u; }};
-struct _Min { template<class T, class U> decltype(auto) operator()( T&& t, U&& u) const { return t-u; }};
-struct _IsContiguous { template<class T> bool operator()( T&& t) const { return t.is_contiguous(); }};
-struct _IsBroadcasting { template<class T> bool operator()( T&& t) const { return t.is_broadcasting(); }};
-struct _IsOmpParallelisable { template<class T> bool operator()( T&& t) const { return t.is_omp_parallelisable(); }};
-struct _Dims { template<class T> decltype(auto) operator()( T&& t) const { return t.dims(); }};
-
-struct _DimsNeq { 
-    std::size_t _dims;
-    template<class T>
-    decltype(auto) operator()( T&& t) const { return _dims != t.dims(); }
-};
-
-struct _ShapeNeq { 
-    const std::vector<std::size_t>& _shape;
-    template<class T>
-    decltype(auto) operator()( T&& t) const {
-        bool result = false;
-        for( std::size_t ii=0; ii<_shape.size(); ++ii){
-            result |= (_shape[ii] != t.shape(ii));
-        }
-        return result;
-    }
-};
-
-struct _GetStripe {
-    const DenseStriper& _striper;
-    template<class T>
-    decltype(auto) operator()( T&& t) const { return t.get_stripe(_striper); }
-};
-
-// apply_to_each
-// std::apply(f,tuple) calls a function f with args given by the tuple.
-// apply_to_each returns a tuple given by (f(tuple_args[0]),f(tuple_args[1]),...) where f is unary.
-// Similar to the possible implementation of std::apply from https://en.cppreference.com/w/cpp/utility/apply
-
-template<class F,class Tuple,std::size_t... I, class... Args>
-constexpr decltype(auto) apply_to_each_impl( F&& f, Tuple&& t, std::index_sequence<I...>, Args&&... args){
-    return std::make_tuple( std::invoke(std::forward<F>(f), std::get<I>(std::forward<Tuple>(t)), std::forward<Args>(args)... )...);
-}
-
-template<class F, class Tuple, class... Args>
-constexpr decltype(auto) apply_to_each( F&& f, Tuple&& t, Args&&... args){
-    return apply_to_each_impl( std::forward<F>(f), std::forward<Tuple>(t), 
-            std::make_index_sequence<std::tuple_size<std::remove_reference_t<Tuple>>::value>{},
-            std::forward<Args>(args)...);
-}
-
-// all_of_tuple/any_of_tuple
-// For a tuple of bools, determine all_of/any_of
-
-template<class Tuple, std::size_t... I>
-constexpr bool all_of_tuple_impl(Tuple&& t, std::index_sequence<I...>){
-    return (std::get<I>(std::forward<Tuple>(t)) & ...);
-}
-
-template<class Tuple, std::size_t... I>
-constexpr bool any_of_tuple_impl(Tuple&& t, std::index_sequence<I...>){
-    return (std::get<I>(std::forward<Tuple>(t)) | ...);
-}
-
-template<class Tuple>
-constexpr bool all_of_tuple(Tuple&& t){
-    return all_of_tuple_impl(std::forward<Tuple>(t), std::make_index_sequence<std::tuple_size<std::remove_reference_t<Tuple>>::value>{});
-}
-
-template<class Tuple>
-constexpr bool any_of_tuple(Tuple&& t){
-    return any_of_tuple_impl(std::forward<Tuple>(t), std::make_index_sequence<std::tuple_size<std::remove_reference_t<Tuple>>::value>{});
-}
-
-// ==========================
-// IteratorTuple
-// Stick together multiple iterators into a single object.
-// Equality/distance is checked on only the first iterator.
-// All other operations, such as incrementing, random-access jumps, etc, are performed on all.
-// Dereferencing directly will dereference the first iterator in the tuple.
-// To dereference later elements, one must retrieve a reference to the required iterator by calling iterator_tuple.get<N>().
-
-template<class Tuple>
-struct IteratorTupleHelper {
-
-    template<std::size_t N> requires ( N != 0 )
-    static void increment(Tuple& t) {
-        ++std::get<N>(t);
-        increment<N-1>(t);
-    }
-
-    template<std::size_t N> requires ( N == 0 )
-    static void increment(Tuple& t) {
-        ++std::get<N>(t);
-    }
-
-    template<std::size_t N> requires ( N != 0 )
-    static void decrement(Tuple& t) {
-        --std::get<N>(t);
-        decrement<N-1>(t);
-    }
-
-    template<std::size_t N> requires ( N == 0 )
-    static void decrement(Tuple& t) {
-        --std::get<N>(t);
-    }
-
-    template<std::size_t N, std::integral I> requires ( N != 0 )
-    static void add_in_place(Tuple& t, const I& ii) {
-        std::get<N>(t) += ii;
-        add_in_place<N-1>(t,ii);
-    }
-
-    template<std::size_t N, std::integral I> requires ( N == 0 )
-    static void add_in_place(Tuple& t, const I& ii) {
-        std::get<N>(t) += ii;
-    }
-
-    template<std::size_t N, std::integral I> requires ( N != 0 )
-    static void sub_in_place(Tuple& t, const I& ii) {
-        std::get<N>(t) -= ii;
-        sub_in_place<N-1>(t,ii);
-    }
-
-    template<std::size_t N, std::integral I> requires ( N == 0 )
-    static void sub_in_place(Tuple& t, const I& ii) {
-        std::get<N>(t) -= ii;
-    }
-
-};
-
-template<class Tuple>
-void increment_tuple(Tuple& t){
-    IteratorTupleHelper<Tuple>::template increment<std::tuple_size<Tuple>::value-1>(t);
-}
-
-template<class Tuple>
-void decrement_tuple(Tuple& t){
-    IteratorTupleHelper<Tuple>::template decrement<std::tuple_size<Tuple>::value-1>(t);
-}
-
-template<class Tuple, std::integral I>
-void add_in_place_tuple(Tuple& t, const I& ii){
-    IteratorTupleHelper<Tuple>::template add_in_place<std::tuple_size<Tuple>::value-1>(t,ii);
-}
-
-template<class Tuple, std::integral I>
-void sub_in_place_tuple(Tuple& t, const I& ii){
-    IteratorTupleHelper<Tuple>::template sub_in_place<std::tuple_size<Tuple>::value-1>(t,ii);
-}
-
-template<class... Its>
-class IteratorTuple {
-    
-    std::tuple<Its...> _its;
-    using first_it_t = std::tuple_element_t<0,std::tuple<Its...>>;
-    
-    public:
-    
-    IteratorTuple() = delete;
-    IteratorTuple( const IteratorTuple& ) = default;
-    IteratorTuple( IteratorTuple&& ) = default;
-    IteratorTuple& operator=( const IteratorTuple& ) = default;
-    IteratorTuple& operator=( IteratorTuple&& ) = default;
-
-    IteratorTuple( std::tuple<Its...>&& its) : _its(std::move(its)) {}
-    IteratorTuple( Its&&... its) : _its(std::make_tuple(std::move(its)...)) {}
-
-    template<std::size_t idx>
-    friend decltype(auto) get( IteratorTuple& tuple ){
-        return std::get<idx>(tuple._its);
-    }
-
-    decltype(auto) operator*() { return *std::get<0>(_its); }
-    decltype(auto) operator*() const { return *std::get<0>(_its); }
-    IteratorTuple& operator++() { increment_tuple(_its); return *this; }
-    IteratorTuple& operator--() { decrement_tuple(_its); return *this; }
-    template<std::integral I> IteratorTuple& operator+=( const I& ii) { add_in_place_tuple(_its,ii); return *this; }
-    template<std::integral I> IteratorTuple& operator-=( const I& ii) { sub_in_place_tuple(_its,ii); return *this; }
-    template<std::integral I> IteratorTuple operator+( const I& ii) { auto result(*this); result+=ii; return result; }
-    template<std::integral I> IteratorTuple operator-( const I& ii) { auto result(*this); result-=ii; return result; }
-    bool operator==( const IteratorTuple& other) const { return std::get<0>(_its) == std::get<0>(other._its);}
-    auto operator<=>( const IteratorTuple& other) const { return std::get<0>(_its) <=> std::get<0>(other._its);}
-    std::ptrdiff_t operator-( const IteratorTuple& other) const { return std::get<0>(_its) - std::get<0>(other._its);}
-    bool operator==( const first_it_t& other) const { return std::get<0>(_its) == other;}
-    auto operator<=>( const first_it_t& other) const { return std::get<0>(_its) <=> other;}
-    std::ptrdiff_t operator-( const first_it_t& other) const { return std::get<0>(_its) - other;}
-    friend std::ptrdiff_t operator-( const first_it_t& l, const IteratorTuple& r) { return l - std::get<0>(r._its);}
-};
-
-
 
 } // namespace
 #endif

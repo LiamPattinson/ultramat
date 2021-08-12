@@ -12,8 +12,6 @@
         * Unsure how to enforce openmp as a dependency in cmake.
     * Working already for straightforward iteration. Further work needed for striping in parallel.
         * Some thought needed for working in parallel over each stripe
-    * While at it: remove 'apply_to_each', it was found to be a huge source of slowdown when coupled
-      with openmp. Replace with some tuple logic in a new generic utils file.
 
 ### Linear algebra
 

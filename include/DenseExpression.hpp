@@ -171,6 +171,62 @@ private:
     using tuple_t = std::tuple< std::conditional_t< std::is_lvalue_reference<Args>::value, Args, std::remove_cvref_t<Args>>...>;
     tuple_t _args;
 
+    // Define dereferencing/function call utility function
+    template<class Tuple, std::size_t... I>
+    static decltype(auto) _deref_impl( const F& f, const Tuple& t, std::index_sequence<I...> ){
+        return f( *std::get<I>(t) ...);
+    }
+
+    template<class Tuple>
+    static decltype(auto) _deref( const F& f, const Tuple& t){
+        return _deref_impl(f,t,std::make_index_sequence< std::tuple_size<Tuple>::value>{});
+    }
+
+    template<class Tuple, std::size_t... I>
+    static decltype(auto) _deref_impl( const F& f, Tuple& t, std::index_sequence<I...> ){
+        return f( *std::get<I>(t) ...);
+    }
+
+    template<class Tuple>
+    static decltype(auto) _deref( const F& f, Tuple& t){
+        return _deref_impl(f,t,std::make_index_sequence< std::tuple_size<Tuple>::value>{});
+    }
+
+    // define implementations for utility functions: is_contiguous, is_omp_parallelisable, is_broadcasting, get_stripe
+    template<std::size_t... I>
+    constexpr bool _is_contiguous_impl( std::index_sequence<I...> ) const noexcept { 
+        return ( std::get<I>(_args).is_contiguous() && ... );
+    }
+
+    template<std::size_t... I>
+    constexpr bool _is_omp_parallelisable_impl( std::index_sequence<I...> ) const noexcept { 
+        return ( std::get<I>(_args).is_omp_parallelisable() && ... );
+    }
+
+    template<std::size_t... I>
+    bool _is_broadcasting_impl( std::index_sequence<I...> ) const { 
+        // Are args broadcasting?
+        bool result = (std::get<I>(_args).is_broadcasting() || ...);
+        if( result ) return result;
+        // Do args have mismatching dims?
+        std::size_t d = dims();
+        result |= ((std::get<I>(_args).dims() != d) || ...);
+        if( result ) return result;
+        // Do args have mismatching shapes?
+        for( std::size_t ii=0; ii<d; ++ii){
+            std::size_t s = shape(ii);
+            result |= ((std::get<I>(_args).shape(ii) != s) || ...);
+            if( result) break;
+        }
+        return result;
+    }
+
+    template<std::size_t... I>
+    decltype(auto) _get_stripe_impl( const DenseStriper& striper, std::index_sequence<I...> ) const {
+        return std::make_tuple(std::get<I>(_args).get_stripe(striper) ...);
+    }
+
+
 public:
 
     ElementWiseDenseExpression() = delete;
@@ -192,20 +248,9 @@ public:
 
     static constexpr DenseOrder order() { return get_common_order<Args...>::value; }
 
-    constexpr bool is_contiguous() const noexcept { return all_of_tuple(apply_to_each(_IsContiguous{},_args)); }
-    constexpr bool is_omp_parallelisable() const noexcept { return all_of_tuple(apply_to_each(_IsOmpParallelisable{},_args)); }
-
-    bool is_broadcasting() const { 
-        // Are args broadcasting?
-        bool result = any_of_tuple(apply_to_each(_IsBroadcasting{},_args));
-        if( result ) return result;
-        // Do args have mismatching dims?
-        result |= any_of_tuple(apply_to_each(_DimsNeq{dims()},_args));
-        if( result ) return result;
-        // Do args have mismatching shapes?
-        result |= any_of_tuple(apply_to_each(_ShapeNeq{_shape},_args));
-        return result;
-    }
+    constexpr bool is_contiguous() const noexcept { return _is_contiguous_impl(std::make_index_sequence<std::tuple_size<tuple_t>::value>{});}
+    constexpr bool is_omp_parallelisable() const noexcept { return _is_omp_parallelisable(std::make_index_sequence<std::tuple_size<tuple_t>::value>{});}
+    bool is_broadcasting() const { return _is_broadcasting_impl(std::make_index_sequence<std::tuple_size<tuple_t>::value>{});}
 
     // Define const_iterator class
  
@@ -230,7 +275,7 @@ public:
 
         const_iterator( ItTuple&& its) : f{}, _its(std::move(its)) {}
 
-        decltype(auto) operator*() { return std::apply(f,apply_to_each(_Deref{},_its)); }
+        decltype(auto) operator*() { return _deref(f,_its); }
         const_iterator& operator++() { increment_tuple(_its); return *this; }
         const_iterator& operator--() { decrement_tuple(_its); return *this; }
         template<std::integral I> const_iterator& operator+=( const I& ii) { add_in_place_tuple(_its,ii); return *this; }
@@ -242,8 +287,8 @@ public:
         std::ptrdiff_t operator-( const const_iterator& other) const { return std::get<0>(_its) - std::get<0>(other._its);}
     };
 
-    const_iterator begin() const { return const_iterator(apply_to_each(_Begin{},_args)); }
-    const_iterator end()   const { return const_iterator(apply_to_each(_End{},_args)); }
+    const_iterator begin() const { return const_iterator(begin_tuple(_args)); }
+    const_iterator end()   const { return const_iterator(end_tuple(_args)); }
 
     // Define stripe class
     // As element-wise operations are strictly non-modifying, only read_only stripes are permitted.
@@ -281,7 +326,7 @@ public:
             
             Iterator( ItTuple&& its) : _f{}, _its(std::move(its)) {}
 
-            decltype(auto) operator*() { return std::apply(_f,apply_to_each(_Deref{},_its)); }
+            decltype(auto) operator*() { return _deref(_f,_its); }
             Iterator& operator++() { increment_tuple(_its); return *this; }
             Iterator& operator--() { decrement_tuple(_its); return *this; }
             template<std::integral I> Iterator& operator+=( const I& ii) { add_in_place_tuple(_its,ii); return *this; }
@@ -293,12 +338,12 @@ public:
             std::ptrdiff_t operator-( const Iterator& other) const { return std::get<0>(_its) - std::get<0>(other._its);}
         };
         
-        Iterator begin() const { return Iterator(apply_to_each(_Begin{},_stripes)); }
-        Iterator end()   const { return Iterator(apply_to_each(_End{},_stripes)); }
+        Iterator begin() const { return Iterator(begin_tuple(_stripes)); }
+        Iterator end()   const { return Iterator(end_tuple(_stripes)); }
     };
 
     decltype(auto) get_stripe( const DenseStriper& striper) const {
-        return Stripe(apply_to_each(_GetStripe{striper},_args));
+        return Stripe(_get_stripe_impl(striper,std::make_index_sequence<std::tuple_size<tuple_t>::value>{}));
     }
 };
 
