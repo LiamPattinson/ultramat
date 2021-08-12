@@ -360,7 +360,7 @@ public:
 template<class F, class StartType, class T>
 class GeneralFoldPolicy {
 protected:
-    using input_type = typename std::remove_cvref_t<T>;
+    using input_type = std::remove_cvref_t<T>;
     using input_value_type = typename input_type::value_type;
     using start_type = StartType;
     using value_type = decltype(std::declval<F>()(std::declval<input_type>().begin(),std::declval<input_type>().end(),std::declval<start_type>()));
@@ -373,11 +373,20 @@ protected:
 public:
     GeneralFoldPolicy( const start_type& start_val) : _start_val(start_val) {}
     start_type get() const { return _start_val; }
+
+    value_type exec( const F& f, const input_type& t, const DenseStriper& striper) const {
+        F f_copy(f);
+        value_type val = _start_val;
+        auto stripe = t.get_stripe(striper);
+        val = f_copy( stripe.begin(), stripe.end(), val);
+        return val;
+    }
 };
 
 template<class F, class StartType, class T>
 class LinearFoldPolicy {
 protected:
+    using input_type = std::remove_cvref_t<T>;
     using input_value_type = typename std::remove_cvref_t<T>::value_type;
     using start_type = StartType;
     using value_type = decltype(std::declval<F>()(std::declval<start_type>(),std::declval<input_value_type>()));
@@ -390,11 +399,20 @@ protected:
 public:
     LinearFoldPolicy( const start_type& start_val) : _start_val(start_val) {}
     start_type get() const { return _start_val; }
+
+    value_type exec( const F& f, const input_type& t, const DenseStriper& striper) const {
+        F f_copy(f);
+        value_type val = _start_val;
+        auto stripe = t.get_stripe(striper);
+        for( auto&& x : stripe ) val = f_copy(val,x);
+        return val;
+    }
 };
 
 template<class F, class ValueType, class T>
 class AccumulatePolicy {
 protected:
+    using input_type = std::remove_cvref_t<T>;
     using input_value_type = typename std::remove_cvref_t<T>::value_type;
     using value_type = decltype(std::declval<F>()(std::declval<input_value_type>(),std::declval<input_value_type>()));
     static_assert( std::is_convertible<ValueType,input_value_type>::value );
@@ -402,6 +420,17 @@ protected:
     static constexpr bool is_linear_fold = false;
     static constexpr bool is_accumulate = true;
     static constexpr bool is_boolean_fold = false;
+public:
+    value_type exec( const F& f, const input_type& t, const DenseStriper& striper) const {
+        F f_copy(f);
+        auto stripe = t.get_stripe(striper);
+        auto it = stripe.begin();
+        auto end = stripe.end();
+        std::remove_cvref_t<value_type> val = *it;
+        ++it;
+        for(; it != end; ++it ) val = f_copy(val,*it);
+        return val;
+    }
 };
 
 template<class F, class ValueType, class T>
@@ -409,6 +438,7 @@ class BooleanFoldPolicy {
     static_assert( std::is_same<ValueType,bool>::value );
 protected:
     using value_type = ValueType;
+    using input_type = std::remove_cvref_t<T>;
     using input_value_type = typename std::remove_cvref_t<T>::value_type;
     using result_type = decltype(std::declval<F>()(std::declval<ValueType>(),std::declval<input_value_type>()));
     static_assert( std::is_same<result_type,value_type>::value );
@@ -416,6 +446,16 @@ protected:
     static constexpr bool is_linear_fold = false;
     static constexpr bool is_accumulate = false;
     static constexpr bool is_boolean_fold = true;
+public:
+    value_type exec( const F&, const input_type& t, const DenseStriper& striper) const {
+        /* Rather than using F directly, we will instead make use of start_bool and early_exit_bool */ \
+        bool result = F::start_bool;
+        auto stripe = t.get_stripe(striper);
+        for( auto&& x : stripe){
+            if( x == F::early_exit_bool ) return !result;
+        }
+        return result;
+    }
 };
 
 template<class F, class ValueType, class T, template<class,class,class> class FoldPolicy>
@@ -537,44 +577,9 @@ public:
             const_iterator(f,t,fold_dim,t.order(),shape,end)
         {}
 
-#define ULTRA_FOLD_DEREF\
-        decltype(auto) operator*() requires (is_general_fold) {\
-            F f = _f;\
-            value_type val = FoldPolicy<F,ValueType,T>::get();\
-            auto stripe = _t.get_stripe(_striper);\
-            val = f( stripe.begin(), stripe.end(), val);\
-            return val;\
-        }\
-\
-        decltype(auto) operator*() requires (is_linear_fold) {\
-            F f = _f;\
-            value_type val = FoldPolicy<F,ValueType,T>::get();\
-            auto stripe = _t.get_stripe(_striper);\
-            for( auto&& x : stripe ) val = f(val,x);\
-            return val;\
-        }\
-\
-        decltype(auto) operator*() requires (is_accumulate) {\
-            F f = _f;\
-            auto stripe = _t.get_stripe(_striper);\
-            auto it = stripe.begin();\
-            auto end = stripe.end();\
-            std::remove_cvref_t<value_type> val = *it;\
-            ++it;\
-            for(; it != end; ++it ) val = f(val,*it);\
-            return val;\
-        }\
-\
-        decltype(auto) operator*() requires (is_boolean_fold) {\
-            /* Rather than using F directly, we will instead make use of start_bool and early_exit_bool */ \
-            bool result = F::start_bool;\
-            auto stripe = _t.get_stripe(_striper);\
-            for( auto&& x : stripe){\
-                if( x == F::early_exit_bool ) return !result;\
-            }\
-            return result;\
+        decltype(auto) operator*(){
+            return FoldPolicy<F,ValueType,T>::exec( _f, _t, _striper);
         }
-        ULTRA_FOLD_DEREF
 
         const_iterator& operator++() { ++_striper; return *this; }
         const_iterator& operator--() { --_striper; return *this; }
@@ -669,8 +674,9 @@ public:
                 _striper(striper)
             {}
 
-            ULTRA_FOLD_DEREF
-#undef ULTRA_FOLD_DEREF
+            decltype(auto) operator*(){
+                return FoldPolicy<F,ValueType,T>::exec( _f, _t, _striper);
+            }
 
             Iterator& operator++() { ++_striper.index(_stripe_dim); return *this; }
             Iterator& operator--() { --_striper.index(_stripe_dim); return *this; }
