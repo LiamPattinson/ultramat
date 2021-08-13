@@ -384,62 +384,70 @@ class DenseImpl {
 
     // ===============================================
     // Striped Iteration
-    
-    auto get_stripe( const DenseStriper& striper){
-#define ULTRA_GET_STRIPE_BODY;\
-        auto* stripe_ptr = derived().data();\
-        std::ptrdiff_t stripe_stride;\
-        bool broadcasting = ( dims() < striper.dims());\
-        bool mixed_order = ( order() != striper.order());\
-        if( broadcasting && mixed_order ) throw std::runtime_error("Ultramat: Can't broadcast row-major and col-major objects at once.");\
-        if( striper.order() == DenseOrder::col_major ){\
-            for( std::size_t ii=0; ii<dims(); ++ii){\
-                if( ii==striper.stripe_dim() ){\
-                    /* ptr stays the same, do nothing */ \
-                } else if( shape(ii)==1 ){\
-                    /* ptr stays the same, but note if we're broadcasting */ \
-                    if( striper.shape(ii) != 1 ) broadcasting=true;\
-                } else {\
-                    stripe_ptr += striper.index(ii) * stride(ii+(Order==DenseOrder::row_major));\
-                }\
-            }\
-            if( striper.stripe_dim() >= dims() || (shape(striper.stripe_dim()) == 1 && striper.shape(striper.stripe_dim()) != 1 )) {\
-                stripe_stride = 0;\
-                broadcasting = true;\
-            } else {\
-                stripe_stride = stride(striper.stripe_dim()+(Order==DenseOrder::row_major));\
-            }\
-        } else {\
-            std::size_t extra_dims = striper.dims() - dims();\
-            for( std::size_t ii=striper.dims(); ii!=extra_dims; --ii){\
-                std::size_t jj = ii - extra_dims;\
-                if( ii==striper.stripe_dim()+1 ){\
-                    /* ptr stays the same, do nothing */ \
-                } else if ( shape(jj-1)==1 ){\
-                    /* ptr stays the same, but note if we're broadcasting */ \
-                    if( striper.shape(ii-1) != 1 ) broadcasting=true;\
-                } else {\
-                    stripe_ptr += striper.index(ii) * stride(jj-(Order==DenseOrder::col_major));\
-                }\
-            }\
-            if( striper.stripe_dim() < extra_dims || (shape(striper.stripe_dim()-extra_dims) == 1 && striper.shape(striper.stripe_dim()) != 1)) {\
-                stripe_stride = 0;\
-                broadcasting = true;\
-            } else {\
-                stripe_stride = stride(striper.stripe_dim()-extra_dims+(Order==DenseOrder::row_major));\
-            }\
-        }\
+
+    private:
+
+    auto _get_stripe_helper( const DenseStriper& striper) const {
+        std::ptrdiff_t stripe_jump=0, stripe_stride=0;
+        bool broadcasting = ( dims() < striper.dims());
+        bool mixed_order = ( order() != striper.order());
+        if( broadcasting && mixed_order ) throw std::runtime_error("Ultramat: Can't broadcast row-major and col-major objects at once.");
+        if( striper.order() == DenseOrder::col_major ){
+            for( std::size_t ii=0; ii<dims(); ++ii){
+                if( ii==striper.stripe_dim() ){
+                    /* ptr stays the same, do nothing */ 
+                } else if( shape(ii)==1 ){
+                    /* ptr stays the same, but note if we're broadcasting */ 
+                    if( striper.shape(ii) != 1 ) broadcasting=true;
+                } else {
+                    stripe_jump += striper.index(ii) * stride(ii+(Order==DenseOrder::row_major));
+                }
+            }
+            if( striper.stripe_dim() >= dims() || (shape(striper.stripe_dim()) == 1 && striper.shape(striper.stripe_dim()) != 1 )) {
+                stripe_stride = 0;
+                broadcasting = true;
+            } else {
+                stripe_stride = stride(striper.stripe_dim()+(Order==DenseOrder::row_major));
+            }
+        } else {
+            std::size_t extra_dims = striper.dims() - dims();
+            for( std::size_t ii=striper.dims(); ii!=extra_dims; --ii){
+                std::size_t jj = ii - extra_dims;
+                if( ii==striper.stripe_dim()+1 ){
+                    /* ptr stays the same, do nothing */ 
+                } else if ( shape(jj-1)==1 ){
+                    /* ptr stays the same, but note if we're broadcasting */ 
+                    if( striper.shape(ii-1) != 1 ) broadcasting=true;
+                } else {
+                    stripe_jump += striper.index(ii) * stride(jj-(Order==DenseOrder::col_major));
+                }
+            }
+            if( striper.stripe_dim() < extra_dims || (shape(striper.stripe_dim()-extra_dims) == 1 && striper.shape(striper.stripe_dim()) != 1)) {
+                stripe_stride = 0;
+                broadcasting = true;
+            } else {
+                stripe_stride = stride(striper.stripe_dim()-extra_dims+(Order==DenseOrder::row_major));
+            }
+        }
         if( broadcasting && mixed_order) throw std::runtime_error("Ultramat: Can't broadcast row-major and col-major objects at once.");
-        ULTRA_GET_STRIPE_BODY
-        return DenseStripe<T,ReadWrite::writeable>( stripe_ptr, stripe_stride, striper.stripe_size());
+        return std::make_pair( stripe_jump, stripe_stride);
+    }
+    
+    public:
+
+    auto get_stripe( const DenseStriper& striper){
+        auto* stripe_ptr = derived().data();
+        std::ptrdiff_t stripe_jump, stripe_stride;
+        std::tie(stripe_jump,stripe_stride) = _get_stripe_helper(striper);
+        return DenseStripe<T,ReadWrite::writeable>( stripe_ptr + stripe_jump, stripe_stride, striper.stripe_size());
     }
 
-    auto get_stripe( const DenseStriper& striper) const{
-        ULTRA_GET_STRIPE_BODY
-        return DenseStripe<T,ReadWrite::read_only>( stripe_ptr, stripe_stride, striper.stripe_size());
+    auto get_stripe( const DenseStriper& striper) const {
+        auto* stripe_ptr = derived().data();
+        std::ptrdiff_t stripe_jump, stripe_stride;
+        std::tie(stripe_jump,stripe_stride) = _get_stripe_helper(striper);
+        return DenseStripe<T,ReadWrite::read_only>( stripe_ptr + stripe_jump, stripe_stride, striper.stripe_size());
     }
-
-#undef ULTRA_GET_STRIPE_BODY
 
     constexpr std::size_t required_stripe_dim() const { return dims();}
 
