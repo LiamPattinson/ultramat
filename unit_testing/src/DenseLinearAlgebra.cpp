@@ -1,4 +1,4 @@
-#include "ultramat/include/DenseLinearAlgebra.hpp"
+#include "ultramat/include/Dense/DenseLinearAlgebra.hpp"
 #include <gtest/gtest.h>
 #include <iostream>
 

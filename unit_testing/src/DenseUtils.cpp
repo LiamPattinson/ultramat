@@ -1,4 +1,4 @@
-#include "ultramat/include/DenseUtils.hpp"
+#include "ultramat/include/Dense/DenseUtils.hpp"
 #include <gtest/gtest.h>
 
 using namespace ultra;

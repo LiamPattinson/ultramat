@@ -1,7 +1,8 @@
 // Include file for ultramat
 
-// Containers
-#include "ultramat/include/Dense.hpp"
+// Utilities
+#include "ultramat/include/Utils/Utils.hpp"
 
-// Expressions
-#include "ultramat/include/DenseMath.hpp"
+// Dense Containers
+#include "ultramat/include/Dense/Dense.hpp"
+#include "ultramat/include/Dense/DenseMath.hpp"

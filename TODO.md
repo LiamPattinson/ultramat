@@ -1,18 +1,5 @@
 # TODO
 
-### OpenMP
-
-    * Will allow most expressions to be calculated in parallel.
-    * Switched on by default, but have the code read from the user's
-      environment variables for something called ULTRA_NUM_THREADS. If it can't find this,
-      set num threads to 1. Otherwise, set num threads to this environment variable.
-        * Currently just reads from OMP_NUM_THREADS. Should move it to ULTRA_NUM_THREADS to avoid
-          conflicts with any openmp stuff the end-user wants to do.
-        * Will require a singleton class that reads the environment variable and converts to int.
-        * Unsure how to enforce openmp as a dependency in cmake.
-    * Working already for straightforward iteration. Further work needed for striping in parallel.
-        * Some thought needed for working in parallel over each stripe
-
 ### Linear algebra
 
     * Would be handy if some sort of DenseLinearAlgebraExpression could be defined, but it'll be tricky
@@ -71,6 +58,11 @@
     * kronecker product
     * QR decomposition
     * SVD decomposition
+
+### Further OpenMP
+
+    * parallel within each stripe
+    * benchmark testing, optimise scheduling
 
 ### Iterative linear algebra
 

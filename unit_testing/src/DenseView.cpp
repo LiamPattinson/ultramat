@@ -1,5 +1,5 @@
-#include "ultramat/include/Dense.hpp"
-#include "ultramat/include/DenseMath.hpp"
+#include "ultramat/include/Dense/Dense.hpp"
+#include "ultramat/include/Dense/DenseMath.hpp"
 #include <gtest/gtest.h>
 #include <cmath>
 

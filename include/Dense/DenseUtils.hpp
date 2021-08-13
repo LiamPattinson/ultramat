@@ -5,7 +5,7 @@
 //
 // Defines any utility functions/structs deemed useful for Dense objects.
 
-#include "Utils.hpp"
+#include "ultramat/include/Utils/Utils.hpp"
 
 namespace ultra {
 
