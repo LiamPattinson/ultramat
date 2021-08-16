@@ -8,17 +8,18 @@ Currently a work in progress. Proper versioning will begin after the features li
 
 ## Features
 
-* N-dimensional arrays, either dynamically allocated or fixed-size, row-major (C-style) ordered or column-major ordered
+* N-dimensional arrays, either dynamically allocated or fixed-size, row-major ordered (C-style) or column-major ordered
 (Fortran-style), all completely interoperable.
 * A large collection of mathematical functions, including N-dimensional versions of every function in the cmath library (and more),
 reduction operations (min, max, sum, etc), and simple arithmetic operations. All are optimised using expression templates to
 ensure no temporary arrays are allocated unnecessarily.
-* Take non-contiguous 'views' of arrays using Python-style slicing operations. Views may be used in place of arrays in all
+* Take non-contiguous 'views' of arrays using Python-inspired slicing operations. Views may be used in place of arrays in all
 operations.
 * Automatic Numpy-style broadcasting, allowing significant memory savings and permitting the inclusion of scalars in all
 array operations.
+* Built-in OpenMP parallelisation, allowing significant performance improvements on multicore machines.
 
-## Exmaples
+## Examples
 
 The following example showcases the syntax of ultramat.
 
@@ -30,9 +31,9 @@ using shape = std::vector<std::size_t>;
 // Create a linearly spaced array
 Array<double> a = linspace(-50.,49.,100);
 
-// Create a fixed-size 3-dimensional array, initialised with random numbers from a normal distribution
-// Fixed size arrays look similar to dynamically sized arrays, though have their dimensions specified in
-// their template parameter lists.
+// Create a fixed-size 3-dimensional array, initialised with random numbers from a normal
+// distribution. Fixed size arrays look similar to dynamically sized arrays, though have
+// their dimensions specified in their template parameter lists.
 double mean = 5; 
 double stddev = 2;
 Array<double,10,25,100> b;
@@ -44,15 +45,14 @@ b = random_normal( mean, stddev, b.shape());
 Array<double> c = pow(a + b,3)/2;
 
 // Avoid creating any intermediates, and do all of this in one step.
-// No temporary arrays are allocated. The linspace and random_normal generators produce  elements lazily,
-//  only when they're needed.
+// No temporary arrays are allocated. The linspace and random_normal generators produce
+// elements lazily, only when they're needed.
 Array<double> d = pow(linspace(-50.,49.,100) + random_normal(mean,stddev,shape{10,25,100}),3)/2;
 ```
 
 ## Features Coming Soon
 
 * Foundational linear algebra operations (dot, cross, matmul, lu_solve), with BLAS and LAPACK support.
-* OpenMP parallelisation.
 * Proper documentation using Doxygen.
 
 ## Features Coming at Some Point, Probably
@@ -62,11 +62,15 @@ Array<double> d = pow(linspace(-50.,49.,100) + random_normal(mean,stddev,shape{1
     * Various decompositions, such as QR and SVD
     * Iterative solvers
 * Finite difference methods
-* Optimisation methods, such as gradient descent
 * Fast Fourier Transforms
 * Statistics functions
 * Sparse arrays and associated methods
 * Distributed N-dimensional arrays (though that's a long way off...)
+
+## Requirements
+
+* A C++ compiler supporting the C++20 standard and OpenMP
+* cmake
 
 ## Installation
 
@@ -139,9 +143,9 @@ ultra::Array<int>::col_major z2 = x+y2; // SUCCEEDS
 ```
 
 As the first dimension is the 'fast' dimension with column-major ordering, it was deemed
-innappropriate to prepend new dimensions to the beginning. Instead, new dimensions are _appended_
-onto the shape of column-major objects. One way to think of this is that,
-in both cases, `x` is a (3,3) matrix. In the row-major case, `y` is a stack of 5 (3,3) matrices.
+inappropriate to prepend new dimensions. Instead, new dimensions are _appended_
+onto the shape of column-major objects. 
+Consider that, in both cases, `x` is a (3,3) matrix. In the row-major case, `y` is a stack of 5 (3,3) matrices.
 However, in the col-major case, `y1` is a stack of 3 (5,3) matrices, while `y2` is a stack of
 5 (3,3) matrices as expected.
 
@@ -154,7 +158,7 @@ row-major by default and make use of broadcasting internally.
 
 The `auto` keyword is extremely powerful in modern C++, and it is used heavily within
 the internals of ultramat. However, in most cases it should be avoided by the end-user,
-and type names should be written out in full. This is because most operations between
+and typenames should be written out in full. This is because most operations between
 ultramat objects return expression objects rather than directly returning the results of
 a computation:
 
@@ -176,3 +180,9 @@ auto r2 = p + q;
 In the example above, `r2` is not of type `Array<float>`, as expected, but rather is an
 `ElementWiseDenseExpression`, templated over the types it has been provided -- likely not
 what the user actually wants.
+
+## Licensing
+
+This project is licensed under the MIT License -- see the [LICENSE.md](License.md) file for details. If you would like to use
+ultramat in your own work, there is no need to provide credit, though it would be highly appreciated. Note that this project
+is currently a work-in-progress, and liable to change significantly until the first stable build is released.
