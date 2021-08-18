@@ -18,13 +18,13 @@ namespace ultra {
 // DenseOrder
 
 //! An Enum Class used to indicate whether a Dense object is row-major or column-major ordered.
-/*! DenseOrder is commonly used as a template argument to Dense objects, and is used to indicate
- *  whether a given Dense object is row-major ordered (C-style) or column-major ordered
+/*! `DenseOrder` is commonly used as a template argument to `Dense` objects, and is used to indicate
+ *  whether a given `Dense` object is row-major ordered (C-style) or column-major ordered
  *  (Fortran-style). If an object is row-major ordered, then the last dimension is the fastest
  *  incrementing, while if an object is column-major ordered, the first dimension is the fastest
- *  incrementing. The option DenseOrder::mixed exists to indicate that a given object is neither
- *  row-major nor column-major. Examples include an expression in which a row-major Array is
- *  added to a column-major Array.
+ *  incrementing. The option `DenseOrder::mixed` exists to indicate that a given object is neither
+ *  row-major nor column-major. Examples include an expression in which a row-major `Array` is
+ *  added to a column-major `Array`.
  */
 enum class DenseOrder { 
     //! Row-major ordering, last dimension increments fastest
@@ -43,7 +43,7 @@ const DenseOrder default_order = DenseOrder::row_major;
 // DenseType
 
 //! An Enum Class used to indicate whether a Dense object is a vector, matrix, or is N-dimensional.
-/*! Used internally by Dense to determine whether to store shape/stride as std::vector or std::array, and whether
+/*! Used internally by Dense to determine whether to store shape/stride as `std::vector` or `std::array`, and whether
  *  to restrict reshaping. This is currently in the firing line for deprecation.
  */
 enum class DenseType : std::size_t { 
@@ -59,7 +59,7 @@ enum class DenseType : std::size_t {
 // DenseType
 
 //! An Enum Class used to indicate whether an object is read-only or if it may be written to.
-/*! Used internally by objects such as DenseView and DenseStripe to indicate whether they should reference
+/*! Used internally by objects such as `DenseView` and `DenseStripe` to indicate whether they should reference
  *  their data using a regular pointer (writeable) or a const pointer (read_only).
  */
 enum class ReadWrite {
@@ -77,28 +77,45 @@ template<class, DenseOrder, std::size_t...> class DenseFixed;
 template<class, ReadWrite = ReadWrite::writeable> class DenseView;
 template<class, ReadWrite = ReadWrite::writeable> class DenseStripe;
 
-//! The alias used to access either dynamically-sized Dense objects or fixed-size Dense objects.
-/*! Arrays should be considered the primary objects in the ultramat library, but in actuality `Array'
+/*! \brief The alias used to access either dynamically-sized Dense objects or fixed-size Dense objects.
+ *  \tparam T the value_type contained by the Array
+ *  \tparam Dims (Optional) A list of unsigned integers giving the dimensions of the Array. Omitting this results in a dynamically sized array.
+ *
+ *  Arrays should be considered the primary objects in the ultramat library, but in actuality `Array'
  *  is actually an alias. If Array is supplied with only a single template argument, such as Array<int>
  *  or Array<double>, it is an alias for an N-dimensional dynamically-sized Dense object. If it is provided
  *  with a list of dimension sizes after the value type, such as Array<float,3,3>, it instead aliases a
- *  fixed-size $3\times3$ DenseFixed object. Both objects may be used interchangeably in ultramat expressions,
+ *  fixed-size \f$3\times3\f$ DenseFixed object. Both objects may be used interchangeably in ultramat expressions,
  *  though the latter may not be resized in any way.
  */
 template<class T,std::size_t... Dims>
 using Array = std::conditional_t<sizeof...(Dims),DenseFixed<T,default_order,Dims...>,Dense<T,DenseType::nd,default_order>>;
 
-//! The alias used to access either dynamically-sized 1D Dense objects or fixed-size 1D Dense objects.
-/*! Similar to the Array alias, though restricted to 1D arrays. Due for deprecation.
- */
+// define intermediate impl aliases as doxygen doesn't seem to like 'requires'
 template<class T,std::size_t... Dims> requires ( sizeof...(Dims) == 0 || sizeof...(Dims) == 1)
-using Vector = std::conditional_t<sizeof...(Dims),DenseFixed<T,default_order,Dims...>,Dense<T,DenseType::vec,default_order>>;
+using VectorImpl = std::conditional_t<sizeof...(Dims),DenseFixed<T,default_order,Dims...>,Dense<T,DenseType::vec,default_order>>;
 
-//! The alias used to access either dynamically-sized 2D Dense objects or fixed-size 2D Dense objects.
-/*! Similar to the Array alias, though restricted to 1D arrays. Due for deprecation.
- */
 template<class T,std::size_t... Dims> requires ( sizeof...(Dims) == 0 || sizeof...(Dims) == 2)
-using Matrix = std::conditional_t<sizeof...(Dims),DenseFixed<T,default_order,Dims...>,Dense<T,DenseType::mat,default_order>>;
+using MatrixImpl = std::conditional_t<sizeof...(Dims),DenseFixed<T,default_order,Dims...>,Dense<T,DenseType::mat,default_order>>;
+
+/*! \brief The alias used to access either dynamically-sized 1D Dense objects or fixed-size 1D Dense objects.
+ *  \tparam T The value_type contained by the Vector
+ *  \tparam Size (Optional) Unsigned int representing fixed size. Omitting this results in a dynamically sized Vector 
+ *
+ *  Similar to the Array alias, though restricted to 1D arrays. Due for deprecation.
+ */
+template<class T,std::size_t... Dims>
+using Vector = VectorImpl<T,Dims...>;
+
+/*!  \brief The alias used to access either dynamically-sized 2D Dense objects or fixed-size 2D Dense objects.
+ *  \tparam T the value_type contained by the Matrix
+ *  \tparam Rows (Optional) Unsigned integer giving the number of rows. Omitting this results in a dynamically sized array. Must also provide Cols.
+ *  \tparam Cols (Optional) Unsigned integer giving the number of columns. Omitting this results in a dynamically sized array.
+ * 
+ *  Similar to the Array alias, though restricted to 2D arrays. Due for deprecation.
+ */
+template<class T,std::size_t... Dims>
+using Matrix = MatrixImpl<T,Dims...>;
 
 // ==============================================
 // is_dense
@@ -118,7 +135,7 @@ template<class T, ReadWrite RW> struct is_dense<DenseView<T,RW>> { static conste
 // shapelike
 
 //! Defines a sized range of integers, and excludes ultramat Dense objects, e.g. std::vector<std::size_t>
-//! For the sake of compatibility, the shapelike concept applies to signed integer ranges as well as unsigned ranges.
+/*! For the sake of compatibility, the shapelike concept applies to signed integer ranges as well as unsigned ranges. */
 template<class T> concept shapelike = std::ranges::sized_range<T> && std::integral<typename T::value_type> && !is_dense<T>::value;
 
 // ==============================================
@@ -161,34 +178,31 @@ struct common_order {
 // ==============================================
 // Slice
 
-// Define slice : a tool for generating views of Arrays and related objects.
-// Is an 'aggregate'/'pod' type, so should have a relatively intuitive interface by default.
-
+//! A tool for generating views of Dense objects.
+/*! Slice is an 'aggregate'/'pod' type, so it has a relatively intuitive interface by default.
+ *  For example, a Slice that takes all but the last element may be created via Slice{0,-1}.
+ *  The same in reverse is written Slice{0,-1,-1}. In Python, it is possible to signify
+ *  that a slice should give all elements with the syntax x[:]. This is achieved with Slice
+ *  using the Slice::all static member: Slice{Slice::all,Slice::all}. Note that both the
+ *  beginning and the end must be specified. The step size defaults to 1.
+ */
 struct Slice { 
-    static constexpr std::ptrdiff_t all = std::numeric_limits<std::ptrdiff_t>::max();
+    //! Beginning of the slice, inclusive. Slice::all has the same effect as 0. Negative numbers count backwards from the end.
     std::ptrdiff_t start;
+    /*! \brief End of the slice, exclusive. Slice::all indicates that all elements from start onwards are included. 
+     * Negative numbers count backwards from the end.
+     */
     std::ptrdiff_t end;
+    //! Step size of the slice. Negative steps mean the slice goes from (end-1) to start.
     std::ptrdiff_t step=1;
+    /*! \brief Static member. When used for 'start', all elements up to 'end' are included. 
+     *  When used for end, 'all' elements from 'start' onwards are used. When used for both 'start' and 'end', all elements are included.
+     */
+    static constexpr std::ptrdiff_t all = std::numeric_limits<std::ptrdiff_t>::max();
 };
 
-// Bool class
-// Looks like a bool, acts like a bool. Used in place of regular bool in dynamic dense objects to avoid the horrors of std::vector<bool>
-
-class Bool {
-    bool _x;
-    public:
-    Bool() = default;
-    Bool( const Bool& ) = default;
-    Bool( Bool&& ) = default;
-    Bool& operator=( const Bool& ) = default;
-    Bool& operator=( Bool&& ) = default;
-    inline Bool( bool x) : _x(x) {}
-    inline operator bool() const { return _x; }
-    inline operator bool&() { return _x; }
-};
-
-// ==========================
-// Striped iteration utils
+// ==============================================
+// DenseStriper
 
 class DenseStriper {
 

@@ -64,6 +64,22 @@ using complex_upcast = std::conditional_t< is_complex<T>::value, T,
     std::conditional_t< std::is_floating_point<T>::value, std::complex<T>, std::complex<double>>
 >;
 
+// Bool class
+// Looks like a bool, acts like a bool. Can be used in place of regular bool to avoid the horrors of std::vector<bool>
+
+class Bool {
+    bool _x;
+    public:
+    Bool() = default;
+    Bool( const Bool& ) = default;
+    Bool( Bool&& ) = default;
+    Bool& operator=( const Bool& ) = default;
+    Bool& operator=( Bool&& ) = default;
+    inline Bool( bool x) : _x(x) {}
+    inline operator bool() const { return _x; }
+    inline operator bool&() { return _x; }
+};
+
 }
 
 // include other utility files
