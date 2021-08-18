@@ -246,7 +246,7 @@ public:
     decltype(auto) shape(std::size_t ii) const { return _shape[ii]; }
     decltype(auto) required_stripe_dim() const { return dims(); }
 
-    static constexpr DenseOrder order() { return get_common_order<Args...>::value; }
+    static constexpr DenseOrder order() { return common_order<Args...>::value; }
 
     constexpr bool is_contiguous() const noexcept { return _is_contiguous_impl(std::make_index_sequence<std::tuple_size<tuple_t>::value>{});}
     constexpr bool is_omp_parallelisable() const noexcept { return _is_omp_parallelisable(std::make_index_sequence<std::tuple_size<tuple_t>::value>{});}
@@ -1024,7 +1024,7 @@ public:
     decltype(auto) required_stripe_dim() const { return dims(); }
 
     static constexpr DenseOrder order() {
-        return get_common_order<Cond,Left,Right>::value; 
+        return common_order<Cond,Left,Right>::value; 
     }
 
     constexpr bool is_contiguous() const noexcept {

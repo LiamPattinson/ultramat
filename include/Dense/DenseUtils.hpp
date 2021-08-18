@@ -1,76 +1,165 @@
 #ifndef __ULTRA_DENSE_UTILS_HPP
 #define __ULTRA_DENSE_UTILS_HPP
 
-// DenseUtils.hpp
-//
-// Defines any utility functions/structs deemed useful for Dense objects.
+/*! \file DenseUtils.hpp
+ *  \brief Defines any utility functions/structs deemed useful for Dense objects.
+ *
+ *  This file contains utilities widely used in the definitions and internal workings
+ *  of Dense objects. Most features are not expected to be used by the end-user, but
+ *  one important feature is the definition of Array -- the recommended alias for
+ *  Dense objects.
+ */
 
 #include "ultramat/include/Utils/Utils.hpp"
 
 namespace ultra {
 
-// Define row/col order enum class
+// ==============================================
+// DenseOrder
 
-enum class DenseOrder { row_major, col_major, mixed };
+//! An Enum Class used to indicate whether a Dense object is row-major or column-major ordered.
+/*! DenseOrder is commonly used as a template argument to Dense objects, and is used to indicate
+ *  whether a given Dense object is row-major ordered (C-style) or column-major ordered
+ *  (Fortran-style). If an object is row-major ordered, then the last dimension is the fastest
+ *  incrementing, while if an object is column-major ordered, the first dimension is the fastest
+ *  incrementing. The option DenseOrder::mixed exists to indicate that a given object is neither
+ *  row-major nor column-major. Examples include an expression in which a row-major Array is
+ *  added to a column-major Array.
+ */
+enum class DenseOrder { 
+    //! Row-major ordering, last dimension increments fastest
+    row_major, 
+    //! Column-major ordering, first dimension increments fastest
+    col_major, 
+    //! Object is neither row-major nor column-major
+    mixed
+};
+
+//! The default row/column-major ordering used throughout ultramat. Normally set to row-major.
 const DenseOrder default_order = DenseOrder::row_major;
 
-// get_common_order
-// return row_major if all row_major, col_major if all col_major, and default otherwise
 
-template<class... Ts> struct GetCommonOrderImpl;
+// ==============================================
+// DenseType
 
-template<class T1, class T2, class... Ts>
-struct GetCommonOrderImpl<T1,T2,Ts...> {
-    static constexpr DenseOrder Order = std::remove_cvref_t<T1>::order() == GetCommonOrderImpl<T2,Ts...>::order() ? std::remove_cvref_t<T1>::order() : DenseOrder::mixed;
-    static constexpr DenseOrder order() { return Order; }
+//! An Enum Class used to indicate whether a Dense object is a vector, matrix, or is N-dimensional.
+/*! Used internally by Dense to determine whether to store shape/stride as std::vector or std::array, and whether
+ *  to restrict reshaping. This is currently in the firing line for deprecation.
+ */
+enum class DenseType : std::size_t { 
+    //! Dense object is 1D
+    vec=1, 
+    //! Dense object is 2D
+    mat=2, 
+    //! Dense object is N-Dimensional
+    nd=0 
 };
 
-template<class T1>
-struct GetCommonOrderImpl<T1> {
-    static constexpr DenseOrder Order = std::remove_cvref_t<T1>::order();
-    static constexpr DenseOrder order() { return Order; }
+// ==============================================
+// DenseType
+
+//! An Enum Class used to indicate whether an object is read-only or if it may be written to.
+/*! Used internally by objects such as DenseView and DenseStripe to indicate whether they should reference
+ *  their data using a regular pointer (writeable) or a const pointer (read_only).
+ */
+enum class ReadWrite {
+    //! Object may be freely read from or written to
+    writeable,
+    //! Object may only be read from
+    read_only
 };
 
-template<class... Ts>
-struct get_common_order {
-    static constexpr DenseOrder Order = GetCommonOrderImpl<Ts...>::order();
-    static constexpr DenseOrder order(){ return Order; }
-    static constexpr DenseOrder value = Order;
-};
-
-// Define 'DenseType' enum class.
-// Used by Dense to determine whether to store shape/stride as std::vector or std::array, and whether to restrict reshaping
-
-enum class DenseType : std::size_t { vec=1, mat=2, nd=0 };
-
-// Define read-only enum class
-
-enum class ReadWrite { writeable, read_only };
-
-// Declare Array types and preferred interface
+// ==============================================
+// Array
 
 template<class, DenseType, DenseOrder> class Dense;
 template<class, DenseOrder, std::size_t...> class DenseFixed;
 template<class, ReadWrite = ReadWrite::writeable> class DenseView;
 template<class, ReadWrite = ReadWrite::writeable> class DenseStripe;
 
+//! The alias used to access either dynamically-sized Dense objects or fixed-size Dense objects.
+/*! Arrays should be considered the primary objects in the ultramat library, but in actuality `Array'
+ *  is actually an alias. If Array is supplied with only a single template argument, such as Array<int>
+ *  or Array<double>, it is an alias for an N-dimensional dynamically-sized Dense object. If it is provided
+ *  with a list of dimension sizes after the value type, such as Array<float,3,3>, it instead aliases a
+ *  fixed-size $3\times3$ DenseFixed object. Both objects may be used interchangeably in ultramat expressions,
+ *  though the latter may not be resized in any way.
+ */
 template<class T,std::size_t... Dims>
 using Array = std::conditional_t<sizeof...(Dims),DenseFixed<T,default_order,Dims...>,Dense<T,DenseType::nd,default_order>>;
 
+//! The alias used to access either dynamically-sized 1D Dense objects or fixed-size 1D Dense objects.
+/*! Similar to the Array alias, though restricted to 1D arrays. Due for deprecation.
+ */
 template<class T,std::size_t... Dims> requires ( sizeof...(Dims) == 0 || sizeof...(Dims) == 1)
 using Vector = std::conditional_t<sizeof...(Dims),DenseFixed<T,default_order,Dims...>,Dense<T,DenseType::vec,default_order>>;
 
+//! The alias used to access either dynamically-sized 2D Dense objects or fixed-size 2D Dense objects.
+/*! Similar to the Array alias, though restricted to 1D arrays. Due for deprecation.
+ */
 template<class T,std::size_t... Dims> requires ( sizeof...(Dims) == 0 || sizeof...(Dims) == 2)
 using Matrix = std::conditional_t<sizeof...(Dims),DenseFixed<T,default_order,Dims...>,Dense<T,DenseType::mat,default_order>>;
 
-// is_dense type trait
-template<class T> struct is_dense { static constexpr bool value = false; };
+// ==============================================
+// is_dense
+
+//! Type-trait which determines whether a given type is an ultramat Dense object.
+template<class T>
+struct is_dense {
+    //! Evaluates to true if the template argument T is a Dense Object. Evaluates to false otherwise.
+    static constexpr bool value = false; 
+};
+
 template<class T, DenseType Type, DenseOrder Order> struct is_dense<Dense<T,Type,Order>> { static constexpr bool value = true; };
 template<class T, DenseOrder Order, std::size_t... dims> struct is_dense<DenseFixed<T,Order,dims...>> { static constexpr bool value = true; };
 template<class T, ReadWrite RW> struct is_dense<DenseView<T,RW>> { static constexpr bool value = true; };
 
-// shapelike concept: a range of integers, but not a dense object, e.g. std::vector<std::size_t>
+// ==============================================
+// shapelike
+
+//! Defines a sized range of integers, and excludes ultramat Dense objects, e.g. std::vector<std::size_t>
+//! For the sake of compatibility, the shapelike concept applies to signed integer ranges as well as unsigned ranges.
 template<class T> concept shapelike = std::ranges::sized_range<T> && std::integral<typename T::value_type> && !is_dense<T>::value;
+
+// ==============================================
+// common_order
+
+template<class... Ts> struct CommonOrderImpl;
+
+template<class T1, class T2, class... Ts>
+struct CommonOrderImpl<T1,T2,Ts...> {
+    static constexpr DenseOrder Order = std::remove_cvref_t<T1>::order() == CommonOrderImpl<T2,Ts...>::order() ? std::remove_cvref_t<T1>::order() : DenseOrder::mixed;
+    static constexpr DenseOrder order() { return Order; }
+};
+
+template<class T1>
+struct CommonOrderImpl<T1> {
+    static constexpr DenseOrder Order = std::remove_cvref_t<T1>::order();
+    static constexpr DenseOrder order() { return Order; }
+};
+
+//! A type-trait-like struct that returns the common order of a collection of Dense objects.
+/*! Given a collection of Dense objects, this struct provides a way to compute their `common
+ *  order' at compile time, via common_order<Dense1,Dense2,...>::value. If all objects are
+ *  row-major, then this returns DenseOrder::row_major -- likewise for column-major objects.
+ *  If there are a mix of orderings in the template argument list, it returns DenseOrder::mixed.
+ */
+template<class... Ts>
+struct common_order {
+    //! Gives the common order of the template arguments given.
+    static constexpr DenseOrder Order = CommonOrderImpl<Ts...>::order(); 
+    
+    //! constexpr function used to access Order
+    static constexpr DenseOrder order(){ 
+        return Order;
+    }
+    
+    //! Alias for Order
+    static constexpr DenseOrder value = Order;
+};
+
+// ==============================================
+// Slice
 
 // Define slice : a tool for generating views of Arrays and related objects.
 // Is an 'aggregate'/'pod' type, so should have a relatively intuitive interface by default.
