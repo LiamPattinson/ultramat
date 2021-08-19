@@ -42,16 +42,16 @@ const DenseOrder default_order = DenseOrder::row_major;
 // ==============================================
 // DenseType
 
-//! An Enum Class used to indicate whether a Dense object is a vector, matrix, or is N-dimensional.
-/*! Used internally by Dense to determine whether to store shape/stride as `std::vector` or `std::array`, and whether
+//! An Enum Class used to indicate whether a `Dense` object is a vector, matrix, or is N-dimensional.
+/*! Used internally by `Dense` to determine whether to store shape/stride as `std::vector` or `std::array`, and whether
  *  to restrict reshaping. This is currently in the firing line for deprecation.
  */
 enum class DenseType : std::size_t { 
-    //! Dense object is 1D
+    //! `Dense` object is 1D
     vec=1, 
-    //! Dense object is 2D
+    //! `Dense` object is 2D
     mat=2, 
-    //! Dense object is N-Dimensional
+    //! `Dense` object is N-Dimensional
     nd=0 
 };
 
@@ -77,15 +77,15 @@ template<class, DenseOrder, std::size_t...> class DenseFixed;
 template<class, ReadWrite = ReadWrite::writeable> class DenseView;
 template<class, ReadWrite = ReadWrite::writeable> class DenseStripe;
 
-/*! \brief The alias used to access either dynamically-sized Dense objects or fixed-size Dense objects.
- *  \tparam T the value_type contained by the Array
+/*! \brief The alias used to access either dynamically-sized Dense objects or fixed-size `Dense` objects.
+ *  \tparam T the value_type contained by the `Array`
  *  \tparam Dims (Optional) A list of unsigned integers giving the dimensions of the Array. Omitting this results in a dynamically sized array.
  *
- *  Arrays should be considered the primary objects in the ultramat library, but in actuality `Array'
- *  is actually an alias. If Array is supplied with only a single template argument, such as Array<int>
- *  or Array<double>, it is an alias for an N-dimensional dynamically-sized Dense object. If it is provided
- *  with a list of dimension sizes after the value type, such as Array<float,3,3>, it instead aliases a
- *  fixed-size \f$3\times3\f$ DenseFixed object. Both objects may be used interchangeably in ultramat expressions,
+ *  `Array`'s should be considered the primary objects in the ultramat library, but in actuality `Array`
+ *  is actually an alias. If `Array` is supplied with only a single template argument, such as `Array<int>`
+ *  or `Array<double>`, it is an alias for an N-dimensional dynamically-sized `Dense` object. If it is provided
+ *  with a list of dimension sizes after the value type, such as `Array<float,3,3>`, it instead aliases a
+ *  fixed-size \f$3\times3\f$ `DenseFixed` object. Both objects may be used interchangeably in ultramat expressions,
  *  though the latter may not be resized in any way.
  */
 template<class T,std::size_t... Dims>
@@ -98,18 +98,18 @@ using VectorImpl = std::conditional_t<sizeof...(Dims),DenseFixed<T,default_order
 template<class T,std::size_t... Dims> requires ( sizeof...(Dims) == 0 || sizeof...(Dims) == 2)
 using MatrixImpl = std::conditional_t<sizeof...(Dims),DenseFixed<T,default_order,Dims...>,Dense<T,DenseType::mat,default_order>>;
 
-/*! \brief The alias used to access either dynamically-sized 1D Dense objects or fixed-size 1D Dense objects.
- *  \tparam T The value_type contained by the Vector
- *  \tparam Size (Optional) Unsigned int representing fixed size. Omitting this results in a dynamically sized Vector 
+/*! \brief The alias used to access either dynamically-sized 1D `Dense` objects or fixed-size 1D `Dense` objects.
+ *  \tparam T The value_type contained by the `Vector`
+ *  \tparam Size (Optional) Unsigned int representing fixed size. Omitting this results in a dynamically sized `Vector` 
  *
- *  Similar to the Array alias, though restricted to 1D arrays. Due for deprecation.
+ *  Similar to the `Array` alias, though restricted to 1D arrays. Due for deprecation.
  */
 template<class T,std::size_t... Dims>
 using Vector = VectorImpl<T,Dims...>;
 
-/*!  \brief The alias used to access either dynamically-sized 2D Dense objects or fixed-size 2D Dense objects.
- *  \tparam T the value_type contained by the Matrix
- *  \tparam Rows (Optional) Unsigned integer giving the number of rows. Omitting this results in a dynamically sized array. Must also provide Cols.
+/*!  \brief The alias used to access either dynamically-sized 2D `Dense` objects or fixed-size 2D `Dense` objects.
+ *  \tparam T the value_type contained by the `Matrix`
+ *  \tparam Rows (Optional) Unsigned integer giving the number of rows. Omitting this results in a dynamically sized array. Must also provide `Cols`.
  *  \tparam Cols (Optional) Unsigned integer giving the number of columns. Omitting this results in a dynamically sized array.
  * 
  *  Similar to the Array alias, though restricted to 2D arrays. Due for deprecation.
@@ -120,10 +120,10 @@ using Matrix = MatrixImpl<T,Dims...>;
 // ==============================================
 // is_dense
 
-//! Type-trait which determines whether a given type is an ultramat Dense object.
+//! Type-trait which determines whether a given type is an ultramat `Dense` object.
 template<class T>
 struct is_dense {
-    //! Evaluates to true if the template argument T is a Dense Object. Evaluates to false otherwise.
+    //! Evaluates to `true` if the template argument `T` is a `Dense` Object. Evaluates to `false` otherwise.
     static constexpr bool value = false; 
 };
 
@@ -134,8 +134,8 @@ template<class T, ReadWrite RW> struct is_dense<DenseView<T,RW>> { static conste
 // ==============================================
 // shapelike
 
-//! Defines a sized range of integers, and excludes ultramat Dense objects, e.g. std::vector<std::size_t>
-/*! For the sake of compatibility, the shapelike concept applies to signed integer ranges as well as unsigned ranges. */
+//! Defines a sized range of integers, and excludes ultramat `Dense` objects, e.g. `std::vector<std::size_t>`
+/*! For the sake of compatibility, the `shapelike` concept applies to signed integer ranges as well as unsigned ranges. */
 template<class T> concept shapelike = std::ranges::sized_range<T> && std::integral<typename T::value_type> && !is_dense<T>::value;
 
 // ==============================================
@@ -155,48 +155,49 @@ struct CommonOrderImpl<T1> {
     static constexpr DenseOrder order() { return Order; }
 };
 
-//! A type-trait-like struct that returns the common order of a collection of Dense objects.
-/*! Given a collection of Dense objects, this struct provides a way to compute their `common
- *  order' at compile time, via common_order<Dense1,Dense2,...>::value. If all objects are
- *  row-major, then this returns DenseOrder::row_major -- likewise for column-major objects.
- *  If there are a mix of orderings in the template argument list, it returns DenseOrder::mixed.
+//! A type-trait-like struct that returns the common order of a collection of `Dense` objects.
+/*! Given a collection of `Dense` objects, this struct provides a way to compute their 'common
+ *  order' at compile time, via `common_order<Dense1,Dense2,...>::value`. If all objects are
+ *  row-major, then this returns `DenseOrder::row_major`. Similarly, if all objects are column-major,
+ *  then this returns `DenseOrder::col_major`. If there are a mix of orderings in the template argument
+ *  list, it returns `DenseOrder::mixed`.
  */
 template<class... Ts>
 struct common_order {
     //! Gives the common order of the template arguments given.
     static constexpr DenseOrder Order = CommonOrderImpl<Ts...>::order(); 
     
-    //! constexpr function used to access Order
+    //! constexpr function used to access `Order`
     static constexpr DenseOrder order(){ 
         return Order;
     }
     
-    //! Alias for Order
+    //! Alias for `Order`
     static constexpr DenseOrder value = Order;
 };
 
 // ==============================================
 // Slice
 
-//! A tool for generating views of Dense objects.
-/*! Slice is an 'aggregate'/'pod' type, so it has a relatively intuitive interface by default.
- *  For example, a Slice that takes all but the last element may be created via Slice{0,-1}.
- *  The same in reverse is written Slice{0,-1,-1}. In Python, it is possible to signify
- *  that a slice should give all elements with the syntax x[:]. This is achieved with Slice
- *  using the Slice::all static member: Slice{Slice::all,Slice::all}. Note that both the
+//! A tool for generating views of `Dense` objects.
+/*! `Slice` is an 'aggregate'/'pod' type, so it has a relatively intuitive interface by default.
+ *  For example, a `Slice` that takes all but the last element may be created via `Slice{0,-1}`.
+ *  The same in reverse is written `Slice{0,-1,-1}`. In Python, it is possible to signify
+ *  that a slice should give all elements with the syntax `x[:]`. This is achieved with `Slice`
+ *  using the `Slice::all` static member: `Slice{Slice::all,Slice::all}`. Note that both the
  *  beginning and the end must be specified. The step size defaults to 1.
  */
 struct Slice { 
-    //! Beginning of the slice, inclusive. Slice::all has the same effect as 0. Negative numbers count backwards from the end.
+    //! Beginning of the slice, inclusive. `Slice::all` has the same effect as 0. Negative numbers count backwards from the end.
     std::ptrdiff_t start;
-    /*! \brief End of the slice, exclusive. Slice::all indicates that all elements from start onwards are included. 
+    /*! \brief End of the slice, exclusive. `Slice::all` indicates that all elements from start onwards are included. 
      * Negative numbers count backwards from the end.
      */
     std::ptrdiff_t end;
-    //! Step size of the slice. Negative steps mean the slice goes from (end-1) to start.
+    //! Step size of the slice. Negative steps mean the slice goes from `end-1` to `start`.
     std::ptrdiff_t step=1;
-    /*! \brief Static member. When used for 'start', all elements up to 'end' are included. 
-     *  When used for end, 'all' elements from 'start' onwards are used. When used for both 'start' and 'end', all elements are included.
+    /*! \brief Static member. When used for `start`, all elements up to `end` are included. 
+     *  When used for end, all elements from `start` onwards are used. When used for both `start` and `end`, all elements are included.
      */
     static constexpr std::ptrdiff_t all = std::numeric_limits<std::ptrdiff_t>::max();
 };
@@ -204,78 +205,171 @@ struct Slice {
 // ==============================================
 // DenseStriper
 
+/*! \brief A utility class used by `Dense` objects to generate 1D 'stripes' for iteration purposes.
+ *
+ *  Striped iteration is a core concept in the ultramat library. The C++ standard library is
+ *  heavily dependent on iterators, but as iteration is inherently a 1D operation, it does not
+ *  always apply well to N-dimensional objects. An exception is when operations occur between
+ *  `Dense` objects of the same shapes and row/column-major ordering, provided the operation is 'simple',
+ *  such as element-wise arithmetic.
+ *
+ *  `DenseStriper` keeps track of the shape of a `Dense` object or expression, a coordinate, and a striping
+ *  dimension. If row-major ordered, incrementing a `DenseStriper` will update the coordinate in 
+ *  the last dimension until it equals the shape in the last dimension. It then increments the coordinate in the
+ *  second-to-last dimension, resets the last dimension to zero, and so on. Similar behaviour can be expected if
+ *  a `DenseStriper` is column-major ordered, although in this case the first dimension increments first, then
+ *  the second, etc. Note that the coordinate in the striping dimension is always zero, and is skipped over when
+ *  finding the next dimension to increment.
+ *
+ *  A `DenseStriper` behaves like a random access iterator, so also provides decrement, in-place addition and
+ *  subtraction, and distance calculations.
+ *
+ *  `DenseStriper` is a core component in the following features:
+ *  - Automatic broadcasting: If a `Dense` object is asked to provide a stripe, but is given a `DenseStriper`
+ *    with a broadcasted shape, it may return a stripe with zero stride.
+ *  - Non-contiguous iteration: Iterating directly over a non-contiguous array is a costly operation (see
+ *    `DenseViewIterator` for proof). Striped iteration reduces the amount of checks that must be performed,
+ *    as a non-contiguous object may instead be viewed as a series of contiguous (or strided) 1D chunks.
+ *  - Mixed row/column-major ordered operations: When providing a coordinate from which to generate a stripe,
+ *    it doesn't matter if the target is row-major or column-major ordered (although striping over a row-major
+ *    object in a column-major manner, or vice versa, will likely be less efficient).
+ *  - OpenMP parallelisation: Striped iteration was designed with OpenMP-style parallelism in mind. In this model,
+ *    each thread generates a single stripe at a time, and iterates over it.
+ */
 class DenseStriper {
 
-    std::size_t                 _dim;
-    DenseOrder                  _order;
+    //! The striping dimension. This index in this dimension is always zero.
+    std::size_t _dim;
+
+    //! Determines whether the index is incremented starting from the last dimension (row-major) or first dimension (col-major)
+    DenseOrder _order;
+
+    //! The current index, or coordinate. The integer in each dimension must be less than the shape.
     std::vector<std::ptrdiff_t> _idx;
-    std::vector<std::size_t>    _shape;
+
+    //! The scalar index tracks the distance from the beginning, and is incremented by 1 each time the `DenseStriper` is incremented.
+    std::size_t _scalar_idx;
+
+    //! The maximum coordinate in each dimension. This should be the shape of the target object, which may be broadcasted.
+    std::vector<std::size_t> _shape;
+
+    //! Sets the index from the scalar index. Used to handle random access jumps.
+    void _set_from_scalar_index() {
+        std::size_t scalar_index = _scalar_idx;
+        if( _order == DenseOrder::col_major) {
+            for( std::size_t ii=0; ii != dims(); ++ii) {
+                if( ii == stripe_dim() ) continue;
+                index(ii) = scalar_index % shape(ii);
+                scalar_index /= shape(ii);
+            }
+            index(dims()) = (scalar_index > 0);
+        } else {
+            for( std::size_t ii=dims(); ii != 0; --ii) {
+                if( ii == stripe_dim() +1 ) continue;
+                index(ii) = scalar_index % shape(ii-1);
+                scalar_index /= shape(ii-1);
+            }
+            index(0) = (scalar_index > 0);
+        }
+    }
 
     public:
 
+    //! Default constructor disabled.
     DenseStriper() = delete;
+
+    //! Copy constructor set to default.
     DenseStriper( const DenseStriper& ) = default;
+
+    //! Move constructor set to default.
     DenseStriper( DenseStriper&& ) = default;
+
+    //! Copy assignment set to default.
     DenseStriper& operator=( const DenseStriper& ) = default;
+
+    //! Move assignment set to default.
     DenseStriper& operator=( DenseStriper&& ) = default;
 
+    /*! /brief Construct a new `DenseStriper`.
+     *  \var dim The striping dimension
+     *  \var order Sets the `DenseStriper` to row-major or column-major mode
+     *  \var shape The shape of the target object (may be broadcasted)
+     *  \var end When `false`, initialise the index to all zeros. When `true`, set to 1 past the last valid coordinate.
+     */
     template<shapelike Shape>
     DenseStriper( std::size_t dim, DenseOrder order, const Shape& shape, bool end=false) :
         _dim(dim),
         _order(order),
         _idx(shape.size()+1,0),
+        _scalar_idx(0),
         _shape(shape.size())
     {
         std::ranges::copy( shape, _shape.begin());
         if( end ){
             _idx[ _order==DenseOrder::col_major ? dims() : 0 ] = 1;
+            _scalar_idx = num_stripes();
         }
     }
 
+    //! Returns the number of stripes that can be generated
     std::size_t num_stripes() const {
         return std::accumulate( _shape.begin(), _shape.end(), 1, std::multiplies<std::size_t>{})/_shape[_dim];
     }
 
+    //! Returns the striping dimension
     std::size_t stripe_dim() const {
         return _dim;
     }
 
+    //! Returns the length of generated stripes
     std::size_t stripe_size() const {
         return _shape[_dim];
     }
 
+    //! Returns the number of dimensions
     std::size_t dims() const {
         return _shape.size();
     }
 
+    //! Returns the row/column-major ordering of the `DenseStriper`
     DenseOrder order() const {
         return _order;
     }
 
+    //! Returns a copy of _shape
     std::vector<std::size_t> shape() const {
         return _shape;
     }
 
+    //! Returns the shape in the given dimension, by value
     std::size_t shape( std::size_t ii) const {
         return _shape[ii];
     }
 
+    //! Returns the shape in the given dimension, by reference
     std::size_t& shape( std::size_t ii) {
         return _shape[ii];
     }
 
+    //! Returns the current index/coordinate, by const reference
     const std::vector<std::ptrdiff_t>& index() const {
         return _idx;
     }
 
+    //! Returns the current index/coordinate in the given dimension, by value
     std::ptrdiff_t index( std::size_t ii) const {
         return _idx[ii];
     }
 
+    //! Returns the current index/coordinate in the given dimension, by reference
     std::ptrdiff_t& index( std::size_t ii) {
         return _idx[ii];
     }
 
+    //! Increment the `DenseStriper` by 1
+    /*! If row major, increment in the last dimension first. Once reaching the end of this dimension, set to zero and increment the second-last 
+     *  dimension. If column major, instead start with the first dimension and carry on to the second. Skip the striping dimension in either case.
+     */
     DenseStriper& operator++() {
         if( _order == DenseOrder::col_major ){
             for( std::size_t ii=0; ii <= dims(); ++ii) {
@@ -298,9 +392,15 @@ class DenseStriper {
                 }
             }
         }
+        ++_scalar_idx;
         return *this;
     }
 
+    //! Increment the `DenseStriper` by 1
+    /*! If row major, decrement in the last dimension first. Once reaching -1 in this dimension, set to the max value in this dimension 
+     *  and decrement the second-last dimension. If column major, instead start with the first dimension and carry on to the second. Skip the striping
+     *  dimension in either case.
+     */
     DenseStriper& operator--() {
         if( _order == DenseOrder::col_major ){
             for( std::size_t ii=0; ii <= dims(); ++ii) {
@@ -323,85 +423,53 @@ class DenseStriper {
                 }
             }
         }
+        --_scalar_idx;
         return *this;
     }
 
-    std::size_t get_scalar_index() const {
-        std::size_t scalar_index = 0;
-        std::size_t scalar_index_factor = 1;
-        if( _order == DenseOrder::col_major) {
-            for( std::size_t ii=0; ii != dims(); ++ii) {
-                if( ii == stripe_dim() ) continue;
-                scalar_index += scalar_index_factor * index(ii);
-                scalar_index_factor *= shape(ii);
-            }
-            scalar_index += scalar_index_factor * index(dims());
-        } else {
-            for( std::size_t ii=dims(); ii != 0; --ii) {
-                if( ii == stripe_dim()+1 ) continue;
-                scalar_index += scalar_index_factor * index(ii);
-                scalar_index_factor *= shape(ii-1);
-            }
-            scalar_index += scalar_index_factor * index(0);
-        }
-        return scalar_index;
-    }
 
-    void set_from_scalar_index( std::size_t scalar_index) {
-        if( _order == DenseOrder::col_major) {
-            for( std::size_t ii=0; ii != dims(); ++ii) {
-                if( ii == stripe_dim() ) continue;
-                index(ii) = scalar_index % shape(ii);
-                scalar_index /= shape(ii);
-            }
-            index(dims()) = (scalar_index > 0);
-        } else {
-            for( std::size_t ii=dims(); ii != 0; --ii) {
-                if( ii == stripe_dim() +1 ) continue;
-                index(ii) = scalar_index % shape(ii-1);
-                scalar_index /= shape(ii-1);
-            }
-            index(0) = (scalar_index > 0);
-        }
-    }
-
-    void set_from_index( const std::vector<std::size_t>& idx) {
-        if( idx.size() != _idx.size() ) throw std::runtime_error("Ultramat DenseStrider: Tried to set with index of incorrect size");
-        std::ranges::copy( idx, _idx.begin());
-    }
-
+    //! Increment the `DenseStriper` by a given amount
     DenseStriper& operator+=( std::ptrdiff_t diff) {
         // Determine current scalar index, add diff, set index accordingly
-        std::size_t scalar_index = get_scalar_index();
-        scalar_index += diff;
-        set_from_scalar_index(scalar_index);
+        _scalar_idx += diff;
+        _set_from_scalar_index();
         return *this;
     }
 
+    //! Decrement the `DenseStriper` by a given amount
     DenseStriper& operator-=( std::ptrdiff_t diff) {
         // Determine current scalar index, subtract diff, set index accordingly
-        std::size_t scalar_index = get_scalar_index();
-        scalar_index -= diff;
-        set_from_scalar_index(scalar_index);
+        _scalar_idx -= diff;
+        _set_from_scalar_index();
         return *this;
     }
 
+    //! Create a new `DenseStriper`, incremented by a given amount
     DenseStriper operator+( std::ptrdiff_t diff) const {
         DenseStriper copy(*this);
         copy += diff;
         return copy;
     }
 
+    //! Create a new `DenseStriper`, decremented by a given amount
     DenseStriper operator-( std::ptrdiff_t diff) const {
         DenseStriper copy(*this);
         copy -= diff;
         return copy;
     }
 
+    //! Get the 'distance' between two `DenseStriper`'s.
+    /*! Makes use of scalar index for speed.
+     *  Both must have the same shape, striping dimension, and order. Otherwise, results are undefined.
+     */
     std::ptrdiff_t operator-( const DenseStriper& other) const {
-        return static_cast<std::ptrdiff_t>(get_scalar_index()) - static_cast<std::ptrdiff_t>(other.get_scalar_index());
+        return static_cast<std::ptrdiff_t>(_scalar_idx) - static_cast<std::ptrdiff_t>(other._scalar_idx);
     }
 
+    //! Test whether two `DenseStriper`'s have the same coordinate.
+    /*! Makes use of scalar index for speed. 
+     *  Both must have the same shape, striping dimension, and order. Otherwise, results are undefined.
+     */
     bool operator==( const DenseStriper& other) const {
         for( std::size_t ii=0; ii <= dims(); ++ii) {
             if( index(ii) != other.index(ii) ) return false;
@@ -409,29 +477,23 @@ class DenseStriper {
         return true;
     }
 
+    //! Gives ordering of two `DenseStriper`'s.
+    /*! Makes use of scalar index for speed. 
+     *  Both must have the same shape, striping dimension, and order. Otherwise, results are undefined.
+     */
     auto operator<=>( const DenseStriper& other) const {
-        if( _order == DenseOrder::col_major ) {
-            for( std::ptrdiff_t ii=dims(); ii >= 0; --ii) {
-                if( index(ii) == other.index(ii) ) {
-                    continue;
-                } else {
-                    return index(ii) <=> other.index(ii);
-                }
-            }
-        } else {
-            for( std::size_t ii=0; ii <= dims(); ++ii) {
-                if( index(ii) == other.index(ii) ) {
-                    continue;
-                } else {
-                    return index(ii) <=> other.index(ii);
-                }
-            }
-
-        }
-        return std::strong_ordering::equal;
+        return _scalar_idx <=> other._scalar_idx;
     }
 };
 
+// ==============================================
+// get_broadcast_shape
+
+/*! \brief Given a selection of shapes, returns the result of broadcasting all of them together.
+ *  \tparam order (Required) Determines whether new broadcasting dimensions should be appended (col-major) or prepended (row-major)
+ *  \tparam Shapes (Automatically deduced) Types of the provided shapes
+ *  \var shapes A list of shapelike objects
+ */
 template<DenseOrder order, shapelike... Shapes> 
 std::vector<std::size_t> get_broadcast_shape( const Shapes&... shapes) {
     // If row_major, prepend dims
