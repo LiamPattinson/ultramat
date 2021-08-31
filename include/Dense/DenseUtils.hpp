@@ -155,9 +155,10 @@ struct CommonOrderImpl<T1> {
     static constexpr DenseOrder order() { return Order; }
 };
 
-//! A type-trait-like struct that returns the common order of a collection of `Dense` objects.
-/*! Given a collection of `Dense` objects, this struct provides a way to compute their 'common
- *  order' at compile time, via `common_order<Dense1,Dense2,...>::value`. If all objects are
+/*! \brief A type-trait-like struct that returns the common order of a collection of `Dense` objects.
+ * 
+ *  Given a collection of `Dense` objects, this struct provides a way to compute their 'common order' 
+ *  at compile time, via `common_order<Dense1,Dense2,...>::value`. If all objects are
  *  row-major, then this returns `DenseOrder::row_major`. Similarly, if all objects are column-major,
  *  then this returns `DenseOrder::col_major`. If there are a mix of orderings in the template argument
  *  list, it returns `DenseOrder::mixed`.
