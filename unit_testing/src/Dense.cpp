@@ -1,4 +1,4 @@
-#include "ultramat/include/Dense/Dense.hpp"
+#include "ultramat/include/Array.hpp"
 #include <gtest/gtest.h>
 #include <cmath>
 

@@ -1,10 +1,10 @@
-#include "ultramat/include/Dense/DenseUtils.hpp"
+#include "ultramat/include/Dense/DenseStriper.hpp"
 #include <gtest/gtest.h>
 
 using namespace ultra;
 using Shape = std::vector<std::size_t>;
 
-TEST(DenseUtilsTest,DenseStriper){
+TEST(DenseStriperTest,DenseStriper){
     Shape shape{5,3,1,7};
     DenseStriper col_striper_begin( 1, DenseOrder::col_major, shape);
     DenseStriper col_striper_end( 1, DenseOrder::col_major, shape, 1);

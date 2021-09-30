@@ -1,5 +1,11 @@
 # TODO
 
+### Cleanup
+
+    * Remove Vector and Matrix classes, and all associated objects -- regular Arrays work just fine
+    * Separate large unit test files into smaller, more specific ones
+    * Finish the docs!
+
 ### Linear algebra
 
     * Would be handy if some sort of DenseLinearAlgebraExpression could be defined, but it'll be tricky

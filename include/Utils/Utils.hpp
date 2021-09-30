@@ -26,6 +26,21 @@
 
 namespace ultra {
 
+// =========================
+// Constants
+
+constexpr const float inf = INFINITY;
+constexpr const float Inf = INFINITY;
+constexpr const float Infinity = INFINITY;
+constexpr const float infty = INFINITY;
+constexpr const float ninf = -inf;
+constexpr const float Ninf = -inf;
+constexpr const float NInfinity = -inf;
+constexpr const double NaN = NAN;
+constexpr const double pi = 3.1415926535897932384626433;
+constexpr const double e = 2.71828182845904523536028747135266249775724709369995;
+constexpr const double euler_gamma = 0.5772156649015328606065120900824024310421;
+
 // Custom concepts and type traits
 
 template<class T> struct is_complex { static constexpr bool value = false; };
