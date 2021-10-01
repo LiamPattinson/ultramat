@@ -108,8 +108,8 @@ class ExpressionException : public std::runtime_error {
 template<class T>
 using eval_result = Dense<
     typename std::remove_cvref_t<T>::value_type,
-    DenseType::nd,
-    (std::remove_cvref_t<T>::order() == DenseOrder::mixed ? default_order : std::remove_cvref_t<T>::order())>;
+    (std::remove_cvref_t<T>::order() == DenseOrder::mixed ? default_order : std::remove_cvref_t<T>::order())
+>;
 
 /*! @name eval
  *  Forces evaluation of an expression to a temporary, and returns it.

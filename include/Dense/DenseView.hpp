@@ -21,11 +21,6 @@ class DenseView : public DenseExpression<DenseView<T,rw>>, public DenseImpl<Dens
     static constexpr ReadWrite other_rw = (rw == ReadWrite::read_only ? ReadWrite::writeable : ReadWrite::read_only);
     friend DenseView<T,other_rw>;
 
-    void resize_shape_and_stride( std::size_t size){
-        _shape.resize(size);
-        _stride.resize(size+1);
-    }
-
 public:
 
     using value_type = typename T::value_type;

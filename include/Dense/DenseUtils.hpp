@@ -36,23 +36,6 @@ enum class DenseOrder {
 //! The default row/column-major ordering used throughout ultramat. Normally set to row-major.
 const DenseOrder default_order = DenseOrder::row_major;
 
-
-// ==============================================
-// DenseType
-
-//! An Enum Class used to indicate whether a `Dense` object is a vector, matrix, or is N-dimensional.
-/*! Used internally by `Dense` to determine whether to store shape/stride as `std::vector` or `std::array`, and whether
- *  to restrict reshaping. This is currently in the firing line for deprecation.
- */
-enum class DenseType : std::size_t { 
-    //! `Dense` object is 1D
-    vec=1, 
-    //! `Dense` object is 2D
-    mat=2, 
-    //! `Dense` object is N-Dimensional
-    nd=0 
-};
-
 // ==============================================
 // ReadWrite
 
@@ -71,7 +54,7 @@ enum class ReadWrite {
 // Pre-declare Dense things
 // Needed to define things like is_dense
 
-template<class, DenseType, DenseOrder> class Dense;
+template<class, DenseOrder> class Dense;
 template<class, DenseOrder, std::size_t...> class DenseFixed;
 template<class, ReadWrite = ReadWrite::writeable> class DenseView;
 template<class, ReadWrite = ReadWrite::writeable> class DenseStripe;
@@ -87,7 +70,7 @@ struct is_dense {
     static constexpr bool value = false; 
 };
 
-template<class T, DenseType Type, DenseOrder Order> struct is_dense<Dense<T,Type,Order>> { static constexpr bool value = true; };
+template<class T, DenseOrder Order> struct is_dense<Dense<T,Order>> { static constexpr bool value = true; };
 template<class T, DenseOrder Order, std::size_t... dims> struct is_dense<DenseFixed<T,Order,dims...>> { static constexpr bool value = true; };
 template<class T, ReadWrite RW> struct is_dense<DenseView<T,RW>> { static constexpr bool value = true; };
 

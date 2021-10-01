@@ -12,7 +12,7 @@ namespace ultra {
 // DenseImpl
 //
 // CRTP Base Class
-// Defines a base class for all dense array-like objects, including Arrays, Vectors, Matrices, and their fixed-size counterparts.
+// Defines a base class for all N-d dense containers, including Dense, DenseFixed, and DenseView.
 
 template<class T>
 class DenseImpl {
@@ -311,7 +311,8 @@ class DenseImpl {
         auto size = std::accumulate(shape.begin(),shape.end(),1,std::multiplies<typename Shape::value_type>{});
         if( size != derived().size() ) throw std::runtime_error("Ultramat: Cannot reshape, result would have incorrect size");
         // Set new shape and stride
-        derived().resize_shape_and_stride(shape.size());
+        derived()._shape.resize(shape.size());
+        derived()._stride.resize(shape.size()+1);
         std::ranges::copy( shape, derived()._shape.begin());
         set_stride();
         return derived(); 

@@ -2,7 +2,6 @@
 
 ### Cleanup
 
-    * Remove Vector and Matrix classes, and all associated objects -- regular Arrays work just fine
     * Separate large unit test files into smaller, more specific ones
     * Finish the docs!
 
@@ -52,6 +51,17 @@
 
 
 ## Wishlist
+
+### Finite Differences
+
+    * Define a 'Stencil' expression, which is given template params `<unsigned int (dim), int, int, int...>` to
+      represent a finite difference stencil. For example, a forward/backward first-order difference over the
+      0 axis would have args <0, -1, 1>. A second-order centered difference over the 3 axis would be <3,-1,0,1>.
+      The numerator of a second order differential over the 1 axis would be <1,1,-2,1>, etc.
+    * Act almost like an element-wise expression, only it results in a partial fold reducing the operating dimension
+      by stencil_size-1.
+    * Pretty much impossible to avoid evaluating some elements more than once. Will lead to weird results when
+      applied to random generators.
 
 ### Further linear algebra
 
