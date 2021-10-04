@@ -12,7 +12,7 @@ namespace ultra {
 // Defines generic N-d dense containers.
 // Preferred interface is via the Array alias.
 
-template<class T, DenseOrder Order>
+template<class T, DenseOrder Order = default_order>
 class Dense : public DenseExpression<Dense<T,Order>>, public DenseImpl<Dense<T,Order>> {
 
     friend DenseImpl<Dense<T,Order>>;

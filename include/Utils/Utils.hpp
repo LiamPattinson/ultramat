@@ -95,6 +95,9 @@ class Bool {
     inline operator bool&() { return _x; }
 };
 
+// Shape alias
+using Shape = std::vector<std::size_t>;
+
 }
 
 // include other utility files

@@ -368,8 +368,6 @@ TEST(ViewTest,Iteration){
         }
     }
     EXPECT_TRUE(partial_reverse_col_view_correct);
-
-    // TODO test reverse iteration, random access iteration
 }
 
 TEST(ViewTest,Reshape){

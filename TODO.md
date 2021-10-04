@@ -2,7 +2,6 @@
 
 ### Cleanup
 
-    * Separate large unit test files into smaller, more specific ones
     * Finish the docs!
 
 ### Linear algebra

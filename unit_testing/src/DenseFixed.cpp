@@ -4,10 +4,11 @@
 
 using namespace ultra;
 
-TEST(ArrayTest,Constructors){
-    Array<int> array_1(Shape{25}); // default construct
-    Array<float>::row_major array_2(Shape{50,30},2.0); // fill construct, specify row major
-    Array<double>::col_major array_3(Shape{12,15,90},5.0); // fill construct, specify col major
+TEST(FixedArrayTest,Constructors){
+
+    Array<int,25> array_1; // default construct
+    Array<float,50,30>::row_major array_2(2.0); // fill construct, specify row major
+    Array<double,12,15,90>::col_major array_3(5.0); // fill construct, specify col major
 
     // Test attributes
 
@@ -72,39 +73,10 @@ TEST(ArrayTest,Constructors){
     EXPECT_TRUE(stride[0] == 30*50);
     EXPECT_TRUE(stride[1] == 30);
     EXPECT_TRUE(stride[2] == 1);
-
-    // Test reshape
-
-    array_5.reshape(6,2,3,5,9,1,10);
-
-    EXPECT_TRUE(array_5.dims() == 7);  
-    EXPECT_TRUE(array_5.size() == 12*15*90);
-    EXPECT_TRUE(array_5.shape(0) == 6);
-    EXPECT_TRUE(array_5.shape(1) == 2);
-    EXPECT_TRUE(array_5.shape(2) == 3);
-    EXPECT_TRUE(array_5.shape(3) == 5);
-    EXPECT_TRUE(array_5.shape(4) == 9);
-    EXPECT_TRUE(array_5.shape(5) == 1);
-    EXPECT_TRUE(array_5.shape(6) == 10);
-    EXPECT_TRUE(array_5.stride(0) == 1);
-    EXPECT_TRUE(array_5.stride(1) == 6);
-    EXPECT_TRUE(array_5.stride(2) == 6*2);
-    EXPECT_TRUE(array_5.stride(3) == 6*2*3);
-    EXPECT_TRUE(array_5.stride(4) == 6*2*3*5);
-    EXPECT_TRUE(array_5.stride(5) == 6*2*3*5*9);
-    EXPECT_TRUE(array_5.stride(6) == 6*2*3*5*9*1);
-    EXPECT_TRUE(array_5.stride(7) == 6*2*3*5*9*1*10);
-
-    array_5.reshape(12*15*90);
-    EXPECT_TRUE(array_5.dims() == 1);  
-    EXPECT_TRUE(array_5.size() == 12*15*90);
-    EXPECT_TRUE(array_5.shape(0) == 12*15*90);
-    EXPECT_TRUE(array_5.stride(0) == 1);
-    EXPECT_TRUE(array_5.stride(1) == 12*15*90);
 }
 
-TEST(ArrayTest,ElementAccess){
-    Array<float> array(Shape{30,20,10},17.);
+TEST(FixedArrayTest,ElementAccess){
+    Array<float,30,20,10> array(17.);
 
     // Test fill
     EXPECT_TRUE(fabs(array(0,0,0) - 17.) < 1e-5);
@@ -128,8 +100,7 @@ TEST(ArrayTest,ElementAccess){
     EXPECT_TRUE(fabs(*(array.data() + 3 + 5*10 + 5*200) - 64.32) < 1e-5);
 
     // Repeat for a column major array
-    Array<float>::col_major col_array(Shape{30,20,10});
-    col_array.fill(17.);
+    Array<float,30,20,10>::col_major col_array(17.);
 
     EXPECT_TRUE(fabs(col_array(0,0,0) - 17.) < 1e-5);
     EXPECT_TRUE(fabs(col_array(8,2,1) - 17.) < 1e-5);
@@ -157,9 +128,9 @@ TEST(ArrayTest,ElementAccess){
     EXPECT_TRUE(fabs(col_array(std::vector{5,5,3}) - 64.32) < 1e-5);
 }
 
-TEST(ArrayTest,Iteration){
-    Array<int>::row_major row_array(Shape{10,5,20},0);
-    Array<int>::col_major col_array(Shape{10,5,20},0);
+TEST(FixedArrayTest,Iteration){
+    Array<int,10,5,20>::row_major row_array(0);
+    Array<int,10,5,20>::col_major col_array(0);
     int count;
 
     bool row_major_correct = true, col_major_correct=true;

@@ -2,7 +2,6 @@
 #include <gtest/gtest.h>
 
 using namespace ultra;
-using Shape = std::vector<std::size_t>;
 
 TEST(DenseStriperTest,DenseStriper){
     Shape shape{5,3,1,7};
