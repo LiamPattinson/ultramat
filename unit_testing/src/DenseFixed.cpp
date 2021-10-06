@@ -174,3 +174,11 @@ TEST(FixedArrayTest,Iteration){
     }
     EXPECT_TRUE(col_major_correct);
 }
+
+TEST(FixedArrayTest,SizeOf){
+    Array<float,50,30>::row_major                row_array(2.0);
+    Array<std::complex<double>,50,30>::col_major col_array(2.0);
+    EXPECT_EQ( sizeof(row_array), sizeof(std::array<float,50*30>{}));
+    EXPECT_EQ( sizeof(col_array), sizeof(std::array<std::complex<double>,50*30>{}));
+
+}

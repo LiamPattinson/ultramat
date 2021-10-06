@@ -49,17 +49,11 @@ enum class ReadWrite {
 // Pre-declare Dense things
 // Needed to define things like is_dense
 
-/*! @name Pre-declarations
- * Defines the signature of `Dense` types.
- */
-///@{
 
-template<class, DenseOrder> class Dense;                             //!< Dynamically-sized N-d arrays.
-template<class, DenseOrder, std::size_t...> class DenseFixed;        //!< Fixed-size N-d arrays.
-template<class, ReadWrite = ReadWrite::writeable> class DenseView;   //!< Non-owning and generally non-contiguous reference to dense data.
-template<class, ReadWrite = ReadWrite::writeable> class DenseStripe; //!< A 1D strided view over one dimension of dense data, used for iteration.
-
-///@}
+template<class, DenseOrder> class Dense;
+template<class, DenseOrder, std::size_t...> class DenseFixed;
+template<class, ReadWrite = ReadWrite::writeable> class DenseView;
+template<class, ReadWrite = ReadWrite::writeable> class DenseStripe;
 
 // ==============================================
 // is_dense

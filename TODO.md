@@ -3,6 +3,30 @@
 ### Cleanup
 
     * Finish the docs!
+        - Dense
+            - DenseFixed   X
+            - Dense        O
+            - DenseImpl    O
+            - DenseStripe  O
+            - DenseStriper X
+            - DenseUtils   X
+            - DenseView    O
+            - Expressions
+                - DenseCumulativeExpression  O
+                - DenseElementWiseExpression O
+                - DenseExpression            X
+                - DenseFoldExpression        O
+                - DenseGeneratorExpression   O
+                - DenseWhereExpression       O
+            - Math
+                - DenseArithmetic O
+                - DenseCumulative O
+                - DenseFolds      O
+                - DenseGenerators O
+                - DenseMath       O
+        - Utils
+            - Utils         X
+            - IteratorTuple O
 
 ### Linear algebra
 

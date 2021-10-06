@@ -1,6 +1,10 @@
 #ifndef __ULTRA_DENSE_FIXED_HPP
 #define __ULTRA_DENSE_FIXED_HPP
 
+/*! \file DenseFixed.hpp
+ *  \brief Defines class for fixed-size `Dense` arrays, and associated compile-time utilities.
+ */
+
 #include "DenseImpl.hpp"
 #include "DenseView.hpp"
 
@@ -10,24 +14,30 @@ namespace ultra {
 // Fixed-Size Dense Utils
 // Lots of compile-time template nonsense ahead.
 
+// ==========================
 // variadic_product
 
 template<std::size_t... Ints> struct variadic_product;
 
 template<> struct variadic_product<> { static constexpr std::size_t value = 1; };
 
+//! Given of variadic template list of`std::size_t`, computes their product at compile time.
 template<std::size_t Int,std::size_t... Ints>
 struct variadic_product<Int,Ints...> {
+    //!  Contains product of provided `std::size_t`
     static constexpr std::size_t value = Int*variadic_product<Ints...>::value;
 };
 
+// ==========================
 // index_sequence_to_array
 
+//! Creates `std::array<std::size_t,N>` from a variadic template list of an arbitrary number of `std::size_t`.
 template<std::size_t... Ints>
 constexpr auto index_sequence_to_array( std::index_sequence<Ints...> ) noexcept {
     return std::array<std::size_t,sizeof...(Ints)>{{Ints...}};
 }
 
+// ==========================
 // reverse_index_sequence
 
 template<class T1,class T2> struct reverse_index_sequence_impl;
@@ -50,12 +60,24 @@ struct reverse_index_sequence_impl< std::index_sequence<Int1,Ints1...>, std::ind
 
 template<class T> struct reverse_index_sequence;
 
+//! Given a `std::index_sequence`, gives a `std::index_sequence` with all contained `std::size_t` in reverse order.
 template<std::size_t... Ints>
 struct reverse_index_sequence<std::index_sequence<Ints...>> {
+    //! Defines the reversed `index_sequence`
     using type = reverse_index_sequence_impl<std::index_sequence<Ints...>,std::index_sequence<>>::type;
 };
 
-// variadic stride
+//! Typedef shortcut for `reverse_index_sequence<T>::type`
+template<class T>
+using reverse_index_sequence_t = reverse_index_sequence<T>::type;
+
+// ==========================
+/*! \struct variadic_stride
+ *  \brief Given a shape in the form of a variadic template list of `std::size_t`, gives a `std::array<std::size_t,N>` of the corresponding strides for each dimension.
+ *
+ * The member variable `row_major` provides the stride array for row-major ordered arrays, while the `col_major` member variable
+ * gives the column-major ordered variant.
+ */
 
 template<class T1,class T2> struct variadic_stride_impl;
 
@@ -87,41 +109,64 @@ struct variadic_stride {
 
 // ===============================================
 // DenseFixed
-//
-// Dense object with size fixed at compile time.
-// Preferred interface is the Array alias.
 
-
+/*! \brief Fixed-size N-dimensional arrays.
+ *
+ *  A fixed-size, stack-allocated, N-dimensional array. Shapes and strides are determined at compile time, and do not take up memory in
+ *  instantiations of the class.
+ *
+ *  The preferred interface to this class is the `Array` alias.
+ */
 template<class T, DenseOrder Order, std::size_t... Dims>
 class DenseFixed : public DenseExpression<DenseFixed<T,Order,Dims...>>, public DenseImpl<DenseFixed<T,Order,Dims...>> {
 
     friend DenseImpl<DenseFixed<T,Order,Dims...>>;
 
-    static constexpr std::size_t _dims = sizeof...(Dims);
-    static constexpr std::size_t _size = variadic_product<Dims...>::value;
+    static constexpr std::size_t _dims = sizeof...(Dims);                   //!< The number of dimensions of the `DenseFixed`. 
+    static constexpr std::size_t _size = variadic_product<Dims...>::value;  //!< The total number of elements in the `DenseFixed`.
     static_assert(_dims >= 1, "FixedArray must have at least one dimension.");
 
 public:
 
-    using value_type = T;
-    using shape_type = std::array<std::size_t,_dims>;
-    using stride_type = std::array<std::size_t,_dims+1>;
-    using data_type = std::array<T,_size>;
-    using iterator = data_type::iterator;
-    using const_iterator = data_type::const_iterator;
-    static constexpr DenseOrder order() { return Order; }
+    using value_type = T;                                  //!< The 'internal type' of the array, usually arithmetic or complex types.
+    using shape_type = std::array<std::size_t,_dims>;      //!< The internal representation of the array shape
+    using stride_type = std::array<std::size_t,_dims+1>;   //!< The internal representation of the stride (number of memory positions to jump to increment 1 in each dimension)
+    using data_type = std::array<T,_size>;                 //!< The internal 1D array type used to store the contents of `DenseFixed`.
+    using iterator = data_type::iterator;                  //!< Non-const (modifying) iterator
+    using const_iterator = data_type::const_iterator;      //!< Const (read-only) iterator
+
+    //! Returns the row/column-major ordering of the `DenseFixed`.
+    static constexpr DenseOrder order() { 
+        return Order;
+    }
 
     // For convenience, specify row/col major via FixedArray<T,Dims...>::row/col_major
-    using row_major = DenseFixed<T,DenseOrder::row_major,Dims...>;
-    using col_major = DenseFixed<T,DenseOrder::col_major,Dims...>;
+    using row_major = DenseFixed<T,DenseOrder::row_major,Dims...>; //!< Alias for a row-major ordered `DenseFixed` with the same `T` and dimensions.
+    using col_major = DenseFixed<T,DenseOrder::col_major,Dims...>; //!< Alias for a column-major ordered `DenseFixed` with the same `T` and dimensions.
 
     // View of self
-    using View = DenseView<DenseFixed<T,Order,Dims...>>;
+    using View = DenseView<DenseFixed<T,Order,Dims...>>; //!< Alias for a `DenseView` over this class.
 
 private:
 
+    /*! \brief The internal shape of the `DenseFixed`.
+     *
+     * Static and determined at compile time, so does not add to the memory footprint.
+     */
     static constexpr shape_type  _shape = {{Dims...}};
+
+    /*! \brief The internal stride for each dimension of the `DenseFixed`. 
+     *
+     *  The stride of a `DenseFixed` is the number of memory positions one must jump over in order to increment 1 in each dimension.
+     *  For row-major ordered objects, the 0'th stride is the total number of elements in the array, so `begin() + stride(0)` results in
+     *  `end()`. The `dims()`'th stride is 1. Conversely, for column-major ordered objects, the 0'th element is 1, while the 
+     *  `dims()`'th stride is the total number of elements.
+     *
+     * The stride is static and determined at compile time, so does not add to the memory footprint.
+     */
     static constexpr stride_type _stride = (Order == DenseOrder::row_major ? variadic_stride<Dims...>::row_major : variadic_stride<Dims...>::col_major);
+    
+    //! The internal 1D array which stores the contents of `DenseFixed`.
     data_type _data;
 
 public:
@@ -129,25 +174,44 @@ public:
     // ===============================================
     // Constructors
 
-    DenseFixed() = default;
-    DenseFixed( const DenseFixed& other) = default;
-    DenseFixed( DenseFixed&& other) = default;
-    DenseFixed& operator=( const DenseFixed& other) = default;
-    DenseFixed& operator=( DenseFixed&& other) = default;
+    DenseFixed() = default;                                     //!< Default constructor
+    DenseFixed( const DenseFixed& other) = default;             //!< Copy constructor
+    DenseFixed( DenseFixed&& other) = default;                  //!< Move constructor
+    DenseFixed& operator=( const DenseFixed& other) = default;  //!< Copy assignment
+    DenseFixed& operator=( DenseFixed&& other) = default;       //!< Move assignment
     
-    // With fill
-    DenseFixed( const T& fill) { _data.fill(fill); }
+    //! Construct and fill. Copies `fill` to all elements.
+    DenseFixed( const T& fill) {
+        _data.fill(fill);
+    }
 
+    /*! \brief Construct from expression
+     *
+     *  Relies on `operator=` from `DenseImpl`.
+     */
     template<class U>
-    DenseFixed( const DenseExpression<U>& expression) { operator=(expression);}
+    DenseFixed( const DenseExpression<U>& expression) {
+        operator=(expression);
+    }
 
+    /*! \brief Construct from rvalue expression
+     *
+     *  Relies on `operator=` from `DenseImpl`.
+     */
     template<class U>
-    DenseFixed( DenseExpression<U>&& expression) { operator=(std::move(expression));}
+    DenseFixed( DenseExpression<U>&& expression) {
+        operator=(std::move(expression));
+    }
 
-    // Swap
-    constexpr void swap( DenseFixed& other) noexcept { _data.swap(other._data); }
+    //! Swap internal data
+    constexpr void swap( DenseFixed& other) noexcept {
+        _data.swap(other._data);
+    }
 
-    constexpr friend void swap( DenseFixed& a,DenseFixed& b) noexcept { a.swap(b); }
+    //! \brief Friend swap function
+    constexpr friend void swap( DenseFixed& a,DenseFixed& b) noexcept {
+        a.swap(b);
+    }
 
     // Pull in methods from CRTP base
 

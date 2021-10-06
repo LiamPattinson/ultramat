@@ -255,5 +255,5 @@ decltype(auto) hermitian( DenseExpression<T>&& t) {
 }
 ///@}
 
-} // namespace
+} // namespace ultra
 #endif
