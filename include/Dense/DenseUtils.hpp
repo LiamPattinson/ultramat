@@ -25,12 +25,9 @@ namespace ultra {
  *  added to a column-major `Dense` is regarded as having mixed ordering.
  */
 enum class DenseOrder { 
-    //! Row-major ordering, last dimension increments fastest
-    row_major, 
-    //! Column-major ordering, first dimension increments fastest
-    col_major, 
-    //! Object is neither row-major nor column-major
-    mixed
+    row_major, //!< Row-major ordering, last dimension increments fastest
+    col_major, //!< Column-major ordering, first dimension increments fastest
+    mixed      //!< Object is neither row-major nor column-major
 };
 
 //! The default row/column-major ordering used throughout ultramat. Normally set to row-major.
@@ -44,21 +41,25 @@ const DenseOrder default_order = DenseOrder::row_major;
  *  their data using a regular pointer (writeable) or a const pointer (read_only).
  */
 enum class ReadWrite {
-    //! Object may be freely read from or written to
-    writeable,
-    //! Object may only be read from
-    read_only
+    writeable, //!< Object may be freely read from or written to
+    read_only  //!< Object may only be read from
 };
 
 // ==============================================
 // Pre-declare Dense things
 // Needed to define things like is_dense
 
-template<class, DenseOrder> class Dense;
-template<class, DenseOrder, std::size_t...> class DenseFixed;
-template<class, ReadWrite = ReadWrite::writeable> class DenseView;
-template<class, ReadWrite = ReadWrite::writeable> class DenseStripe;
+/*! @name Pre-declarations
+ * Defines the signature of `Dense` types.
+ */
+///@{
 
+template<class, DenseOrder> class Dense;                             //!< Dynamically-sized N-d arrays.
+template<class, DenseOrder, std::size_t...> class DenseFixed;        //!< Fixed-size N-d arrays.
+template<class, ReadWrite = ReadWrite::writeable> class DenseView;   //!< Non-owning and generally non-contiguous reference to dense data.
+template<class, ReadWrite = ReadWrite::writeable> class DenseStripe; //!< A 1D strided view over one dimension of dense data, used for iteration.
+
+///@}
 
 // ==============================================
 // is_dense
@@ -66,12 +67,14 @@ template<class, ReadWrite = ReadWrite::writeable> class DenseStripe;
 //! Type-trait which determines whether a given type is an ultramat `Dense` object.
 template<class T>
 struct is_dense {
-    //! Evaluates to `true` if the template argument `T` is a `Dense` Object. Evaluates to `false` otherwise.
-    static constexpr bool value = false; 
+    static constexpr bool value = false; //!< Evaluates to `true` if the template argument `T` is a `Dense` Object. Evaluates to `false` otherwise.
 };
 
+// Specialisation for Dense
 template<class T, DenseOrder Order> struct is_dense<Dense<T,Order>> { static constexpr bool value = true; };
+// Specialisation for DenseFixed
 template<class T, DenseOrder Order, std::size_t... dims> struct is_dense<DenseFixed<T,Order,dims...>> { static constexpr bool value = true; };
+// Specialisation for DenseView
 template<class T, ReadWrite RW> struct is_dense<DenseView<T,RW>> { static constexpr bool value = true; };
 
 // ==============================================
