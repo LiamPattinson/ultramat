@@ -2,7 +2,7 @@
 #define __ULTRA_DENSE_FIXED_HPP
 
 /*! \file DenseFixed.hpp
- *  \brief Defines class for fixed-size `Dense` arrays, and associated compile-time utilities.
+ *  \brief Defines class for fixed-size N-dimensional arrays, and associated compile-time utilities.
  */
 
 #include "DenseImpl.hpp"
@@ -73,7 +73,8 @@ using reverse_index_sequence_t = reverse_index_sequence<T>::type;
 
 // ==========================
 /*! \struct variadic_stride
- *  \brief Given a shape in the form of a variadic template list of `std::size_t`, gives a `std::array<std::size_t,N>` of the corresponding strides for each dimension.
+ *  \brief Given a \ref dense_shape in the form of a variadic template list of `std::size_t`, 
+ *  gives a `std::array<std::size_t,N>` of the corresponding \ref dense_stride for each dimension.
  *
  * The member variable `row_major` provides the stride array for row-major ordered arrays, while the `col_major` member variable
  * gives the column-major ordered variant.
@@ -115,7 +116,9 @@ struct variadic_stride {
  *  A fixed-size, stack-allocated, N-dimensional array. Shapes and strides are determined at compile time, and do not take up memory in
  *  instantiations of the class.
  *
- *  The preferred interface to this class is the `Array` alias.
+ *  Most functionality is implemented via #ultra::DenseImpl.
+ *
+ *  The preferred interface to this class is the ultra::Array alias.
  */
 template<class T, DenseOrder Order, std::size_t... Dims>
 class DenseFixed : public DenseExpression<DenseFixed<T,Order,Dims...>>, public DenseImpl<DenseFixed<T,Order,Dims...>> {
@@ -128,41 +131,35 @@ class DenseFixed : public DenseExpression<DenseFixed<T,Order,Dims...>>, public D
 
 public:
 
-    using value_type = T;                                  //!< The 'internal type' of the array, usually arithmetic or complex types.
-    using shape_type = std::array<std::size_t,_dims>;      //!< The internal representation of the array shape
-    using stride_type = std::array<std::size_t,_dims+1>;   //!< The internal representation of the stride (number of memory positions to jump to increment 1 in each dimension)
+    using value_type = T;                                  //!< The type of each element of the array, usually arithmetic or complex types.
+    using shape_type = std::array<std::size_t,_dims>;      //!< The internal type of the array's \ref dense_shape
+    using stride_type = std::array<std::size_t,_dims+1>;   //!< The internal type of the array's \ref dense_stride
     using data_type = std::array<T,_size>;                 //!< The internal 1D array type used to store the contents of `DenseFixed`.
-    using iterator = data_type::iterator;                  //!< Non-const (modifying) iterator
-    using const_iterator = data_type::const_iterator;      //!< Const (read-only) iterator
+    using iterator = data_type::iterator;                  //!< Non-const (modifying) iterator type
+    using const_iterator = data_type::const_iterator;      //!< Const (read-only) iterator type
 
-    //! Returns the row/column-major ordering of the `DenseFixed`.
+    //! Returns the \link dense_order row/column-major ordering \endlink.
     static constexpr DenseOrder order() { 
         return Order;
     }
-
-    // For convenience, specify row/col major via FixedArray<T,Dims...>::row/col_major
-    using row_major = DenseFixed<T,DenseOrder::row_major,Dims...>; //!< Alias for a row-major ordered `DenseFixed` with the same `T` and dimensions.
-    using col_major = DenseFixed<T,DenseOrder::col_major,Dims...>; //!< Alias for a column-major ordered `DenseFixed` with the same `T` and dimensions.
-
-    // View of self
-    using View = DenseView<DenseFixed<T,Order,Dims...>>; //!< Alias for a `DenseView` over this class.
+    //! Alias for a \link dense_order row-major ordered \endlink `DenseFixed` with the same `T` and dimensions.
+    using row_major = DenseFixed<T,DenseOrder::row_major,Dims...>; 
+    //! Alias for a column-major ordered `DenseFixed` with the same `T` and dimensions.
+    using col_major = DenseFixed<T,DenseOrder::col_major,Dims...>;
+    //! Alias for a #ultra::DenseView over this class.
+    using View = DenseView<DenseFixed<T,Order,Dims...>>;
 
 private:
 
-    /*! \brief The internal shape of the `DenseFixed`.
+    /*! \brief The internal \ref dense_shape.
      *
      * Static and determined at compile time, so does not add to the memory footprint.
      */
     static constexpr shape_type  _shape = {{Dims...}};
 
-    /*! \brief The internal stride for each dimension of the `DenseFixed`. 
+    /*! \brief The internal \ref dense_stride. 
      *
-     *  The stride of a `DenseFixed` is the number of memory positions one must jump over in order to increment 1 in each dimension.
-     *  For row-major ordered objects, the 0'th stride is the total number of elements in the array, so `begin() + stride(0)` results in
-     *  `end()`. The `dims()`'th stride is 1. Conversely, for column-major ordered objects, the 0'th element is 1, while the 
-     *  `dims()`'th stride is the total number of elements.
-     *
-     * The stride is static and determined at compile time, so does not add to the memory footprint.
+     * Static and determined at compile time, so does not add to the memory footprint.
      */
     static constexpr stride_type _stride = (Order == DenseOrder::row_major ? variadic_stride<Dims...>::row_major : variadic_stride<Dims...>::col_major);
     
@@ -187,7 +184,7 @@ public:
 
     /*! \brief Construct from expression
      *
-     *  Relies on `operator=` from `DenseImpl`.
+     *  Relies on #ultra::DenseImpl::operator=().
      */
     template<class U>
     DenseFixed( const DenseExpression<U>& expression) {
@@ -196,7 +193,7 @@ public:
 
     /*! \brief Construct from rvalue expression
      *
-     *  Relies on `operator=` from `DenseImpl`.
+     *  Relies on #ultra::DenseImpl::operator=().
      */
     template<class U>
     DenseFixed( DenseExpression<U>&& expression) {
@@ -208,7 +205,7 @@ public:
         _data.swap(other._data);
     }
 
-    //! \brief Friend swap function
+    //! Friend swap function
     constexpr friend void swap( DenseFixed& a,DenseFixed& b) noexcept {
         a.swap(b);
     }

@@ -3,9 +3,13 @@
 ### Cleanup
 
     * Finish the docs!
+        - Related pages
+            - DenseObjects        I
+            - ExpressionTemplates O
+            - Broadcasting        O
         - Dense
             - DenseFixed   X
-            - Dense        O
+            - Dense        X
             - DenseImpl    O
             - DenseStripe  O
             - DenseStriper X
@@ -14,7 +18,7 @@
             - Expressions
                 - DenseCumulativeExpression  O
                 - DenseElementWiseExpression O
-                - DenseExpression            X
+                - DenseExpression            I
                 - DenseFoldExpression        O
                 - DenseGeneratorExpression   O
                 - DenseWhereExpression       O
@@ -25,7 +29,7 @@
                 - DenseGenerators O
                 - DenseMath       O
         - Utils
-            - Utils         X
+            - Utils         I
             - IteratorTuple O
 
 ### Linear algebra

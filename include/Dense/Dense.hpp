@@ -1,6 +1,10 @@
 #ifndef __ULTRA_DENSE_HPP
 #define __ULTRA_DENSE_HPP
 
+/*! \file Dense.hpp
+ *  \brief Defines class for dynamically-sized arrays.
+ */
+
 #include "DenseImpl.hpp"
 #include "DenseView.hpp"
 
@@ -8,10 +12,19 @@ namespace ultra {
 
 // ===============================================
 // Dense
-//
-// Defines generic N-d dense containers.
-// Preferred interface is via the Array alias.
 
+
+/*! \brief Dynamically-sized N-dimensional arrays.
+ *
+ *  A dynamically-sized, heap-allocated, N-dimensional array.
+ *  Unlike #ultra::DenseFixed, \ref dense_shape%s and \ref dense_stride%s are determined at runtime and must
+ *  be locally stored. Generally speaking, #ultra::Dense offers slightly lower performance than #ultra::DenseFixed, but much greater flexibility, similar
+ *  to the advantages of `std::vector` versus `std::array`.
+ *
+ *  Most functionality is implemented via #ultra::DenseImpl.
+ *
+ *  The preferred interface to this class is the `ultra::Array` alias.
+ */
 template<class T, DenseOrder Order = default_order>
 class Dense : public DenseExpression<Dense<T,Order>>, public DenseImpl<Dense<T,Order>> {
 
@@ -19,48 +32,54 @@ class Dense : public DenseExpression<Dense<T,Order>>, public DenseImpl<Dense<T,O
 
 public:
 
+    /*! \brief The type of each element of the array, usually arithmetic or complex types.
+     *
+     *  As data is stored internally using `std::vector`, `bool` is replaced with the #ultra::Bool class to avoids the weirdness of `std::vector<bool>`
+     */
     using value_type = std::conditional_t<std::is_same<T,bool>::value,Bool,T>;
-    using shape_type = std::vector<std::size_t>;
-    using stride_type = std::vector<std::size_t>;
-    using data_type = std::vector<value_type>;
-    using iterator = data_type::iterator;
-    using const_iterator = data_type::const_iterator;
+
+    using shape_type = std::vector<std::size_t>;      //!< The internal type of the array's \ref dense_shape
+    using stride_type = std::vector<std::size_t>;     //!< The internal type of the array's \ref dense_stride
+    using data_type = std::vector<value_type>;        //!< The internal 1D array type used to store the contents of `Dense`.
+    using iterator = data_type::iterator;             //!< Non-const (modifying) iterator type
+    using const_iterator = data_type::const_iterator; //!< Const (read-only) iterator type
+
+    //! Returns the \link dense_order row/column-major ordering \endlink.
     static constexpr DenseOrder order() { return Order; }
 
-    // For convenience, specify row/col major via Array<T>::row/col_major
-    using row_major = Dense<T,DenseOrder::row_major>;
-    using col_major = Dense<T,DenseOrder::col_major>;
+    using row_major = Dense<T,DenseOrder::row_major>; //!< Alias for a \link dense_order row-major ordered \endlink `Dense` with the same `T`.
+    using col_major = Dense<T,DenseOrder::col_major>; //!< Alias for a \link dense_order column-major ordered \endlink `Dense` with the same `T`.
 
-    // View of self
-    using View = DenseView<Dense<T,Order>>;
+    using View = DenseView<Dense<T,Order>>; //!< Alias for a #ultra::DenseView over this class.
 
 private: 
 
-    shape_type  _shape;
-    stride_type _stride;
-    data_type   _data;
+    shape_type  _shape;  //!< The \ref dense_shape of the array.
+    stride_type _stride; //!< The \ref dense_stride of the array.
+    data_type   _data;   //!< The internal 1D array which stores the contents of `Dense`.
 
 public:
 
     // ===============================================
     // Constructors
 
-    Dense() = default;
-    Dense( const Dense& other) = default;
-    Dense( Dense&& other) = default;
-    Dense& operator=( const Dense& other) = default;
-    Dense& operator=( Dense&& other) = default;
+    Dense() = default;                                //!< Default constructor
+    Dense( const Dense& other) = default;             //!< Copy constructor
+    Dense( Dense&& other) = default;                  //!< Move constructor
+    Dense& operator=( const Dense& other) = default;  //!< Copy assignment
+    Dense& operator=( Dense&& other) = default;       //!< Move assignment
     
-    // Swap
+    //! Swap internal data
     void swap( Dense& other) noexcept { 
         _shape.swap(other._shape);
         _stride.swap(other._stride);
         _data.swap(other._data);
     }
 
+    //! Friend swap function
     friend void swap( Dense& a, Dense& b) noexcept { a.swap(b); }
 
-    // Construct from shape
+    //! Construct from \ref dense_shape
     template<shapelike Shape>
     Dense( const Shape& shape ) :
         _shape(shape.size()),
@@ -71,6 +90,7 @@ public:
         set_stride();
     }
 
+    //! Construct from \ref dense_shape and fill.
     template<shapelike Shape>
     Dense( const Shape& shape, const value_type& fill) :
         _shape(shape.size()),
@@ -81,12 +101,17 @@ public:
         set_stride();
     }
 
+    //! Construct 1D array of with `size` elements
     Dense( std::size_t size ) : _shape{size}, _data(size) { set_stride(); }
     
+    //! Construct 1D array of with `size` elements, and fill
     Dense( std::size_t size, const value_type& fill ) : _shape{size}, _data(size,fill) { set_stride(); }
 
-    // Construct from an expression
-
+    /*! \brief Construct from a #ultra::DenseExpression
+     *
+     *  Rather than using the implementation from #ultra::DenseImpl directly, `Dense` permits
+     *  reshaping before assigning from the expression.
+     */
     template<class U>
     Dense( const DenseExpression<U>& expression) :
         _shape(expression.dims()),
@@ -98,6 +123,11 @@ public:
         equal_expression(expression);
     }
 
+    /*! \brief Construct from an rvalue #ultra::DenseExpression
+     *
+     *  Rather than using the implementation from #ultra::DenseImpl directly, `Dense` permits
+     *  reshaping before assigning from the expression.
+     */
     template<class U>
     Dense( DenseExpression<U>&& expression) :
         _shape(expression.dims()),
@@ -109,6 +139,11 @@ public:
         equal_expression(std::move(expression));
     }
 
+    /*! \brief Assignment from a #ultra::DenseExpression
+     *
+     *  Rather than using the implementation from #ultra::DenseImpl directly, `Dense` permits
+     *  reshaping before assigning from the expression.
+     */
     template<class U>
     Dense& operator=( const DenseExpression<U>& expression) {
         // check expression shape matches self. If not, resize and reshape in place
@@ -124,6 +159,11 @@ public:
         return equal_expression(expression);
     }
 
+    /*! \brief Assignment from an rvalue #ultra::DenseExpression
+     *
+     *  Rather than using the implementation from #ultra::DenseImpl directly, `Dense` permits
+     *  reshaping before assigning from the expression.
+     */
     template<class U>
     Dense& operator=( DenseExpression<U>&& expression) {
         // check expression shape matches self. If not, resize and reshape in place

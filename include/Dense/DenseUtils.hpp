@@ -2,10 +2,10 @@
 #define __ULTRA_DENSE_UTILS_HPP
 
 /*! \file DenseUtils.hpp
- *  \brief Defines any utility functions/structs deemed useful for Dense objects.
+ *  \brief Defines any utility functions/structs deemed useful for \ref DenseObject%s.
  *
  *  This file contains utilities widely used in the definitions and internal workings
- *  of Dense objects. Most features are not expected to be used by the end-user.
+ *  of \ref DenseObject%s. Most features are not expected to be used by the end-user.
  */
 
 #include "ultramat/include/Utils/Utils.hpp"
@@ -15,14 +15,17 @@ namespace ultra {
 // ==============================================
 // DenseOrder
 
-//! An Enum Class used to indicate whether a Dense object is row-major or column-major ordered.
-/*! `DenseOrder` is commonly used as a template argument to `Dense` objects, and is used to indicate
- *  whether a given `Dense` object is row-major ordered (C-style) or column-major ordered
- *  (Fortran-style). If an object is row-major ordered, then the last dimension is the fastest
+/*!  \brief An Enum Class used to indicate whether a Dense object is row-major or column-major ordered.
+ * 
+ *  `DenseOrder` is commonly used as a template argument to \ref DenseObject%s, and is used to indicate
+ *  if the object is row-major ordered (C-style) or column-major ordered (Fortran-style).
+ *  If an object is row-major ordered, then the last dimension is the fastest
  *  incrementing, while if an object is column-major ordered, the first dimension is the fastest
  *  incrementing. The option `DenseOrder::mixed` exists to indicate that a given object is neither
- *  row-major nor column-major. For example, an expression in which a row-major `Dense` is
- *  added to a column-major `Dense` is regarded as having mixed ordering.
+ *  row-major nor column-major. For example, an expression in which a row-major object is
+ *  added to a column-major object is regarded as having mixed ordering.
+ *
+ *  For further information, see a more detailed explanation of \link dense_order row- and column-major ordering \endlink.
  */
 enum class DenseOrder { 
     row_major, //!< Row-major ordering, last dimension increments fastest
@@ -36,9 +39,10 @@ const DenseOrder default_order = DenseOrder::row_major;
 // ==============================================
 // ReadWrite
 
-//! An Enum Class used to indicate whether an object is read-only or if it may be written to.
-/*! Used internally by objects such as `DenseView` and `DenseStripe` to indicate whether they should reference
- *  their data using a regular pointer (writeable) or a const pointer (read_only).
+/*! \brief An Enum Class used to indicate whether an object is read-only or if it may be written to.
+ * 
+ * Used internally by objects such as #ultra::DenseView and #ultra::DenseStripe to indicate whether they should reference
+ * their data using a regular pointer (writeable) or a const pointer (read_only).
  */
 enum class ReadWrite {
     writeable, //!< Object may be freely read from or written to
@@ -58,10 +62,10 @@ template<class, ReadWrite = ReadWrite::writeable> class DenseStripe;
 // ==============================================
 // is_dense
 
-//! Type-trait which determines whether a given type is an ultramat `Dense` object.
+//! Type-trait which determines whether a given type is a \ref DenseObject.
 template<class T>
 struct is_dense {
-    static constexpr bool value = false; //!< Evaluates to `true` if the template argument `T` is a `Dense` Object. Evaluates to `false` otherwise.
+    static constexpr bool value = false; //!< Evaluates to `true` if the template argument `T` is a \ref DenseObject. Evaluates to `false` otherwise.
 };
 
 // Specialisation for Dense
@@ -74,8 +78,11 @@ template<class T, ReadWrite RW> struct is_dense<DenseView<T,RW>> { static conste
 // ==============================================
 // shapelike
 
-//! Defines a sized range of integers, and excludes ultramat `Dense` objects, e.g. `std::vector<std::size_t>`
-/*! For the sake of compatibility, the `shapelike` concept applies to signed integer ranges as well as unsigned ranges. */
+/*! \brief Defines a sized range of integers, and excludes Ultramat \ref DenseObject%s, e.g. `std::vector<std::size_t>`
+ * 
+ *  For the sake of compatibility, the `shapelike` concept applies to signed integer ranges as well as unsigned ranges.
+ *  Note that supplying a shape with negative integers is unlikely to be caught, but is highly likely to break everything.
+ */
 template<class T> concept shapelike = std::ranges::sized_range<T> && std::integral<typename T::value_type> && !is_dense<T>::value;
 
 // ==============================================
@@ -95,9 +102,9 @@ struct CommonOrderImpl<T1> {
     static constexpr DenseOrder order() { return Order; }
 };
 
-/*! \brief A type-trait-like struct that returns the common order of a collection of `Dense` objects.
+/*! \brief A type-trait-like struct that returns the common order of a collection of \ref DenseObject%s.
  * 
- *  Given a collection of `Dense` objects, this struct provides a way to compute their 'common order' 
+ *  Given a collection of \ref DenseObject%s, this struct provides a way to compute their 'common order' 
  *  at compile time, via `common_order<Dense1,Dense2,...>::value`. If all objects are
  *  row-major, then this returns `DenseOrder::row_major`. Similarly, if all objects are column-major,
  *  then this returns `DenseOrder::col_major`. If there are a mix of orderings in the template argument
@@ -108,20 +115,21 @@ struct common_order {
     //! Gives the common order of the template arguments given.
     static constexpr DenseOrder Order = CommonOrderImpl<Ts...>::order(); 
     
-    //! constexpr function used to access `Order`
+    //! constexpr function used to access #Order
     static constexpr DenseOrder order(){ 
         return Order;
     }
     
-    //! Alias for `Order`
+    //! Alias for #Order
     static constexpr DenseOrder value = Order;
 };
 
 // ==============================================
 // Slice
 
-//! A tool for generating views of `Dense` objects.
-/*! `Slice` is an 'aggregate'/'pod' type, so it has a relatively intuitive interface by default.
+/*! \brief  A tool for generating #ultra::DenseView%s from \ref DenseObject%s.
+ *
+ * `Slice` is an 'aggregate'/'pod' type, so it has a relatively intuitive interface by default.
  *  For example, a `Slice` that takes all but the last element may be created via `Slice{0,-1}`.
  *  The same in reverse is written `Slice{0,-1,-1}`. In Python, it is possible to signify
  *  that a slice should give all elements with the syntax `x[:]`. This is achieved with `Slice`
@@ -146,10 +154,10 @@ struct Slice {
 // ==============================================
 // get_broadcast_shape
 
-/*! \brief Given a selection of shapes, returns the result of broadcasting all of them together.
+/*! \brief Given a selection of \link dense_shape shapes \endlink, returns the result of broadcasting all of them together.
  *  \tparam order (Required) Determines whether new broadcasting dimensions should be appended (col-major) or prepended (row-major)
- *  \tparam Shapes (Automatically deduced) Types of the provided shapes
- *  \var shapes A list of shapelike objects
+ *  \tparam Shapes (Automatically deduced) Types of the provided \link dense_shape shapes \endlink
+ *  \var shapes A list of #ultra::shapelike objects
  */
 template<DenseOrder order, shapelike... Shapes> 
 std::vector<std::size_t> get_broadcast_shape( const Shapes&... shapes) {

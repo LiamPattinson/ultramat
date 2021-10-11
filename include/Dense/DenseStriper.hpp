@@ -2,7 +2,7 @@
 #define __ULTRA_DENSE_STRIPER_HPP
 
 /*! \file DenseStriper.hpp
- *  \brief Defines the DenseStriper class, widely used for generic iteration over Dense objects.
+ *  \brief Defines the #ultra::DenseStriper class, widely used for generic iteration over \ref DenseObject%s.
  */
 
 #include "DenseUtils.hpp"
@@ -12,15 +12,15 @@ namespace ultra {
 // ==============================================
 // DenseStriper
 
-/*! \brief A utility class used by `Dense` objects to generate 1D 'stripes' for iteration purposes.
+/*! \brief A utility class used by \ref DenseObject%s to generate 1D 'stripes' for iteration purposes.
  *
- *  Striped iteration is a core concept in the ultramat library. The C++ standard library is
+ *  Striped iteration is a core concept in the Ultramat library. The C++ standard library is
  *  heavily dependent on iterators, but as iteration is inherently a 1D operation, it does not
  *  always apply well to N-dimensional objects. An exception is when operations occur between
- *  `Dense` objects of the same shapes and row/column-major ordering, provided the operation is 'simple',
- *  such as element-wise arithmetic.
+ *  \ref DenseObject%s of the same \ref dense_shape and \link dense_order row/column-major ordering \endlink, 
+ *  provided the operation is 'simple', such as element-wise arithmetic.
  *
- *  `DenseStriper` keeps track of the shape of a `Dense` object or expression, a coordinate, and a striping
+ *  #ultra::DenseStriper keeps track of the \ref dense_shape of a \ref DenseObject or expression, a coordinate, and a striping
  *  dimension. If row-major ordered, incrementing a `DenseStriper` will update the coordinate in 
  *  the last dimension until it equals the shape in the last dimension. It then increments the coordinate in the
  *  second-to-last dimension, resets the last dimension to zero, and so on. Similar behaviour can be expected if
@@ -28,16 +28,17 @@ namespace ultra {
  *  the second, etc. Note that the coordinate in the striping dimension is always zero, and is skipped over when
  *  finding the next dimension to increment.
  *
- *  A `DenseStriper` behaves like a random access iterator, so also provides decrement, in-place addition and
+ *  #ultra::DenseStriper behaves like a random access iterator, so also provides decrement, in-place addition and
  *  subtraction, and distance calculations.
  *
- *  `DenseStriper` is a core component in the following features:
- *  - Automatic broadcasting: If a `Dense` object is asked to provide a stripe, but is given a `DenseStriper`
+ *  #ultra::DenseStriper is a core component in the following features:
+ *  - Automatic broadcasting: If a \ref DenseObject is asked to provide a stripe, but is given a #ultra::DenseStriper
  *    with a broadcasted shape, it may return a stripe with zero stride.
- *  - Non-contiguous iteration: Iterating directly over a non-contiguous array is a costly operation (see
- *    `DenseViewIterator` for proof). Striped iteration reduces the amount of checks that must be performed,
- *    as a non-contiguous object may instead be viewed as a series of contiguous (or strided) 1D chunks.
- *  - Mixed row/column-major ordered operations: When providing a coordinate from which to generate a stripe,
+ *  - \link dense_semicontiguous Semi-contiguous iteration \endlink: Iterating directly over a 
+ *    \link dense_semicontiguous semi-contiguous \endlink array is a costly operation (see
+ *    #ultra::DenseViewIterator for proof). Striped iteration reduces the amount of checks that must be performed during
+ *    iteration, as N-dimensional arrays are instead decomposed into a series of 1D strided arrays.
+ *  - Mixed \link dense_order row/column-major ordered \endlink operations: When providing a coordinate from which to generate a stripe,
  *    it doesn't matter if the target is row-major or column-major ordered (although striping over a row-major
  *    object in a column-major manner, or vice versa, will likely be less efficient).
  *  - OpenMP parallelisation: Striped iteration was designed with OpenMP-style parallelism in mind. In this model,
@@ -45,19 +46,22 @@ namespace ultra {
  */
 class DenseStriper {
 
-    //! The striping dimension. This index in this dimension is always zero.
+    //! The striping dimension. The index in this dimension is always zero.
     std::size_t _dim;
 
-    //! Determines whether the index is incremented starting from the last dimension (row-major) or first dimension (col-major)
+    /*! \brief Determines whether the index is incremented starting from the last dimension (row-major) or first dimension (col-major)
+     *  
+     *  Note that column-major ordered arrays may be striped in a row-major manner, and vice versa -- it's just slower that way.
+     */
     DenseOrder _order;
 
-    //! The current index, or coordinate. The integer in each dimension must be less than the shape.
+    //! The current index, or coordinate. `_idx[i] <= _shape[i]`.
     std::vector<std::ptrdiff_t> _idx;
 
     //! The scalar index tracks the distance from the beginning, and is incremented by 1 each time the `DenseStriper` is incremented.
     std::size_t _scalar_idx;
 
-    //! The maximum coordinate in each dimension. This should be the shape of the target object, which may be broadcasted.
+    //! The \ref dense_shape of the target object, which may be broadcasted.
     std::vector<std::size_t> _shape;
 
     //! Sets the index from the scalar index. Used to handle random access jumps.
@@ -82,20 +86,11 @@ class DenseStriper {
 
     public:
 
-    //! Default constructor disabled.
-    DenseStriper() = delete;
-
-    //! Copy constructor set to default.
-    DenseStriper( const DenseStriper& ) = default;
-
-    //! Move constructor set to default.
-    DenseStriper( DenseStriper&& ) = default;
-
-    //! Copy assignment set to default.
-    DenseStriper& operator=( const DenseStriper& ) = default;
-
-    //! Move assignment set to default.
-    DenseStriper& operator=( DenseStriper&& ) = default;
+    DenseStriper() = delete;                                  //! Default constructor disabled.
+    DenseStriper( const DenseStriper& ) = default;            //! Copy constructor set to default.
+    DenseStriper( DenseStriper&& ) = default;                 //! Move constructor set to default.
+    DenseStriper& operator=( const DenseStriper& ) = default; //! Copy assignment set to default.
+    DenseStriper& operator=( DenseStriper&& ) = default;      //! Move assignment set to default.
 
     /*! /brief Construct a new `DenseStriper`.
      *  \var dim The striping dimension
@@ -138,7 +133,7 @@ class DenseStriper {
         return _shape.size();
     }
 
-    //! Returns the row/column-major ordering of the `DenseStriper`
+    //! Returns the \link dense_order row/column-major ordering \endlink of the `DenseStriper`
     DenseOrder order() const {
         return _order;
     }
