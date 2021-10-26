@@ -148,12 +148,36 @@ class DenseImpl {
     // ===============================================
     //  Expressions
 
+    private:
+
+    /*! @name Assignment Structs
+     *  A collection of utility structs used alongside #accept_expression() to allow the same code to be reused
+     *  for assignment and in-place operators.
+     */
+    ///@{
+
+    //! Utility struct representing assignment operation
     struct _Equal{ template<class U, class V> void operator()( U& u, const V& v) const { u = v; }};
+    //! Utility struct representing in-place addition
     struct _AddEqual{ template<class U, class V> void operator()( U& u, const V& v) const { u += v; }};
+    //! Utility struct representing in-place subtraction
     struct _SubEqual{ template<class U, class V> void operator()( U& u, const V& v) const { u -= v; }};
+    //! Utility struct representing in-place multiplication
     struct _MulEqual{ template<class U, class V> void operator()( U& u, const V& v) const { u *= v; }};
+    //! Utility struct representing in-place division
     struct _DivEqual{ template<class U, class V> void operator()( U& u, const V& v) const { u /= v; }};
 
+    ///@}
+
+    public:
+
+    /*! \brief Function defining how an expression is evaluated to fill a \ref DenseObject,
+     *  \tparam F Utility struct defining assignment or an in-place operator. See #_Equal.
+     *  \tparam E A generic expression.
+     *  This function takes a generic expression, which may be a \ref DenseObject, and evaluates
+     *  each element of the derived object.
+     *  The expression must be broadcastable to the size of the derived object.
+     */
     template<class F, class E>
     decltype(auto) accept_expression( E&& expression ){
         F f{};
@@ -232,94 +256,127 @@ class DenseImpl {
         return derived();
     }
 
+    /*! @name equal_expression
+     *  Shorthand to using #accept_expression() using an assignment operator.
+     */
+    ///@{
+
+    //! Equate to a const reference expression.
     template<class U>
     decltype(auto) equal_expression( const DenseExpression<U>& expression){
         return accept_expression<_Equal>(expression);
     }
 
+    //! Equate to an rvalue expression.
     template<class U>
     decltype(auto) equal_expression( DenseExpression<U>&& expression){
         return accept_expression<_Equal>(std::move(expression));
     }
 
-    // In-place operators
+    ///@}
 
+    /*! @name In-place expression operators
+     *  Allows the derived class to be updated in-place using expressions.
+     */
+    ///@{
+
+    //! Assign from const-ref expression
     template<class U>
     decltype(auto) operator=( const DenseExpression<U>& expression) {
         return accept_expression<_Equal>(expression);
     }
 
+    //! Assign from rvalue expression
     template<class U>
     decltype(auto) operator=( DenseExpression<U>&& expression) {
         return accept_expression<_Equal>(std::move(expression));
     }
 
+    //! Add in place from const-ref expression
     template<class U>
     decltype(auto) operator+=( const DenseExpression<U>& expression ){
         return accept_expression<_AddEqual>(expression);
     }
 
+    //! Add in place from rvalue expression
     template<class U>
     decltype(auto) operator+=( DenseExpression<U>&& expression ){
         return accept_expression<_AddEqual>(std::move(expression));
     }
 
+    //! Subtract in place from const-ref expression
     template<class U>
     decltype(auto) operator-=( const DenseExpression<U>& expression ){
         return accept_expression<_SubEqual>(expression);
     }
 
+    //! Subtract in place from rvalue expression
     template<class U>
     decltype(auto) operator-=( DenseExpression<U>&& expression ){
         return accept_expression<_SubEqual>(std::move(expression));
     }
 
+    //! Multiply in place from const-ref expression
     template<class U>
     decltype(auto) operator*=( const DenseExpression<U>& expression ){
         return accept_expression<_MulEqual>(expression);
     }
 
+    //! Multiply in place from rvalue expression
     template<class U>
     decltype(auto) operator*=( DenseExpression<U>&& expression ){
         return accept_expression<_MulEqual>(std::move(expression));
     }
 
+    //! Divide in place from const-ref expression
     template<class U>
     decltype(auto) operator/=( const DenseExpression<U>& expression ){
         return accept_expression<_DivEqual>(expression);
     }
     
+    //! Divide in place from rvalue expression
     template<class U>
     decltype(auto) operator/=( DenseExpression<U>&& expression ){
         return accept_expression<_DivEqual>(std::move(expression));
     }
+    ///@}
 
-    // Scalar in-place updates
+    /*! @name Scalar in-place updates
+     *  Broadcast a scalar to the size of the derived object, and operate in place.
+     */
+    ///@{
 
+    //! Assign to scalar
     template<class U> requires number<U>
     decltype(auto) operator=( U u) {
         return operator=(DenseFixed<U,Order,1>(u));
     }
 
+    //! Add scalar in place
     template<class U> requires number<U>
     decltype(auto) operator+=( U u) {
         return operator+=(DenseFixed<U,Order,1>(u));
     }
 
+    //! Subtract scalar in place
     template<class U> requires number<U>
     decltype(auto) operator-=( U u) {
         return operator-=(DenseFixed<U,Order,1>(u));
     }
 
+    //! Multiply by scalar in place
     template<class U> requires number<U>
     decltype(auto) operator*=( U u) {
         return operator*=(DenseFixed<U,Order,1>(u));
     }
 
+    //! Divide by scalar in place
     template<class U> requires number<U>
     decltype(auto) operator/=( U u) {
         return operator/=(DenseFixed<U,Order,1>(u));
     }
+
+    ///@}
 
     // ===============================================
     // View creation
