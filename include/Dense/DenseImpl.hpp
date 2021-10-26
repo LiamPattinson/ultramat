@@ -1,6 +1,10 @@
 #ifndef __ULTRA_DENSE_IMPL_HPP
 #define __ULTRA_DENSE_IMPL_HPP
 
+/*! \file DenseImpl.hpp
+ *  \brief Defines CRTP base class for dense objects.
+ */
+
 #include "ultramat/include/Utils/Utils.hpp"
 #include "DenseUtils.hpp"
 #include "DenseStripe.hpp"
@@ -10,14 +14,19 @@ namespace ultra {
 
 // ===============================================
 // DenseImpl
-//
-// CRTP Base Class
-// Defines a base class for all N-d dense containers, including Dense, DenseFixed, and DenseView.
 
+
+/*! \brief CRTP base class for all dense containers.
+ *
+ *  Defines generic methods for #ultra::Dense, #ultra::DenseFixed, and #ultra::DenseView.
+ */
 template<class T>
 class DenseImpl {
 
+    //! Convenience function for accessing methods from the derived class
     constexpr T& derived() noexcept { return static_cast<T&>(*this); }
+
+    //! Convenience function for accessing const methods from the derived class
     constexpr const T& derived() const noexcept { return static_cast<const T&>(*this); }
 
     protected:
@@ -25,43 +34,78 @@ class DenseImpl {
     // ===============================================
     // Attributes
 
+    //! Get the number of dimensions of the derived class.
     constexpr auto dims() const noexcept { return derived()._shape.size(); }
+
+    //! Get the total number of elements contained in a derived object.
     constexpr auto size() const noexcept { return derived()._data.size(); }
+
+    //! Get the size of the `dim`'th dimension of the derived object -- see \ref dense_shape.
     constexpr auto shape( std::size_t dim) const noexcept { return derived()._shape[dim]; }
+
+    //! Get the `dim`'th \ref dense_stride of the derived object.
     constexpr auto stride( std::size_t dim) const noexcept { return derived()._stride[dim]; }
+
+    //! Get a const reference to the derived object's \ref dense_shape
     constexpr const auto& shape() const noexcept { return derived()._shape; }
+
+    //! Get a const reference to the derived object's \ref dense_stride
     constexpr const auto& stride() const noexcept { return derived()._stride; }
+
+    //! Get the \ref dense_order of the derived class.
     static constexpr DenseOrder order() { return T::order(); }
+
+    //! The \ref dense_order of the derived class.
     static constexpr DenseOrder Order = order();
 
     // ===============================================
     // Data access
 
+    /*! @name data
+     *  Advanced users -- get a raw pointer to the contained data of the derived object. 
+     */
+    ///@{
+
+    //! Non-const (writeable) version
     constexpr auto* data() noexcept { return derived()._data.data(); }
+
+    //! Const (read-only) version
     constexpr const auto* data() const noexcept { return derived()._data.data(); }
 
-    // Fill
-    
+    ///@}
+
+    //! Set all elements of the derived object to the value of `u`.
     template<class U>
     constexpr void fill( const U& u) {
         std::ranges::fill(derived(),u);
     }
 
-    // Access via unsigned ints.
-    // Warning: no check that the correct number of ints has been provided.
+    /*! @name operator()
+     *  Access individual elements using integer coordinates.
+     */
+    ///@{
     
+    /*! \brief Access using a series of integers, by value
+     *  Note that there is no check to ensure the correct number of integers has been provided!
+     */
     template<std::integral... Ints> 
     auto operator()( Ints... coords ) const noexcept {
         return derived()._data[variadic_memjump(coords...)];
     }
     
+    /*! \brief Access using a series of integers, by reference
+     *  This permits individual elements to be updated on the left hand side of an expression.
+     *  Note that there is no check to ensure the correct number of integers has been provided!
+     */
     template<std::integral... Ints> 
     auto& operator()( Ints... coords ) noexcept {
         return derived()._data[variadic_memjump(coords...)];
     }
-
-    // Access via range
     
+    /*! \brief Access using a #ultra::shapelike, returns by value
+     *  #ultra::shapelike is used to represent any non-Ultramat array-like structure of integers.
+     *  Note that there is no check to ensure the correct number of integers has been provided!
+     */
     template<shapelike Coords>
     auto operator()( const Coords& coords) const {
         return derived()._data[
@@ -69,6 +113,11 @@ class DenseImpl {
         ];
     }
 
+    /*! \brief Access using a #ultra::shapelike, returns by reference
+     *  This permits individual elements to be updated on the left hand side of an expression.
+     *  #ultra::shapelike is used to represent any non-Ultramat array-like structure of integers.
+     *  Note that there is no check to ensure the correct number of integers has been provided!
+     */
     template<shapelike Coords>
     auto& operator()( const Coords& coords) {
         return derived()._data[
@@ -76,14 +125,16 @@ class DenseImpl {
         ];
     }
 
+    ///@}
+
     // ===============================================
     //  Expressions
 
-    struct Equal{ template<class U, class V> void operator()( U& u, const V& v) const { u = v; }};
-    struct AddEqual{ template<class U, class V> void operator()( U& u, const V& v) const { u += v; }};
-    struct SubEqual{ template<class U, class V> void operator()( U& u, const V& v) const { u -= v; }};
-    struct MulEqual{ template<class U, class V> void operator()( U& u, const V& v) const { u *= v; }};
-    struct DivEqual{ template<class U, class V> void operator()( U& u, const V& v) const { u /= v; }};
+    struct _Equal{ template<class U, class V> void operator()( U& u, const V& v) const { u = v; }};
+    struct _AddEqual{ template<class U, class V> void operator()( U& u, const V& v) const { u += v; }};
+    struct _SubEqual{ template<class U, class V> void operator()( U& u, const V& v) const { u -= v; }};
+    struct _MulEqual{ template<class U, class V> void operator()( U& u, const V& v) const { u *= v; }};
+    struct _DivEqual{ template<class U, class V> void operator()( U& u, const V& v) const { u /= v; }};
 
     template<class F, class E>
     decltype(auto) accept_expression( E&& expression ){
@@ -150,9 +201,9 @@ class DenseImpl {
             std::size_t stripe_dim = expression.required_stripe_dim();
             if( stripe_dim == dims() ) stripe_dim = ( Order == DenseOrder::row_major ? dims()-1 : 0 );
             auto s = shape();
-            DenseStriper end( stripe_dim, Order, s, 1);
+            DenseStripeIndex end( stripe_dim, Order, s, 1);
 #pragma omp parallel for schedule(dynamic,1) default(none) shared(f,expression,stripe_dim,s) firstprivate(end)
-            for( auto striper = DenseStriper(stripe_dim,Order,s,0); striper != end; ++striper){
+            for( auto striper = DenseStripeIndex(stripe_dim,Order,s,0); striper != end; ++striper){
                 auto stripe = get_stripe(striper);
                 auto expr_stripe = expression.get_stripe(striper);
                 auto expr_it = expr_stripe.begin();
@@ -165,64 +216,64 @@ class DenseImpl {
 
     template<class U>
     decltype(auto) equal_expression( const DenseExpression<U>& expression){
-        return accept_expression<Equal>(expression);
+        return accept_expression<_Equal>(expression);
     }
 
     template<class U>
     decltype(auto) equal_expression( DenseExpression<U>&& expression){
-        return accept_expression<Equal>(std::move(expression));
+        return accept_expression<_Equal>(std::move(expression));
     }
 
     // In-place operators
 
     template<class U>
     decltype(auto) operator=( const DenseExpression<U>& expression) {
-        return accept_expression<Equal>(expression);
+        return accept_expression<_Equal>(expression);
     }
 
     template<class U>
     decltype(auto) operator=( DenseExpression<U>&& expression) {
-        return accept_expression<Equal>(std::move(expression));
+        return accept_expression<_Equal>(std::move(expression));
     }
 
     template<class U>
     decltype(auto) operator+=( const DenseExpression<U>& expression ){
-        return accept_expression<AddEqual>(expression);
+        return accept_expression<_AddEqual>(expression);
     }
 
     template<class U>
     decltype(auto) operator+=( DenseExpression<U>&& expression ){
-        return accept_expression<AddEqual>(std::move(expression));
+        return accept_expression<_AddEqual>(std::move(expression));
     }
 
     template<class U>
     decltype(auto) operator-=( const DenseExpression<U>& expression ){
-        return accept_expression<SubEqual>(expression);
+        return accept_expression<_SubEqual>(expression);
     }
 
     template<class U>
     decltype(auto) operator-=( DenseExpression<U>&& expression ){
-        return accept_expression<SubEqual>(std::move(expression));
+        return accept_expression<_SubEqual>(std::move(expression));
     }
 
     template<class U>
     decltype(auto) operator*=( const DenseExpression<U>& expression ){
-        return accept_expression<MulEqual>(expression);
+        return accept_expression<_MulEqual>(expression);
     }
 
     template<class U>
     decltype(auto) operator*=( DenseExpression<U>&& expression ){
-        return accept_expression<MulEqual>(std::move(expression));
+        return accept_expression<_MulEqual>(std::move(expression));
     }
 
     template<class U>
     decltype(auto) operator/=( const DenseExpression<U>& expression ){
-        return accept_expression<DivEqual>(expression);
+        return accept_expression<_DivEqual>(expression);
     }
     
     template<class U>
     decltype(auto) operator/=( DenseExpression<U>&& expression ){
-        return accept_expression<DivEqual>(std::move(expression));
+        return accept_expression<_DivEqual>(std::move(expression));
     }
 
     // Scalar in-place updates
@@ -382,7 +433,7 @@ class DenseImpl {
 
     private:
 
-    auto _get_stripe_helper( const DenseStriper& striper) const {
+    auto _get_stripe_helper( const DenseStripeIndex& striper) const {
         std::ptrdiff_t stripe_jump=0, stripe_stride=0;
         bool broadcasting = ( dims() < striper.dims());
         bool mixed_order = ( order() != striper.order());
@@ -430,14 +481,14 @@ class DenseImpl {
     
     public:
 
-    auto get_stripe( const DenseStriper& striper){
+    auto get_stripe( const DenseStripeIndex& striper){
         auto* stripe_ptr = derived().data();
         std::ptrdiff_t stripe_jump, stripe_stride;
         std::tie(stripe_jump,stripe_stride) = _get_stripe_helper(striper);
         return DenseStripe<T,ReadWrite::writeable>( stripe_ptr + stripe_jump, stripe_stride, striper.stripe_size());
     }
 
-    auto get_stripe( const DenseStriper& striper) const {
+    auto get_stripe( const DenseStripeIndex& striper) const {
         auto* stripe_ptr = derived().data();
         std::ptrdiff_t stripe_jump, stripe_stride;
         std::tie(stripe_jump,stripe_stride) = _get_stripe_helper(striper);

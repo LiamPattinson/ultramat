@@ -115,7 +115,7 @@ public:
  
     class Stripe {
 
-        using stripe_t = decltype(std::declval<const view_type>().get_stripe(std::declval<DenseStriper>()));
+        using stripe_t = decltype(std::declval<const view_type>().get_stripe(std::declval<DenseStripeIndex>()));
 
         stripe_t _row_stripe;
         stripe_t _col_stripe;
@@ -132,7 +132,7 @@ public:
         Iterator end() const { return Iterator(_row_stripe.end(),_col_stripe.end()); }
     };
 
-    decltype(auto) get_stripe( const DenseStriper& striper) const {
+    decltype(auto) get_stripe( const DenseStripeIndex& striper) const {
         return Stripe(_bcast_rows.get_stripe(striper),_bcast_cols.get_stripe(striper));
     }
 };

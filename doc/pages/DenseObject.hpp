@@ -20,21 +20,21 @@
  *  // Or:
  *  Array<double>::row_major row_major_array( Shape{3,3} );
  *  // Equivalent to:
- *  Dense<double,DenseOrder::row_major> row_major_array( Shape{3,3} );
+ *  Dense<double,DenseOrder::row_major> row_major_array_2( Shape{3,3} );
  *
  *  Array<double>::col_major column_major_array( Shape{3,3} );
  *  // Equivalent to:
- *  Dense<double,DenseOrder::col_major_major> column_major_array( Shape{3,3} );
+ *  Dense<double,DenseOrder::col_major_major> column_major_array_2( Shape{3,3} );
  *
  *  Array<double,3,3> row_major_fixed_size_array;
  *  // Or:
  *  Array<double,3,3>::row_major row_major_fixed_size_array;
  *  // Equivalent to:
- *  DenseFixed<double,DenseOrder::row_major,3,3> row_major_fixed_size_array;
+ *  DenseFixed<double,DenseOrder::row_major,3,3> row_major_fixed_size_array_2;
  *
  *  Array<double,3,3>::col_major column_major_fixed_size_array;
  *  // Equivalent to:
- *  DenseFixed<double,DenseOrder::col_major,3,3> column_major_fixed_size_array;
+ *  DenseFixed<double,DenseOrder::col_major,3,3> column_major_fixed_size_array_2;
  *  ```
  *
  *  This page details some of the concepts related to dense objects.
@@ -52,14 +52,17 @@
  *
  *  Throughout Ultramat, 'Order' refers to row/column-major ordering. To understand this, consider the following \f$3\times3\f$ matrix:
  *
- *  \f$ \left[\matrix{ 1 & 2 & 3 \cr 4 & 5 & 6 \cr 7 & 8 & 9 }\right] \f$
+ *  \f$ \left[\matrix{ a_{11} & a_{12} & a_{13} \cr a_{21} & a_{22} & a_{23} \cr a_{31} & a_{32} & a_{33} }\right] \f$
  *
  *  For performance reasons, it is beneficial to store all 9 elements in a contiguous block of memory. There are two reasonable ways
  *  of achieving this:
  *
- *  Row-Major Ordering          | Column-Major Ordering
- *  --------------------------- | ---------------------------
- *  `[[1,2,3],[4,5,6],[7,8,9]]` | `[[1,4,7],[2,5,8],[3,6,9]]`
+ *  <table>
+ *  <tr><th> Row-Major Ordering <th> Column-Major Ordering
+ *  <tr>
+ *  <td> \f$ \left[ [ a_{11}, a_{12}, a_{13} ] , [ a_{21} , a_{22} , a_{23} ],[ a_{31} , a_{32} , a_{33} ] \right] \f$
+ *  <td> \f$ \left[ [ a_{11}, a_{21}, a_{31} ] , [ a_{12} , a_{22} , a_{32} ],[ a_{13} , a_{23} , a_{33} ] \right] \f$
+ *  </table>
  *
  *  The choice of whether to use row-major or column-major ordering is largely arbitrary, and as a result it is common to find that libraries and
  *  languages are at odds with each other. Famously, a 2D array declared in C via `float A[3][3];` is row-major, while a 2D array declared in
@@ -117,6 +120,30 @@
  *
  *  \section dense_view Views
  *
+ *  Views are dense data structures that do not 'own' data, but instead refer to existing objects. They may refer to a dense object in its entirety,
+ *  or instead may refer to only a subset of it. For instance:
+ *
+ *  ```
+ *  Array<double> grid( Shape{100,100} );
+ *  auto grid_without_boundary_elements = grid.view( Slice{1,-1}, Slice{1,-1} );
+ *  ```
+ *
+ *  #ultra::Slice is a lightweight object that permits Python-style slicing. The first element denotes the start of the slice, the second denotes
+ *  the end of the slice (more accurately, one position off from the end), and the optional third element denotes the step size, which can be negative.
+ *
+ *  Views are also used for more complex manipulations. For instance, they may provide the #ultra::transpose() of a matrix in constant time, simply by swapping
+ *  strides, and this can be taken further to a general transpose with the #ultra::permute() function.
+ *
+ *  A common pitfall associated with views is that of dangling references. If the object that a view refers to goes out of scope, the resulting view
+ *  will be undefined, and it's unlikely that a compiler will notice. When returning views from functions, it is recommended to make a call to
+ *  #ultra::eval() and convert to a fully-fledged dense object unless you can be confident that the referenced object will always remain in scope.
+ *
+ *  Views are considered to be  \link dense_semicontiguous semi-contiguous \endlink objects.
+ *
  *  \section dense_semicontiguous What do you mean by semi-contiguous?
  *
+ *  A contiguous data structure is one in which every element is immedately adjacent to its neighbours in memory. Within Ultramat, a semi-contiguous
+ *  data structure is one that can be represented as a collection of contiguous 1D arrays, also known as _stripes_. For instance, a view over
+ *  a subset of an N-dimensional array may exclude the majority of elements, leaving large gaps in memory between each row, but the rows themselves may
+ *  be considered contiguous. Note that the definition of 'contiguous' is also somewhat stretched here, as it can also include strides greater than 1.
  */

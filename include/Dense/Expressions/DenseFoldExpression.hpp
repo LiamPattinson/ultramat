@@ -42,7 +42,7 @@ public:
     GeneralFoldPolicy( const start_type& start_val) : _start_val(start_val) {}
     start_type get() const { return _start_val; }
 
-    value_type exec( const F& f, const input_type& t, const DenseStriper& striper) const {
+    value_type exec( const F& f, const input_type& t, const DenseStripeIndex& striper) const {
         F f_copy(f);
         value_type val = _start_val;
         auto stripe = t.get_stripe(striper);
@@ -68,7 +68,7 @@ public:
     LinearFoldPolicy( const start_type& start_val) : _start_val(start_val) {}
     start_type get() const { return _start_val; }
 
-    value_type exec( const F& f, const input_type& t, const DenseStriper& striper) const {
+    value_type exec( const F& f, const input_type& t, const DenseStripeIndex& striper) const {
         F f_copy(f);
         value_type val = _start_val;
         auto stripe = t.get_stripe(striper);
@@ -89,7 +89,7 @@ protected:
     static constexpr bool is_accumulate = true;
     static constexpr bool is_boolean_fold = false;
 public:
-    value_type exec( const F& f, const input_type& t, const DenseStriper& striper) const {
+    value_type exec( const F& f, const input_type& t, const DenseStripeIndex& striper) const {
         F f_copy(f);
         auto stripe = t.get_stripe(striper);
         auto it = stripe.begin();
@@ -115,7 +115,7 @@ protected:
     static constexpr bool is_accumulate = false;
     static constexpr bool is_boolean_fold = true;
 public:
-    value_type exec( const F&, const input_type& t, const DenseStriper& striper) const {
+    value_type exec( const F&, const input_type& t, const DenseStripeIndex& striper) const {
         /* Rather than using F directly, we will instead make use of start_bool and early_exit_bool */ \
         bool result = F::start_bool;
         auto stripe = t.get_stripe(striper);
@@ -144,7 +144,7 @@ private:
 
     using arg_t = std::conditional_t< std::is_lvalue_reference<T>::value, T, std::remove_cvref_t<T>>;
     using ref_t = const std::remove_cvref_t<arg_t>&;
-    using Stripe_t = decltype(std::declval<std::add_const_t<std::remove_cvref_t<T>>>().get_stripe(std::declval<DenseStriper>()));
+    using Stripe_t = decltype(std::declval<std::add_const_t<std::remove_cvref_t<T>>>().get_stripe(std::declval<DenseStripeIndex>()));
 
     F           _f;
     arg_t       _t;
@@ -210,7 +210,7 @@ public:
 
         F            _f;
         ref_t        _t;
-        DenseStriper _striper;
+        DenseStripeIndex _striper;
         
         public:
 
@@ -285,11 +285,11 @@ public:
         std::size_t  _fold_dim;
         std::size_t  _fold_size;
         bool         _fold_1d;
-        DenseStriper _striper;
+        DenseStripeIndex _striper;
 
         public:
         
-        Stripe( const F& f, ref_t t, std::size_t fold_dim, std::size_t fold_size, const DenseStriper& striper, bool fold_1d, const value_type& val) :
+        Stripe( const F& f, ref_t t, std::size_t fold_dim, std::size_t fold_size, const DenseStripeIndex& striper, bool fold_1d, const value_type& val) :
             FoldPolicy<F,ValueType,T>(val),
             _f(f),
             _t(t),
@@ -299,7 +299,7 @@ public:
             _striper(striper)
         {}
 
-        Stripe( const F& f, ref_t t, std::size_t fold_dim, std::size_t fold_size, const DenseStriper& striper, bool fold_1d) :
+        Stripe( const F& f, ref_t t, std::size_t fold_dim, std::size_t fold_size, const DenseStripeIndex& striper, bool fold_1d) :
             _f(f),
             _t(t),
             _fold_dim(fold_dim),
@@ -315,7 +315,7 @@ public:
             ref_t        _t;
             std::size_t  _stripe_dim;
             std::size_t  _fold_dim;
-            DenseStriper _striper;
+            DenseStripeIndex _striper;
 
             public: 
 
@@ -325,7 +325,7 @@ public:
             Iterator& operator=( const Iterator& ) = default;
             Iterator& operator=( Iterator&& ) = default;
             
-            Iterator( const F& f, ref_t t, std::size_t stripe_dim, std::size_t fold_dim, const DenseStriper& striper, value_type start_val) :
+            Iterator( const F& f, ref_t t, std::size_t stripe_dim, std::size_t fold_dim, const DenseStripeIndex& striper, value_type start_val) :
                 FoldPolicy<F,ValueType,T>(start_val),
                 _f(f),
                 _t(t),
@@ -334,7 +334,7 @@ public:
                 _striper(striper)
             {}
 
-            Iterator( const F& f, ref_t t, std::size_t stripe_dim, std::size_t fold_dim, const DenseStriper& striper) :
+            Iterator( const F& f, ref_t t, std::size_t stripe_dim, std::size_t fold_dim, const DenseStripeIndex& striper) :
                 _f(f),
                 _t(t),
                 _stripe_dim(stripe_dim + (striper.order()==DenseOrder::row_major) + (stripe_dim >= fold_dim)),
@@ -358,7 +358,7 @@ public:
 
         };
 
-        DenseStriper get_inner_striper( bool end) const {
+        DenseStripeIndex get_inner_striper( bool end) const {
             std::vector<std::size_t> inner_shape(_striper.dims()+(!_fold_1d),0);
             if( _fold_1d){
                 inner_shape[0] = _fold_size; 
@@ -368,7 +368,7 @@ public:
                 }
                 inner_shape[_fold_dim] = _fold_size;
             }
-            DenseStriper inner_striper( _fold_dim, _striper.order(), inner_shape, 0);
+            DenseStripeIndex inner_striper( _fold_dim, _striper.order(), inner_shape, 0);
             if( _fold_1d){
                 inner_striper.index(0) = _striper.index(0); 
             } else {
@@ -409,11 +409,11 @@ public:
     };
 
     // Get stripe from _t
-    decltype(auto) get_stripe( const DenseStriper& striper) const requires (requires_start_val) {
+    decltype(auto) get_stripe( const DenseStripeIndex& striper) const requires (requires_start_val) {
         return Stripe(_f,_t,_fold_dim,_fold_size,striper,_t.dims()==1,FoldPolicy<F,ValueType,T>::get());
     }
 
-    decltype(auto) get_stripe( const DenseStriper& striper) const requires (!requires_start_val) {
+    decltype(auto) get_stripe( const DenseStripeIndex& striper) const requires (!requires_start_val) {
         return Stripe(_f,_t,_fold_dim,_fold_size,striper,_t.dims()==1);
     }
 };

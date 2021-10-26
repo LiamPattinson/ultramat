@@ -93,7 +93,7 @@ private:
     }
 
     template<std::size_t... I>
-    decltype(auto) _get_stripe_impl( const DenseStriper& striper, std::index_sequence<I...> ) const {
+    decltype(auto) _get_stripe_impl( const DenseStripeIndex& striper, std::index_sequence<I...> ) const {
         return std::make_tuple(std::get<I>(_args).get_stripe(striper) ...);
     }
 
@@ -166,7 +166,7 @@ public:
  
     class Stripe {
         
-        using StripeTuple = std::tuple< decltype(std::declval<std::add_const_t<std::remove_cvref_t<Args>>>().get_stripe(std::declval<DenseStriper>())) ...>;
+        using StripeTuple = std::tuple< decltype(std::declval<std::add_const_t<std::remove_cvref_t<Args>>>().get_stripe(std::declval<DenseStripeIndex>())) ...>;
 
         StripeTuple _stripes;
 
@@ -182,7 +182,7 @@ public:
 
         class Iterator {
             
-            using ItTuple = std::tuple<typename decltype(std::declval<std::add_const_t<std::remove_cvref_t<Args>>>().get_stripe(std::declval<DenseStriper>()))::Iterator ...>;
+            using ItTuple = std::tuple<typename decltype(std::declval<std::add_const_t<std::remove_cvref_t<Args>>>().get_stripe(std::declval<DenseStripeIndex>()))::Iterator ...>;
             
             F       _f;
             ItTuple _its;
@@ -213,7 +213,7 @@ public:
         Iterator end()   const { return Iterator(end_tuple(_stripes)); }
     };
 
-    decltype(auto) get_stripe( const DenseStriper& striper) const {
+    decltype(auto) get_stripe( const DenseStripeIndex& striper) const {
         return Stripe(_get_stripe_impl(striper,std::make_index_sequence<std::tuple_size<tuple_t>::value>{}));
     }
 };

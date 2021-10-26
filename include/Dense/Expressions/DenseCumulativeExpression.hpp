@@ -58,7 +58,7 @@ public:
 
     class Stripe {
         
-        using Stripe_t = decltype(std::declval<std::add_const_t<std::remove_cvref_t<T>>>().get_stripe(std::declval<DenseStriper>()));
+        using Stripe_t = decltype(std::declval<std::add_const_t<std::remove_cvref_t<T>>>().get_stripe(std::declval<DenseStripeIndex>()));
 
         function_type     _f;
         Stripe_t          _stripe;
@@ -71,7 +71,7 @@ public:
 
         class Iterator {
             
-            using It_t = typename decltype(std::declval<std::add_const_t<std::remove_cvref_t<T>>>().get_stripe(std::declval<DenseStriper>()))::Iterator;
+            using It_t = typename decltype(std::declval<std::add_const_t<std::remove_cvref_t<T>>>().get_stripe(std::declval<DenseStripeIndex>()))::Iterator;
             
             function_type _f;
             It_t          _it;
@@ -99,7 +99,7 @@ public:
     };
 
     // Get stripe from _t
-    decltype(auto) get_stripe( const DenseStriper& striper) const {
+    decltype(auto) get_stripe( const DenseStripeIndex& striper) const {
         if( striper.stripe_dim() != _dim ){
             std::string err = "Ultramat: DenseCumulativeExpressions may only be striped in the direction specified upon their creation.";
             err += " get_stripe was given dim of " + std::to_string(striper.stripe_dim()) + ", but expected " + std::to_string(_dim) + '.';

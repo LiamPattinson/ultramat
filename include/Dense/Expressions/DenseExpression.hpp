@@ -12,7 +12,7 @@
  */
 
 #include "ultramat/include/Dense/DenseUtils.hpp"
-#include "ultramat/include/Dense/DenseStriper.hpp"
+#include "ultramat/include/Dense/DenseStripe.hpp"
 
 namespace ultra {
 
@@ -84,9 +84,9 @@ class DenseExpression {
     ///@{
     
     //! Read/write version
-    decltype(auto) get_stripe( const DenseStriper& striper) { return derived().get_stripe(striper); }
+    decltype(auto) get_stripe( const DenseStripeIndex& striper) { return derived().get_stripe(striper); }
     //! Read-only version
-    decltype(auto) get_stripe( const DenseStriper& striper) const { return derived().get_stripe(striper); }
+    decltype(auto) get_stripe( const DenseStripeIndex& striper) const { return derived().get_stripe(striper); }
     ///@}
  
     //! Returns the mandatory striping dimension of the derived object. Should return dims() if it may be striped in any dimension.

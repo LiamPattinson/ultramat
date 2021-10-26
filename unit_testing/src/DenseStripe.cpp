@@ -1,22 +1,22 @@
-#include "ultramat/include/Dense/DenseStriper.hpp"
+#include "ultramat/include/Dense/DenseStripe.hpp"
 #include <gtest/gtest.h>
 
 using namespace ultra;
 
-TEST(DenseStriperTest,DenseStriper){
+TEST(DenseStripeIndexTest,DenseStripeIndex){
     Shape shape{5,3,1,7};
-    DenseStriper col_striper_begin( 1, DenseOrder::col_major, shape);
-    DenseStriper col_striper_end( 1, DenseOrder::col_major, shape, 1);
-    DenseStriper row_striper_begin( 1, DenseOrder::row_major, shape);
-    DenseStriper row_striper_end( 1, DenseOrder::row_major, shape, 1);
+    DenseStripeIndex col_striper_begin( 1, DenseOrder::col_major, shape);
+    DenseStripeIndex col_striper_end( 1, DenseOrder::col_major, shape, 1);
+    DenseStripeIndex row_striper_begin( 1, DenseOrder::row_major, shape);
+    DenseStripeIndex row_striper_end( 1, DenseOrder::row_major, shape, 1);
 
     EXPECT_TRUE( col_striper_begin < col_striper_end );
     EXPECT_TRUE( col_striper_begin <= col_striper_end );
     EXPECT_TRUE( row_striper_begin < row_striper_end );
     EXPECT_TRUE( row_striper_begin <= row_striper_end );
 
-    DenseStriper col_striper( col_striper_begin);
-    DenseStriper row_striper( row_striper_begin);
+    DenseStripeIndex col_striper( col_striper_begin);
+    DenseStripeIndex row_striper( row_striper_begin);
 
     for( std::size_t ii=0; ii<4; ++ii){
         EXPECT_EQ( col_striper.shape(ii), shape[ii] );

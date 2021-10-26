@@ -4,15 +4,14 @@
 
     * Finish the docs!
         - Related pages
-            - DenseObjects        I
+            - DenseObjects        X
             - ExpressionTemplates O
             - Broadcasting        O
         - Dense
             - DenseFixed   X
             - Dense        X
-            - DenseImpl    O
-            - DenseStripe  O
-            - DenseStriper X
+            - DenseImpl    I
+            - DenseStripe  I
             - DenseUtils   X
             - DenseView    O
             - Expressions
@@ -31,6 +30,14 @@
         - Utils
             - Utils         I
             - IteratorTuple O
+
+### Slicing update
+
+    * Slice::min should alias 0
+    * Slice::max should alias maximum std::ptrdiff_t
+    * Slice::all should refer to Slice{Slice::min,Slice::max};
+    * Slicing via operator()
+
 
 ### Linear algebra
 
@@ -75,13 +82,6 @@
     * GaussianElimination solver
     * LU factorisation
     * Set BLAS/LAPACK usage at compile time
-
-### Slicing update
-
-    * Slice::min should alias 0
-    * Slice::max should alias maximum std::ptrdiff_t
-    * Slice::all should refer to Slice{Slice::min,Slice::max};
-    * Slicing via operator()
 
 ## Wishlist
 

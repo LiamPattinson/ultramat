@@ -125,7 +125,7 @@ public:
     class Stripe {
         
         template<class T>
-        using stripe_t = decltype(std::declval<std::add_const_t<std::remove_cvref_t<T>>>().get_stripe(std::declval<DenseStriper>()));
+        using stripe_t = decltype(std::declval<std::add_const_t<std::remove_cvref_t<T>>>().get_stripe(std::declval<DenseStripeIndex>()));
 
         stripe_t<Cond> _stripe_cond;
         stripe_t<Left> _stripe_l;
@@ -144,7 +144,7 @@ public:
         class Iterator {
             
             template<class T>
-            using it_t = typename decltype(std::declval<std::add_const_t<std::remove_cvref_t<T>>>().get_stripe(std::declval<DenseStriper>()))::Iterator;
+            using it_t = typename decltype(std::declval<std::add_const_t<std::remove_cvref_t<T>>>().get_stripe(std::declval<DenseStripeIndex>()))::Iterator;
             
             it_t<Cond> _it_cond;
             it_t<Left> _it_l;
@@ -176,7 +176,7 @@ public:
     };
 
     // Get stripes from each Arg
-    decltype(auto) get_stripe( const DenseStriper& striper) const {
+    decltype(auto) get_stripe( const DenseStripeIndex& striper) const {
         return Stripe( _condition.get_stripe(striper), _left_expression.get_stripe(striper), _right_expression.get_stripe(striper));
     }
 };

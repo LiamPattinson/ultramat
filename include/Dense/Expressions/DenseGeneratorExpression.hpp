@@ -95,7 +95,7 @@ public:
     };
 
     // Get stripes from each Arg
-    decltype(auto) get_stripe( const DenseStriper& striper) const {
+    decltype(auto) get_stripe( const DenseStripeIndex& striper) const {
         return Stripe(_f,shape(striper.stripe_dim()));
     }
 };
