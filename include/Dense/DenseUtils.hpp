@@ -76,6 +76,46 @@ template<class T, DenseOrder Order, std::size_t... dims> struct is_dense<DenseFi
 template<class T, ReadWrite RW> struct is_dense<DenseView<T,RW>> { static constexpr bool value = true; };
 
 // ==============================================
+// Slice
+
+/*! \brief  A tool for generating #ultra::DenseView%s from \ref DenseObject%s.
+ *
+ * `Slice` is an 'aggregate'/'pod' type, so it has a relatively intuitive interface by default.
+ *  For example, a `Slice` that takes all but the last element may be created via `Slice{0,-1}`.
+ *  The same in reverse is written `Slice{0,-1,-1}`. In Python, it is possible to signify
+ *  that a slice should give all elements with the syntax `x[:]`. This is achieved with `Slice`
+ *  using the `Slice::all` static member: `Slice{Slice::all,Slice::all}`. Note that both the
+ *  beginning and the end must be specified. The step size defaults to 1.
+ */
+struct Slice { 
+    /*! \brief Beginning of the slice, inclusive.
+     *  A value of 0 indicates that all elements up to `end` are included.
+     *  Negative numbers count backwards from the end.
+     */
+    std::ptrdiff_t start=0;
+    /*! \brief End of the slice, exclusive.
+     *  A value of 0 indicates that all elements from `start` onwards are included. 
+     *  Negative numbers count backwards from the end.
+     */
+    std::ptrdiff_t end=0;
+    /*! \brief Step size. 
+     *  Negative steps mean the slice goes from `end-1` to `start` inclusive.
+     */
+    std::ptrdiff_t step=1;
+};
+
+//! Generates a slice from a single integer
+template<std::integral I>
+constexpr Slice to_slice( I idx) {
+    return Slice{idx,idx+1};
+}
+
+template<class T> requires std::is_same<T,Slice>::value
+constexpr Slice to_slice( T t ) {
+    return t;
+}
+
+// ==============================================
 // shapelike
 
 /*! \brief Defines a sized range of integers, and excludes Ultramat \ref DenseObject%s, e.g. `std::vector<std::size_t>`
@@ -83,7 +123,10 @@ template<class T, ReadWrite RW> struct is_dense<DenseView<T,RW>> { static conste
  *  For the sake of compatibility, the `shapelike` concept applies to signed integer ranges as well as unsigned ranges.
  *  Note that supplying a shape with negative integers is unlikely to be caught, but is highly likely to break everything.
  */
-template<class T> concept shapelike = std::ranges::sized_range<T> && std::integral<typename T::value_type> && !is_dense<T>::value;
+template<class T> concept shapelike = std::ranges::sized_range<T> && 
+                                      std::integral<typename T::value_type> && 
+                                      !is_dense<T>::value &&
+                                      !std::is_same<T,Slice>::value;
 
 // ==============================================
 // common_order
@@ -122,33 +165,6 @@ struct common_order {
     
     //! Alias for #Order
     static constexpr DenseOrder value = Order;
-};
-
-// ==============================================
-// Slice
-
-/*! \brief  A tool for generating #ultra::DenseView%s from \ref DenseObject%s.
- *
- * `Slice` is an 'aggregate'/'pod' type, so it has a relatively intuitive interface by default.
- *  For example, a `Slice` that takes all but the last element may be created via `Slice{0,-1}`.
- *  The same in reverse is written `Slice{0,-1,-1}`. In Python, it is possible to signify
- *  that a slice should give all elements with the syntax `x[:]`. This is achieved with `Slice`
- *  using the `Slice::all` static member: `Slice{Slice::all,Slice::all}`. Note that both the
- *  beginning and the end must be specified. The step size defaults to 1.
- */
-struct Slice { 
-    //! Beginning of the slice, inclusive. `Slice::all` has the same effect as 0. Negative numbers count backwards from the end.
-    std::ptrdiff_t start;
-    /*! \brief End of the slice, exclusive. `Slice::all` indicates that all elements from start onwards are included. 
-     * Negative numbers count backwards from the end.
-     */
-    std::ptrdiff_t end;
-    //! Step size of the slice. Negative steps mean the slice goes from `end-1` to `start`.
-    std::ptrdiff_t step=1;
-    /*! \brief Static member. When used for `start`, all elements up to `end` are included. 
-     *  When used for end, all elements from `start` onwards are used. When used for both `start` and `end`, all elements are included.
-     */
-    static constexpr std::ptrdiff_t all = std::numeric_limits<std::ptrdiff_t>::max();
 };
 
 // ==============================================

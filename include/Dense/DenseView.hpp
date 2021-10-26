@@ -95,7 +95,6 @@ public:
     using DenseImpl<DenseView<T,rw>>::reshape;
     using DenseImpl<DenseView<T,rw>>::required_stripe_dim;
     using DenseImpl<DenseView<T,rw>>::operator();
-    using DenseImpl<DenseView<T,rw>>::operator[];
     using DenseImpl<DenseView<T,rw>>::operator=;
     using DenseImpl<DenseView<T,rw>>::operator+=;
     using DenseImpl<DenseView<T,rw>>::operator-=;
@@ -138,10 +137,11 @@ public:
         return *this;
     }
 
-    template<class... Slices> requires ( std::is_same<Slices,Slice>::value && ... )
+    template<class... Slices> requires ( (std::is_same<Slices,Slice>::value || std::is_integral<Slices>::value) && ... )
     DenseView view( const Slices&... slices) const {
-        return slice(slices...);
+        return slice(to_slice(slices)...);
     }
+
 
     // ===============================================
     // Iteration
@@ -179,14 +179,13 @@ public:
         DenseView result(*this);
         std::size_t stride_offset = ( Order == DenseOrder::row_major );
         for( std::size_t ii=0; ii<dims(); ++ii){
-            // if not enough slices provided, assume start=all, end=all, step=1
-            Slice slice = ( ii < slices.size() ? slices[ii] : Slice{Slice::all,Slice::all,1});
+            // if not enough slices provided, assume start=0, end=0, step=1
+            Slice slice = ( ii < slices.size() ? slices[ii] : Slice{} );
             // Account for negative start/end
             if( slice.start < 0 ) slice.start = _shape[ii] + slice.start;
             if( slice.end < 0 ) slice.end = _shape[ii] + slice.end;
-            // Account for 'all' specifiers
-            if( slice.start == Slice::all ) slice.start = 0;
-            if( slice.end == Slice::all ) slice.end = _shape[ii];
+            // Account for 0 end
+            if( slice.end == 0 ) slice.end = _shape[ii];
             // Throw exceptions if slice is impossible
             if( slice.start < 0 || slice.end > static_cast<std::ptrdiff_t>(_shape[ii])) throw std::runtime_error("Ultramat: Slice out of bounds.");
             if( slice.end <= slice.start ) throw std::runtime_error("Ultramat: Slice end is less than or equal to start.");
@@ -214,9 +213,9 @@ public:
         return result;
     }
 
-    template<class... Slices> requires ( std::is_same<Slices,Slice>::value && ... )
+    template<class... Slices> requires ( (std::is_same<Slices,Slice>::value || std::is_integral<Slices>::value) && ... )
     DenseView slice( const Slices&... var_slices) const {
-        return slice(std::array<Slice,sizeof...(Slices)>{ var_slices... });
+        return slice(std::array<Slice,sizeof...(Slices)>{ to_slice(var_slices)... });
     }
 
     template<shapelike Perm>

@@ -227,7 +227,6 @@ public:
     using DenseImpl<DenseFixed<T,Order,Dims...>>::get_stripe;
     using DenseImpl<DenseFixed<T,Order,Dims...>>::required_stripe_dim;
     using DenseImpl<DenseFixed<T,Order,Dims...>>::operator();
-    using DenseImpl<DenseFixed<T,Order,Dims...>>::operator[];
     using DenseImpl<DenseFixed<T,Order,Dims...>>::operator=;
     using DenseImpl<DenseFixed<T,Order,Dims...>>::operator+=;
     using DenseImpl<DenseFixed<T,Order,Dims...>>::operator-=;

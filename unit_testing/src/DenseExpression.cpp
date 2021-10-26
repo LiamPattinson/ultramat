@@ -56,7 +56,7 @@ TEST(DenseExpressionTest,Eval){
     EXPECT_TRUE(g_correct);
 
     // Evaluating view
-    Array<double> h = view( a*b + c, Slice{Slice::all,2}, Slice{Slice::all,2},Slice{Slice::all,2});
+    Array<double> h = view( a*b + c, Slice{0,2}, Slice{0,2},Slice{0,2});
     EXPECT_TRUE( h.dims() == 3 );
     EXPECT_TRUE( h.size() == 8 );
     EXPECT_TRUE( h.shape(0) == 2 );

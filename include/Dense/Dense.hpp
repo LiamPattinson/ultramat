@@ -198,7 +198,6 @@ public:
     using DenseImpl<Dense<T,Order>>::get_stripe;
     using DenseImpl<Dense<T,Order>>::required_stripe_dim;
     using DenseImpl<Dense<T,Order>>::operator();
-    using DenseImpl<Dense<T,Order>>::operator[];
     using DenseImpl<Dense<T,Order>>::operator=;
     using DenseImpl<Dense<T,Order>>::operator+=;
     using DenseImpl<Dense<T,Order>>::operator-=;

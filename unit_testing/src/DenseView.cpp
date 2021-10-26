@@ -139,7 +139,7 @@ TEST(ViewTest,Slicing) {
     // Create view excluding boundary elements
     Slice interior(1,-1);
     auto interior_row_view = row_array.view(interior,interior,interior);
-    auto interior_col_view = col_array.view(interior,interior,interior);
+    auto interior_col_view = col_array(interior,interior,interior); // use operator() with slices
 
     EXPECT_TRUE( interior_row_view.shape(0) == 28 );
     EXPECT_TRUE( interior_col_view.shape(0) == 28 );
@@ -153,7 +153,7 @@ TEST(ViewTest,Slicing) {
     EXPECT_TRUE( interior_col_view(9,9,3) == 36. );
 
     // Create partial view excluding boundary elements in 0 and 1 dimensions, but not in 2 dimension
-    auto partial_interior_row_view = row_array.view(interior,interior);
+    auto partial_interior_row_view = row_array(interior,interior);
     auto partial_interior_col_view = col_array.view(interior,interior);
 
     EXPECT_TRUE( partial_interior_row_view.shape(0) == 28 );
@@ -169,7 +169,7 @@ TEST(ViewTest,Slicing) {
 
     // Create view of a view
     auto double_interior_row_view = interior_row_view.view(interior,interior,interior);
-    auto double_interior_col_view = interior_col_view.view(interior,interior,interior);
+    auto double_interior_col_view = interior_col_view(interior,interior,interior);
 
     EXPECT_TRUE( double_interior_row_view.shape(0) == 26 );
     EXPECT_TRUE( double_interior_col_view.shape(0) == 26 );
@@ -183,8 +183,8 @@ TEST(ViewTest,Slicing) {
     EXPECT_TRUE( double_interior_col_view(8,8,2) == 36. );
 
     // create view with step greater than 1
-    auto stepped_row_view = row_array.view(Slice{2,-4,2},Slice{2,-1},Slice{1,Slice::all,3});
-    auto stepped_col_view = col_array.view(Slice{2,-4,2},Slice{2,-1},Slice{1,Slice::all,3});
+    auto stepped_row_view = row_array(Slice{2,-4,2},Slice{2,-1},Slice{1,0,3});
+    auto stepped_col_view = col_array.view(Slice{2,-4,2},Slice{2,-1},Slice{1,0,3});
 
     EXPECT_TRUE( stepped_row_view.shape(0) == 12 );
     EXPECT_TRUE( stepped_col_view.shape(0) == 12 );
@@ -198,9 +198,9 @@ TEST(ViewTest,Slicing) {
     EXPECT_TRUE( stepped_col_view(4,8,1) == 36. );
 
     // Create reverse view
-    Slice reverse{Slice::all,Slice::all,-1};
+    Slice reverse{0,0,-1};
     auto reverse_row_view = row_array.view(reverse,reverse,reverse);
-    auto reverse_col_view = col_array.view(reverse,reverse,reverse);
+    auto reverse_col_view = col_array(reverse,reverse,reverse);
 
     EXPECT_TRUE( reverse_row_view.shape(0) == 30 );
     EXPECT_TRUE( reverse_col_view.shape(0) == 30 );
@@ -212,6 +212,19 @@ TEST(ViewTest,Slicing) {
     EXPECT_TRUE( reverse_col_view.data() == col_array.data() + col_array.size() -1);
     EXPECT_TRUE( reverse_row_view(19,9,5) == 36. );
     EXPECT_TRUE( reverse_col_view(19,9,5) == 36. );
+
+    // Create view with integers
+    auto integer_row_view = row_array.view(10,Slice{},4);   // 1x20x1
+    auto integer_col_view = col_array(Slice{},10,Slice{});  // 30x1x10
+
+    EXPECT_TRUE( integer_row_view.shape(0) == 1 );
+    EXPECT_TRUE( integer_col_view.shape(0) == 30 );
+    EXPECT_TRUE( integer_row_view.shape(1) == 20 );
+    EXPECT_TRUE( integer_col_view.shape(1) == 1 );
+    EXPECT_TRUE( integer_row_view.shape(2) == 1 );
+    EXPECT_TRUE( integer_col_view.shape(2) == 10 );
+    EXPECT_TRUE( integer_row_view(0,10,0) == 36. );
+    EXPECT_TRUE( integer_col_view(10,0,4) == 36. );
 }
 
 TEST(ViewTest,Iteration){
@@ -302,7 +315,7 @@ TEST(ViewTest,Iteration){
     EXPECT_TRUE(stepped_col_view_correct);
 
     // reverse view
-    Slice reverse(Slice::all,Slice::all,-1);
+    Slice reverse(0,0,-1);
     auto reverse_row_view = row_array.view(reverse,reverse,reverse);
     auto reverse_col_view = col_array.view(reverse,reverse,reverse);
     bool reverse_row_view_correct = true, reverse_col_view_correct = true;
@@ -336,7 +349,7 @@ TEST(ViewTest,Iteration){
     EXPECT_TRUE(reverse_col_view_correct);
 
     // partially reverse view
-    Slice reverse2(Slice::all,Slice::all,-2);
+    Slice reverse2(0,0,-2);
     auto partial_reverse_row_view = row_array.view(stepped,reverse2,stepped);
     auto partial_reverse_col_view = col_array.view(stepped,reverse2,stepped);
     bool partial_reverse_row_view_correct = true, partial_reverse_col_view_correct = true;

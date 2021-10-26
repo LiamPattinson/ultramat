@@ -81,7 +81,7 @@ class DenseImpl {
     }
 
     /*! @name operator()
-     *  Access individual elements using integer coordinates.
+     *  Access individual elements using integer coordinates, or take a view using slices
      */
     ///@{
     
@@ -100,6 +100,24 @@ class DenseImpl {
     template<std::integral... Ints> 
     auto& operator()( Ints... coords ) noexcept {
         return derived()._data[variadic_memjump(coords...)];
+    }
+
+    /*! \brief Create sliced view
+     *  If at least one argument provided to `operator()` is a Slice, instead returns a sliced view.
+     *  Note that there is no check to ensure the correct number of slices/integers has been provided!
+     */
+    template<class... Ts> requires variadic_contains<Slice,Ts...>::value 
+    auto operator()( Ts... ts ) noexcept {
+        return DenseView<T>(derived()).slice(to_slice(ts)...);
+    }
+
+    /*! \brief Create sliced read-only view
+     *  If at least one argument provided to `operator()` is a Slice, instead returns a sliced view.
+     *  Note that there is no check to ensure the correct number of slices/integers has been provided!
+     */
+    template<class... Ts> requires variadic_contains<Slice,Ts...>::value 
+    auto operator()( Ts... ts ) const noexcept {
+        return DenseView<T,ReadWrite::read_only>(derived()).slice(to_slice(ts)...);
     }
     
     /*! \brief Access using a #ultra::shapelike, returns by value
@@ -309,14 +327,14 @@ class DenseImpl {
     DenseView<T> view() { return DenseView<T>(derived());}
     DenseView<T,ReadWrite::read_only> view() const { return DenseView<T,ReadWrite::read_only>(derived());}
 
-    template<class... Slices> requires ( std::is_same<Slice,Slices>::value && ... )
+    template<class... Slices> requires ( (std::is_same<Slice,Slices>::value || std::is_integral<Slices>::value) && ... )
     DenseView<T> view(const Slices&... slices) {
-        return DenseView<T>(derived()).slice(slices...);
+        return DenseView<T>(derived()).slice(to_slice(slices)...);
     }
 
-    template<class... Slices> requires ( std::is_same<Slice,Slices>::value && ... )
+    template<class... Slices> requires ( (std::is_same<Slice,Slices>::value || std::is_integral<Slices>::value) && ... )
     DenseView<T,ReadWrite::read_only> view(const Slices&... slices) const {
-        return DenseView<T,ReadWrite::read_only>(derived()).slice(slices...);
+        return DenseView<T,ReadWrite::read_only>(derived()).slice(to_slice(slices)...);
     }
 
     template<std::ranges::range Slices> requires ( std::is_same<typename Slices::value_type,Slice>::value )
@@ -327,28 +345,6 @@ class DenseImpl {
     template<std::ranges::range Slices> requires ( std::is_same<typename Slices::value_type,Slice>::value )
     DenseView<T,ReadWrite::read_only> view(const Slices& slices) const {
         return DenseView<T,ReadWrite::read_only>(derived()).slice(slices);
-    }
-
-    template<bool constness>
-    struct SquBrktSlicer {
-        using reference = std::conditional_t<constness,const T&,T&>;
-        reference _ref;
-        std::vector<Slice> _slices;
-        SquBrktSlicer() = delete;
-        SquBrktSlicer( reference ref, const Slice& slice) : _ref(ref), _slices{slice} {}
-        SquBrktSlicer& operator[](const Slice& slice){ _slices.push_back(slice); return *this;}
-        SquBrktSlicer& operator[](std::size_t ii){ _slices.push_back(ii==Slice::all ? Slice{Slice::all,Slice::all} : Slice{ii,ii+1}); return *this;}
-        auto operator()() { return _ref.view(_slices);}
-        auto operator()() const { return _ref.view(_slices);}
-    };
-
-    SquBrktSlicer<false> operator[](const Slice& slice) { return SquBrktSlicer<false>(derived(),slice);}
-    SquBrktSlicer<false> operator[](std::size_t ii) {
-        return SquBrktSlicer<false>(derived(),ii==Slice::all ? Slice{Slice::all,Slice::all} : Slice{ii,ii+1});
-    }
-    SquBrktSlicer<true> operator[](const Slice& slice) const { return SquBrktSlicer<true>(derived(),slice);}
-    SquBrktSlicer<true> operator[](std::size_t ii) const {
-        return SquBrktSlicer<true>(derived(),ii==Slice::all ? Slice{Slice::all,Slice::all} : Slice{ii,ii+1});
     }
 
     // ===============================================

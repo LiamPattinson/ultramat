@@ -31,14 +31,6 @@
             - Utils         I
             - IteratorTuple O
 
-### Slicing update
-
-    * Slice::min should alias 0
-    * Slice::max should alias maximum std::ptrdiff_t
-    * Slice::all should refer to Slice{Slice::min,Slice::max};
-    * Slicing via operator()
-
-
 ### Linear algebra
 
     * Would be handy if some sort of DenseLinearAlgebraExpression could be defined, but it'll be tricky

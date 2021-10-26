@@ -83,6 +83,17 @@ template<class T> concept arithmetic = std::is_arithmetic<T>::value;
 //! Concept that encapsulates both arithmetic values and complex numbers
 template<class T> concept number = std::is_arithmetic<T>::value || is_complex<T>::value;
 
+//! Type trait that tests that at least one class in a type list matches the given class T
+template<class T, class... Ts>
+struct variadic_contains {
+    static constexpr bool value = false; 
+};
+
+template<class T, class T2, class... Ts>
+struct variadic_contains<T,T2,Ts...> {
+    static constexpr bool value = std::is_same<T,T2>::value || variadic_contains<T,Ts...>::value; 
+};
+
 // ==============================================
 // Better complex overloading
 
