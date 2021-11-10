@@ -94,6 +94,20 @@ struct variadic_contains<T,T2,Ts...> {
     static constexpr bool value = std::is_same<T,T2>::value || variadic_contains<T,Ts...>::value; 
 };
 
+//! Type trait that returns the resulting type if all args are added together
+template<class T, class... Ts>
+struct upcast {
+    using type = decltype( T{} + typename upcast<Ts...>::type{} );
+};
+
+template<class T>
+struct upcast<T> {
+    using type = T;
+};
+
+//! Shorthand for upcast<Ts...>::type
+template<class... Ts> using upcast_t = upcast<Ts...>::type;
+
 // ==============================================
 // Better complex overloading
 

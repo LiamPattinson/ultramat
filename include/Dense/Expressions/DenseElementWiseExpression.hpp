@@ -16,7 +16,7 @@ namespace ultra {
 // DenseElementWiseExpression
 
 /*! \brief An expression used to represent simple operations that apply independently to each component of a `Dense` object.
- *  \tparam F A functor type defining the function applied over each `Dense` object.
+ *  \tparam F A functor type defining the function applied over each \ref dense_object.
  *  \tparam Args The `Dense` objects over which `F` is applied.
  *
  * Applies a given function, defined by the functor class `F`, element-wise over an ordered collection of `Dense` objects.

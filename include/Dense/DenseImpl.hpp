@@ -381,36 +381,67 @@ class DenseImpl {
     // ===============================================
     // View creation
 
-    DenseView<T> view() { return DenseView<T>(derived());}
-    DenseView<T,ReadWrite::read_only> view() const { return DenseView<T,ReadWrite::read_only>(derived());}
+    /*! @name View Creation 
+     * \brief Methods for generating #ultra::DenseView from other \ref DenseObject%s.
+     */
+    ///@{
 
+    //! Create a full view over the derived object.
+    DenseView<T> view() {
+        return DenseView<T>(derived());
+    }
+    
+    //! Create a read-only full view over the derived object.
+    DenseView<T,ReadWrite::read_only> view() const {
+        return DenseView<T,ReadWrite::read_only>(derived());
+    }
+
+    //! Create a partial view over the derived object using slices or integers
     template<class... Slices> requires ( (std::is_same<Slice,Slices>::value || std::is_integral<Slices>::value) && ... )
     DenseView<T> view(const Slices&... slices) {
         return DenseView<T>(derived()).slice(to_slice(slices)...);
     }
 
+    //! Create a read-only partial view over the derived object using slices or integers
     template<class... Slices> requires ( (std::is_same<Slice,Slices>::value || std::is_integral<Slices>::value) && ... )
     DenseView<T,ReadWrite::read_only> view(const Slices&... slices) const {
         return DenseView<T,ReadWrite::read_only>(derived()).slice(to_slice(slices)...);
     }
 
+    //! Create a partial view over the derived object using a container of slices
     template<std::ranges::range Slices> requires ( std::is_same<typename Slices::value_type,Slice>::value )
     DenseView<T> view(const Slices& slices) {
         return DenseView<T>(derived()).slice(slices);
     }
 
+    //! Create a read-only partial view over the derived object using a container of slices
     template<std::ranges::range Slices> requires ( std::is_same<typename Slices::value_type,Slice>::value )
     DenseView<T,ReadWrite::read_only> view(const Slices& slices) const {
         return DenseView<T,ReadWrite::read_only>(derived()).slice(slices);
     }
 
+    ///@}
+
     // ===============================================
     // Reshaping
+    
+    /*! @name Reshaping
+     * \brief Methods for modifying the shape of contiguous and dynamic \ref DenseObject%s
+     */
+    ///@{
 
+    /*! \brief Set the shape of an existing \ref DenseObject using a #ultra::shapelike.
+     *  The total number of elements in the reshaped object must match the original number of elements. This method
+     *  is not available for #ultra::DenseFixed.
+     */
     template<shapelike Shape>
     decltype(auto) reshape( const Shape& shape ){
         // Ensure this is contiguous
         if( !derived().is_contiguous() ) throw std::runtime_error("Ultramat: Cannot reshape a non-contiguous array");
+        // Ensure that the new shape makes sense
+        for( auto&& x : shape ){
+            if( x <= 0 ) throw std::runtime_error("Ultramat: Cannot have zero or negative shape.");
+        }
         // Ensure that the new shape has the correct size.
         auto size = std::accumulate(shape.begin(),shape.end(),1,std::multiplies<typename Shape::value_type>{});
         if( size != derived().size() ) throw std::runtime_error("Ultramat: Cannot reshape, result would have incorrect size");
@@ -422,70 +453,113 @@ class DenseImpl {
         return derived(); 
     }
 
+    /*! \brief Set the shape of an existing \ref DenseObject using a series of integers.
+     */
     template<std::integral... Ints>
     decltype(auto) reshape( Ints... shape){
         return reshape(std::array<std::size_t,sizeof...(Ints)>{{shape...}});
     }
 
+    ///@}
+
     // ===============================================
     // Permuting/Transposing
 
+    /*! @name Permuting and Transposing
+     * \brief Create a view with a different order of dimensions for \ref DenseObject%s.
+     *
+     *  When permuting, the number of provided dimensions must match the current number of dimensions, and must be a permutation of
+     *  [0,1,2,3,...,N-1] for an ND object. For example, a matrix transpose is achieved by calling `permute(1,0)`. Swapping the
+     *  last two dimensions of a 4D object would be `permute(0,1,3,2)`, and completely reversing the order of dimensions of a
+     *  5D object would be `permute(4,3,2,1,0)`. The `transpose()` or `t()` functions are simple shorthand for `permute(1,0)`,
+     *  while `hermitian()` will transpose and take the complex conjugate. Note that `hermitian()` will create a non-view, as
+     *  otherwise it would require modifying the original object.
+     */
+    ///@{
+
+    //! Create a view and swap the order of dimensions using a #ultra::shapelike
     template<shapelike Perm>
     auto permute( const Perm& permutations) {
         return derived().view().permute(permutations);
     }
 
+    //! Create a read-only view and swap the order of dimensions using a #ultra::shapelike
     template<shapelike Perm>
     auto permute( const Perm& permutations) const {
         return derived().view().permute(permutations);
     }
 
+    //! Create a view and swap the order of dimensions using a series of integers
     template<std::integral... Perm>
     auto permute( Perm... permutations) {
         return derived().view().permute(permutations...);
     }
 
+    //! Create a read-only view and swap the order of dimensions using a series of integers
     template<std::integral... Perm>
     auto permute( Perm... permutations) const {
         return derived().view().permute(permutations...);
     }
 
+    //! Create a view and swap the dimensions of a 2D object.
     auto transpose() {
         if( derived().dims() != 2 ) throw std::runtime_error("Ultramat: transpose() requires dims() == 2. Perhaps you wanted permute()?");
         return permute(1,0);
     }
 
+    //! Create a read-only view and swap the dimensions of a 2D object.
     auto transpose() const {
         if( derived().dims() != 2 ) throw std::runtime_error("Ultramat: transpose() requires dims() == 2. Perhaps you wanted permute()?");
         return permute(1,0);
     }
 
+    //! Create a view and swap the dimensions of a 2D object.
     auto t() { return transpose(); }
+
+    //! Create a read-only view and swap the dimensions of a 2D object.
     auto t() const { return transpose(); }
 
+    //! Create a 2D #ultra::Dense, taking the complex conjugate and swapping the dimensions.
     auto hermitian() const {
         return hermitian(*this);
     }
 
+    //! Create a 2D #ultra::Dense, taking the complex conjugate and swapping the dimensions.
     auto h() const {
         return hermitian(*this);
     }
 
+    ///@}
+
     // ===============================================
     // Iteration
 
-    constexpr auto begin() noexcept { return derived()._data.begin(); }
-    constexpr auto begin() const noexcept { return derived()._data.cbegin(); }
-    constexpr auto cbegin() const noexcept { return derived()._data.cbegin(); }
-    constexpr auto end() noexcept { return derived()._data.end(); }
-    constexpr auto end() const noexcept { return derived()._data.cend(); }
-    constexpr auto cend() const noexcept { return derived()._data.cend(); }
+    /*! @name Iteration
+     * \brief Get iterators to the start and end of the derived object. Not used by #ultra::DenseView.
+     */
+    ///@{
+    
+    constexpr auto begin() noexcept { return derived()._data.begin(); }         //!< Get iterator to the start of the \ref DenseObject.
+    constexpr auto begin() const noexcept { return derived()._data.cbegin(); }  //!< Get const-iterator to the start of the \ref DenseObject.
+    constexpr auto cbegin() const noexcept { return derived()._data.cbegin(); } //!< Get const-iterator to the start of the \ref DenseObject.
+    constexpr auto end() noexcept { return derived()._data.end(); }             //!< Get iterator to the end of the \ref DenseObject.
+    constexpr auto end() const noexcept { return derived()._data.cend(); }      //!< Get const-iterator to the end of the \ref DenseObject.
+    constexpr auto cend() const noexcept { return derived()._data.cend(); }     //!< Get const-iterator to the end of the \ref DenseObject.
+
+    ///@}
 
     // ===============================================
     // Striped Iteration
 
+    /*! @name Striped Iteration
+     * \brief Methods for creating #ultra::DenseStripe, mostly used internally.
+     */
+
+    ///@{
+
     private:
 
+    //! Get memory position at which a stripe should begin and the stride of the stripe.
     auto _get_stripe_helper( const DenseStripeIndex& striper) const {
         std::ptrdiff_t stripe_jump=0, stripe_stride=0;
         bool broadcasting = ( dims() < striper.dims());
@@ -534,6 +608,7 @@ class DenseImpl {
     
     public:
 
+    //! Get #ultra::DenseStripe given a #ultra::DenseStripeIndex.
     auto get_stripe( const DenseStripeIndex& striper){
         auto* stripe_ptr = derived().data();
         std::ptrdiff_t stripe_jump, stripe_stride;
@@ -541,6 +616,7 @@ class DenseImpl {
         return DenseStripe<T,ReadWrite::writeable>( stripe_ptr + stripe_jump, stripe_stride, striper.stripe_size());
     }
 
+    //! Get read-only #ultra::DenseStripe given a #ultra::DenseStripeIndex
     auto get_stripe( const DenseStripeIndex& striper) const {
         auto* stripe_ptr = derived().data();
         std::ptrdiff_t stripe_jump, stripe_stride;
@@ -548,14 +624,15 @@ class DenseImpl {
         return DenseStripe<T,ReadWrite::read_only>( stripe_ptr + stripe_jump, stripe_stride, striper.stripe_size());
     }
 
+    //! Must stripes be over a particular dimension? In general, no, so return dims().
     constexpr std::size_t required_stripe_dim() const { return dims();}
+
+    ///@}
 
     // ===============================================
     // Utils
     
-    // check_expression
-    // Tests whether an expression is exactly compatible -- same dims and shape
-
+    //! Test whether an expression is exactly compatible -- same dims and shape
     template<class U>
     void check_expression( const DenseExpression<U>& expression){
         if( dims() != expression.dims()){
@@ -584,9 +661,7 @@ class DenseImpl {
         }
     }
 
-    // set_stride
-    // Use shape to populate stride via a cumulative product, starting with 1.
-
+    //! Use shape to populate stride via a cumulative product, starting with 1. Row major version.
     void set_stride() noexcept requires (Order == DenseOrder::row_major) {
         derived()._stride[dims()] = 1;
         for( std::size_t ii=dims(); ii!=0; --ii){
@@ -594,6 +669,7 @@ class DenseImpl {
         }
     }
 
+    //! Use shape to populate stride via a cumulative product, starting with 1. Column major version.
     void set_stride() noexcept requires (Order == DenseOrder::col_major) {
         derived()._stride[0] = 1;
         for( std::size_t ii=0; ii!=dims(); ++ii){
@@ -601,44 +677,45 @@ class DenseImpl {
         }
     }
 
-    // is_contiguous
-    // Determine if a container is contiguous. As this is guaranteed for everything except a DenseView, this function
-    // is trivial. DenseView shadows it with a much more interesting function.
+    //! Determine if a container is contiguous. True for everything except a #ultra::DenseView, which may be either true or false.
     constexpr bool is_contiguous() const noexcept { return true;}
 
-    // is_broadcasting
-    // Always false for dense objects, though expressions of dense objects might be.
+    //! Determine if this object is broadcasted. Always false for \ref DenseObject%s, though expressions might be.
     constexpr bool is_broadcasting() const noexcept { return false;}
 
-    // is_omp_parallelisable
-    // Determine if iterator is OpenMP compatible.
-    // Is true for all dense containers, but must be defined for compatibility with DenseExpressions, some of which
-    // are not trivially parallelisable.
+    // Determine if iterator is OpenMP compatible. Is true for all \ref DenseObject%s.
     constexpr bool is_omp_parallelisable() const noexcept { return true; }
 
-    // variadic_memjump
-    // used with round-bracket indexing.
-    // requires stride of length dims+1, with the largest stride iterating all the way to the location of end().
-    // If row_major, the largest stride is stride[0]. If col_major, the largest stride is stride[dims].
+    private:
 
-    // Base case
+    /*! @name variadic_memjump
+     *  \brief Utility function used to enable round-bracket indexing.
+     *  Uses stride to convert a series of integers to the required jump in memory to access a particular element. This function
+     *  does no error checking, so negative integers, out-of-bounds, or just providing too many integers can cause undefined behaviour.
+     */
+
+    ///@{
+
+    //! Base case
     template<std::size_t N, std::integral Int>
     constexpr decltype(auto) variadic_memjump_impl( Int coord) const noexcept {
         return derived()._stride[N] * coord; 
     }
 
-    // Recursive step
+    //! Recursive step
     template<std::size_t N, std::integral Int, std::integral... Ints>
     constexpr decltype(auto) variadic_memjump_impl( Int coord, Ints... coords) const noexcept {
         return (derived()._stride[N] * coord) + variadic_memjump_impl<N+1,Ints...>(coords...);
     }
 
+    //! Interface
     template<std::integral... Ints>
     constexpr decltype(auto) variadic_memjump( Ints... coords) const noexcept {
         // if row major, must skip first element of stride
         return variadic_memjump_impl<(Order==DenseOrder::row_major?1:0),Ints...>(coords...);
     }
 
+    ///@}
 };
 
 } // namespace ultra
