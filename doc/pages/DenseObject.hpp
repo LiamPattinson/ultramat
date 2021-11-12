@@ -142,8 +142,41 @@
  *
  *  \section dense_semicontiguous What do you mean by semi-contiguous?
  *
- *  A contiguous data structure is one in which every element is immedately adjacent to its neighbours in memory. Within Ultramat, a semi-contiguous
- *  data structure is one that can be represented as a collection of contiguous 1D arrays, also known as _stripes_. For instance, a view over
- *  a subset of an N-dimensional array may exclude the majority of elements, leaving large gaps in memory between each row, but the rows themselves may
- *  be considered contiguous. Note that the definition of 'contiguous' is also somewhat stretched here, as it can also include strides greater than 1.
+ *  A contiguous data structure is one in which every element is immediately adjacent to its neighbours in memory. Within Ultramat, a semi-contiguous
+ *  data structure is one that can be represented as a collection of strided 1D arrays, also known as _stripes_. For instance, a view over
+ *  a subset of an N-dimensional array may exclude the majority of elements, leaving large gaps in memory between each row, but each row of this 
+ *  subset may be contiguous, or at least strided (elements aren't adjacent, but are separated by a consistent distance in memory).
+ *
+ *  \section striped_iteration Striped Iteration
+ *
+ *  The C++ standard library is heavily dependent on iterators, but as iteration is inherently a 1D operation, it does not
+ *  always apply well to N-dimensional objects. The concept applies well when operations occur between
+ *  \ref DenseObject%s of the same \ref dense_shape and \link dense_order row/column-major ordering \endlink, 
+ *  provided the operation is 'simple' (such as element-wise arithmetic), but falls down once we start taking views, broadcasting,
+ *  operating between different orders, or performing more complex operations such as reductions. Though it is possible to design a
+ *  1D iterator to deal with most of these problems -- see #ultra::DenseView::Iterator as an example -- it will tend to result in
+ *  poor performance due to the large number of checks performed at each increment.
+ *
+ *  Striped iteration takes advantage of the \link dense_semicontiguous semi-contiguous \endlink nature of \ref DenseObject%s by breaking
+ *  them down into a series of 1D strided arrays which can be iterated over trivially. The class #ultra::DenseStripeIndex is used to
+ *  iterate over the stripes themselves, and so all N-dimensional operations can be completed in just two nested for-loops: first iterating
+ *  over all stripes, and then iterating across each stripe.
+ *
+ *  \section dense_broadcasting Broadcasting
+ *
+ *  Much like NumPy, Ultramat supports automatic 'broadcasting' when performing operations between objects with non-matching 
+ *  \link dense_shape shapes \endlink. This is primarily achieved via \ref striped_iteration. If a \ref DenseObject is asked to provide
+ *  a stripe but is passed a #ultra::DenseStripeIndex with a shape that does not match its own, it may produce a #ultra::DenseStripe
+ *  with zero stride in order to simulate an extended dimension. The rules for broadcasting are as follows:
+ *
+ *  - When provided with two objects with the same number of dimensions, and in a given dimension one object has size N but the other
+ *    has size 1, the dimension of size 1 will be 'broadcasted' to size N.
+ *  - When provided with two objects with different numbers of dimensions, new dimensions of size 1 may be *prepended* to row-major
+ *    objects until the number of dimensions match. These dimensions of length 1 may then be broadcast to the required size. If using
+ *    column-major objects, new dimensions are *appended* instead.
+ *  - You may not broadcast between mixed \link dense_order row/column major orderings \endlink.
+ *
+ *  \section linalg_stacks Vector/Matrix Stacking
+ *
+ *  TODO
  */

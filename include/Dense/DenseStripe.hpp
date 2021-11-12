@@ -150,37 +150,17 @@ public:
 // ==============================================
 // DenseStripeIndex
 
-/*! \brief A utility class used by \ref DenseObject%s to generate 1D 'stripes' for iteration purposes.
- *
- *  Striped iteration is a core concept in the Ultramat library. The C++ standard library is
- *  heavily dependent on iterators, but as iteration is inherently a 1D operation, it does not
- *  always apply well to N-dimensional objects. An exception is when operations occur between
- *  \ref DenseObject%s of the same \ref dense_shape and \link dense_order row/column-major ordering \endlink, 
- *  provided the operation is 'simple', such as element-wise arithmetic.
+/*! \brief A utility class used by \ref DenseObject%s to generate 1D \link striped_iteration stripes \endlink for iteration purposes.
  *
  *  #ultra::DenseStripeIndex keeps track of the \ref dense_shape of a \ref DenseObject or expression, a coordinate, and a striping
- *  dimension. If row-major ordered, incrementing a `DenseStripeIndex` will update the coordinate in 
- *  the last dimension until it equals the shape in the last dimension. It then increments the coordinate in the
- *  second-to-last dimension, resets the last dimension to zero, and so on. Similar behaviour can be expected if
- *  a `DenseStripeIndex` is column-major ordered, although in this case the first dimension increments first, then
+ *  dimension. If row-major ordered, incrementing a will update the coordinate in the last dimension until it equals the shape in the 
+ *  last dimension. It then increments the coordinate in the second-to-last dimension, resets the last dimension to zero, and so on. 
+ *  Similar behaviour can be expected for column-major ordered objects, although in this case the first dimension increments first, then
  *  the second, etc. Note that the coordinate in the striping dimension is always zero, and is skipped over when
  *  finding the next dimension to increment.
  *
  *  #ultra::DenseStripeIndex behaves like a random access iterator, so also provides decrement, in-place addition and
  *  subtraction, and distance calculations.
- *
- *  #ultra::DenseStripeIndex is a core component in the following features:
- *  - Automatic broadcasting: If a \ref DenseObject is asked to provide a stripe, but is given a #ultra::DenseStripeIndex
- *    with a broadcasted shape, it may return a stripe with zero stride.
- *  - \link dense_semicontiguous Semi-contiguous iteration \endlink: Iterating directly over a 
- *    \link dense_semicontiguous semi-contiguous \endlink array is a costly operation (see
- *    #ultra::DenseViewIterator for proof). Striped iteration reduces the amount of checks that must be performed during
- *    iteration, as N-dimensional arrays are instead decomposed into a series of 1D strided arrays.
- *  - Mixed \link dense_order row/column-major ordered \endlink operations: When providing a coordinate from which to generate a stripe,
- *    it doesn't matter if the target is row-major or column-major ordered (although striping over a row-major
- *    object in a column-major manner, or vice versa, will likely be less efficient).
- *  - OpenMP parallelisation: Striped iteration was designed with OpenMP-style parallelism in mind. In this model,
- *    each thread generates a single stripe at a time, and iterates over it.
  */
 class DenseStripeIndex {
 

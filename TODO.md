@@ -4,9 +4,11 @@
 
     * Finish the docs!
         - Related pages
-            - DenseObjects        X
+            - DenseObjects              I
+                - Striping              O
+                - Broadcasting          O
+                - Vector/Matrix stacks  O
             - ExpressionTemplates O
-            - Broadcasting        O
         - Dense
             - DenseFixed   X
             - Dense        X
@@ -33,7 +35,7 @@
 
 ### Linear algebra
 
-    * DenseLinearAlgebraExpression
+    * DenseLinearAlgebraMethod
         * Vector-Vector
             * Given a row_major arg of size (N_a,N_b,...,N_w,N_x), any second arg must also have size (N_a,N_b,...,N_w,N_x).
             * Given a col_major arg of size (N_x,N_a,N_b,...,N_w), any second arg must also have size (N_x,N_a,N_b,...,N_w).
@@ -55,7 +57,7 @@
     * Should implement 'refocus' method for DenseView, allowing a single DenseView to reference a given vector/matrix within
       a stack, and then to efficiently reference the next one.
     * Dot product should be non-evaluating. Probably best to actually implement it using existing expressions.
-    * Set BLAS/LAPACK usage at compile time
+    * Set BLAS/LAPACK usage at compile time. Include a USE_EIGEN option maybe?
 
 ## Wishlist
 
@@ -72,7 +74,7 @@
 
 ### Further linear algebra
 
-    * inner, outer
+    * outer product
     * det (uses LU factorisation, unless input matrix is particularly small, in which case it's hardcoded)
     * norm (perhaps rename complex norm function to abs2?)
     * trace (unary matrix operation, tricky iteration method required)
