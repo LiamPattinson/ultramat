@@ -1,15 +1,21 @@
 #ifndef __ULTRA_DENSE_STRIPE_HPP
 #define __ULTRA_DENSE_STRIPE_HPP
 
+/*! \file DenseStripe.hpp
+ *  \brief Defines a \link striped_iteration stripe \endlink class for \ref DenseObject%s and associated utilities.
+ */
+
 #include "DenseUtils.hpp"
 
 namespace ultra {
 
 // ===============================================
 // DenseStripe
-//
-// A 1D view, used extensively within the library to iterate over higher-dimensional arrays.
 
+/*! \brief A view over a 1D strided array, often a single 'line' of a multidimensional \ref DenseObject.
+ *
+ *  Acts as the \link striped_iteration stripe \endlink class for all \ref DenseObject%s.
+ */
 template<class T, ReadWrite rw>
 class DenseStripe {
 
@@ -18,14 +24,17 @@ class DenseStripe {
 
 public:
 
-    using value_type = typename T::value_type;
-    using difference_type = std::ptrdiff_t;
-    using pointer = std::conditional_t<rw==ReadWrite::writeable,value_type*, const value_type*>;
-    using reference = std::conditional_t<rw==ReadWrite::writeable,value_type&,const value_type&>;
+    using value_type   = typename T::value_type; //!< The type of each element the stripe references
+
+    //! The type of the underlying pointer. If read-only, this is a const pointer.
+    using pointer_type   = std::conditional_t<rw==ReadWrite::writeable,value_type*, const value_type*>;
+
+    //! The type used to access elements by reference. If read-only, this is a const reference.
+    using reference_type = std::conditional_t<rw==ReadWrite::writeable,value_type&,const value_type&>;
 
 protected:
 
-    pointer        _ptr;
+    pointer_type   _ptr;
     std::ptrdiff_t _stride;
     std::size_t    _size;
 
@@ -34,108 +43,119 @@ public:
     // ===============================================
     // Constructors
 
-    DenseStripe() = delete;
-    DenseStripe( const DenseStripe& ) = default;
-    DenseStripe( DenseStripe&& ) = default;
-    DenseStripe& operator=( const DenseStripe& ) = default;
-    DenseStripe& operator=( DenseStripe&& ) = default;
+    DenseStripe() = delete;                                 //!< Default constructor (not permitted)
+    DenseStripe( const DenseStripe& ) = default;            //!< Copy constructor
+    DenseStripe( DenseStripe&& ) = default;                 //!< Move constructor
+    DenseStripe& operator=( const DenseStripe& ) = default; //!< Copy-assignment operator
+    DenseStripe& operator=( DenseStripe&& ) = default;      //!< Move-assignment operator
 
-    DenseStripe( pointer ptr, std::ptrdiff_t stride, std::size_t size) :
+    //! Construct from raw pointer, stride length, and total number of elements.
+    DenseStripe( pointer_type ptr, std::ptrdiff_t stride, std::size_t size) :
         _ptr(ptr),
         _stride(stride),
         _size(size)
     {}
 
-    // Copy/assign from other read/write type
+    //! Copy-construct from other read/write type
     DenseStripe( const DenseStripe<T,other_rw>& other) requires ( rw == ReadWrite::read_only ) :
         _ptr(other._ptr),
         _stride(other._stride),
         _size(other._size)
     {}
 
+    //! Assign-construct from other read/write type
     DenseStripe& operator=( const DenseStripe<T,other_rw>& other) requires ( rw == ReadWrite::read_only ) {
         _ptr = other._ptr;
         _stride = other._stride;
         _size = other._size;
+        return *this;
     }
 
-    // ===============================================
-    // Iteration
-
+    //! Iterator class over a #ultra::DenseStripe
     class Iterator {
+        //TODO allow comparison between read-only and writeable iterators
 
-        pointer        _ptr;
-        std::ptrdiff_t _stride;
+        friend DenseStripe<T,other_rw>::Iterator;
+
+        pointer_type   _ptr;    //!< Type of the underlying raw pointer
+        std::ptrdiff_t _stride; //!< Number of spaces to jump in memory for 1 forward increment
 
         public:
 
-        Iterator() = delete;
-        Iterator( const Iterator& ) = default;
-        Iterator( Iterator&& ) = default;
-        Iterator& operator=( const Iterator& ) = default;
-        Iterator& operator=( Iterator&& ) = default;
+        Iterator() = delete;                              //!< Default constructor (not permitted)
+        Iterator( const Iterator& ) = default;            //!< Copy constructor
+        Iterator( Iterator&& ) = default;                 //!< Move constructor
+        Iterator& operator=( const Iterator& ) = default; //!< Copy-assignment operator
+        Iterator& operator=( Iterator&& ) = default;      //!< Move-assignment operator
 
-        Iterator( pointer ptr, std::ptrdiff_t stride) : _ptr(ptr), _stride(stride) {}
+        //! Construct given underlying raw pointer and stride.
+        Iterator( pointer_type ptr, std::ptrdiff_t stride) : _ptr(ptr), _stride(stride) {}
 
-        // ===============================================
-        // Standard iterator interface
-
-        // Dereference
-        reference operator*() const { return *_ptr; }
+        //! Dereference operator
+        reference_type operator*() const { return *_ptr; }
         
-        // Increment/decrement
+        //! Pre-fix increment operator
         Iterator& operator++() {
             _ptr += _stride;
             return *this;
         }
 
+        //! Pre-fix decrement operator
         Iterator& operator--(){
             _ptr -= _stride;
             return *this;
         }
 
+        //! Post-fix increment operator (makes a copy, not recommended)
         Iterator operator++(int) const {
             return ++Iterator(*this);
         }
 
+        //! Post-fix decrement operator (makes a copy, not recommended)
         Iterator operator--(int) const {
             return --Iterator(*this);
         }
 
-        // Random-access
-        Iterator& operator+=( difference_type diff){
+        //! Random-access increment
+        Iterator& operator+=( std::ptrdiff_t diff){
             _ptr += diff*_stride;
             return *this;
         }
 
-        Iterator& operator-=( difference_type diff){
+        //! Random-access decrement
+        Iterator& operator-=( std::ptrdiff_t diff){
             _ptr -= diff*_stride;
             return *this;
         }
         
-        Iterator operator+( difference_type diff) const {
+        //! Copy and random-access increment
+        Iterator operator+( std::ptrdiff_t diff) const {
            Iterator result(*this);
            result += diff;
            return result;
         }
 
-        Iterator operator-( difference_type diff) const {
+        //! Copy and random-access decrement
+        Iterator operator-( std::ptrdiff_t diff) const {
            Iterator result(*this);
            result -= diff;
            return result;
         }
 
-        // Distance
+        /*! \brief Distance between two iterators.
+         *
+         *  Assumes both iterators are referencing the same object. If not, the results are undefined.
+         */
         std::ptrdiff_t operator-( const Iterator& it_r) const {
-            // Assumes both pointers are looking at the same thing. If not, the results are undefined.
             return (_ptr - it_r._ptr)/_stride;
         }
 
-        // Boolean comparisons
+        //! Tests if both iterators are pointing at the same element.
         bool operator==( const Iterator& it_r) const {
             return _ptr == it_r._ptr;
         }
 
+        //! 'Spaceship operator', defines less/greater-than (or equal to) operators.
         auto operator<=>( const Iterator& it_r) const {
             return (*this - it_r) <=> 0;
         }

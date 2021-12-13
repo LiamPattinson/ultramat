@@ -160,7 +160,8 @@
  *  Striped iteration takes advantage of the \link dense_semicontiguous semi-contiguous \endlink nature of \ref DenseObject%s by breaking
  *  them down into a series of 1D strided arrays which can be iterated over trivially. The class #ultra::DenseStripeIndex is used to
  *  iterate over the stripes themselves, and so all N-dimensional operations can be completed in just two nested for-loops: first iterating
- *  over all stripes, and then iterating across each stripe.
+ *  over all stripes, and then iterating across each stripe. The stripe class for all \ref DenseObject%s is #ultra::DenseStripe. Each 
+ *  expression defines its own stripe class.
  *
  *  \section dense_broadcasting Broadcasting
  *
