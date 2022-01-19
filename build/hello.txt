@@ -1,3 +1,0 @@
-hello
-
-this file exists just so git has something in the build directory to track

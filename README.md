@@ -78,40 +78,42 @@ This may be remedied by installing `g++-10` or later on your system. The project
 
 ## Installation
 
-Requires cmake. Simply enter the `build` directory and call the following:
+Requires cmake. Simply enter the Ultramat root directory and call the following:
 
 ```
-cmake ..
+cmake -B build
 ```
 
 This will generate a Makefile specific to your system. The installation directory can be specified by instead calling:
 
 ```
-cmake .. -DCMAKE_INSTALL_PREFIX_PATH=/your/install/path
+cmake -B build -DCMAKE_INSTALL_PREFIX_PATH=/your/install/path
 ```
 
 To install Ultramat to your chosen directory, call:
 
 ```
-cmake --build . --target install
+cmake --build build --target install
 ```
 
 You may need root access (sudo) to do this.
 
-To build unit tests, enter the `unit_testing` directory and call:
+## Testing
+
+To build unit tests, enter the Ultramat root directory and call:
 
 ```
-cmake .
+cmake tests
 cmake --build .
 ```
 
 You can also build in debug mode by calling:
 
 ```
-cmake . -DCMAKE_BUILD_TYPE=DEBUG
+cmake tests -DCMAKE_BUILD_TYPE=DEBUG
 ```
 
-Unit tests can be run by calling `ctest` from the `unit_testing` directory.
+Unit tests can be run by calling `ctest` from the root directory.
 
 ## Tips
 
