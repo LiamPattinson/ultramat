@@ -38,11 +38,11 @@ public:
      */
     using value_type = std::conditional_t<std::is_same<T,bool>::value,Bool,T>;
 
-    using shape_type = std::vector<std::size_t>;      //!< The internal type of the array's \ref dense_shape
-    using stride_type = std::vector<std::size_t>;     //!< The internal type of the array's \ref dense_stride
-    using data_type = std::vector<value_type>;        //!< The internal 1D array type used to store the contents of `Dense`.
-    using iterator = data_type::iterator;             //!< Non-const (modifying) iterator type
-    using const_iterator = data_type::const_iterator; //!< Const (read-only) iterator type
+    using shape_type = std::vector<std::size_t>;               //!< The internal type of the array's \ref dense_shape
+    using stride_type = std::vector<std::size_t>;              //!< The internal type of the array's \ref dense_stride
+    using data_type = std::vector<value_type>;                 //!< The internal 1D array type used to store the contents of `Dense`.
+    using iterator = typename data_type::iterator;             //!< Non-const (modifying) iterator type
+    using const_iterator = typename data_type::const_iterator; //!< Const (read-only) iterator type
 
     //! Returns the \link dense_order row/column-major ordering \endlink.
     static constexpr DenseOrder order() { return Order; }

@@ -75,7 +75,8 @@ public:
     class Iterator {
         //TODO allow comparison between read-only and writeable iterators
 
-        friend DenseStripe<T,other_rw>::Iterator;
+        using OtherIterator = typename DenseStripe<T,other_rw>::Iterator;
+        friend OtherIterator;
 
         pointer_type   _ptr;    //!< Type of the underlying raw pointer
         std::ptrdiff_t _stride; //!< Number of spaces to jump in memory for 1 forward increment

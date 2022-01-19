@@ -184,6 +184,6 @@ TEST(DenseGeneratorTest,Random){
     }
     double percent_within_1_stddev = (100.*within_1_stddev) / num_vals;
     double percent_within_2_stddev = (100.*within_2_stddev) / num_vals;
-    EXPECT_LT( std::fabs(percent_within_1_stddev-68.27), 1 );
-    EXPECT_LT( std::fabs(percent_within_2_stddev-95.45), 1 );
+    EXPECT_LT( std::fabs(percent_within_1_stddev-68.27), 2 );
+    EXPECT_LT( std::fabs(percent_within_2_stddev-95.45), 2 );
 }

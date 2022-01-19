@@ -16,6 +16,7 @@ install_manifest.txt
 Makefile
 MANIFEST
 CTestTestfile.cmake
+*.json
 
 # Google Test
 Testing/

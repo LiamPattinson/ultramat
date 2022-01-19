@@ -106,7 +106,7 @@ struct upcast<T> {
 };
 
 //! Shorthand for upcast<Ts...>::type
-template<class... Ts> using upcast_t = upcast<Ts...>::type;
+template<class... Ts> using upcast_t = typename upcast<Ts...>::type;
 
 // ==============================================
 // Better complex overloading

@@ -127,8 +127,8 @@ class RandomFunctor {
 
 public:
 
-    using dist_result_type = Dist::result_type;
-    using rng_result_type = RNG::result_type;
+    using dist_result_type = typename Dist::result_type;
+    using rng_result_type = typename RNG::result_type;
 
 private:
 
@@ -166,7 +166,7 @@ public:
 };
 
 template<class Dist, std::uniform_random_bit_generator RNG>
-RandomFunctor<Dist,RNG>::rng_result_type RandomFunctor<Dist,RNG>::_static_seed = RNG::default_seed;
+typename RandomFunctor<Dist,RNG>::rng_result_type RandomFunctor<Dist,RNG>::_static_seed = RNG::default_seed;
 
 template<class Dist, std::uniform_random_bit_generator RNG = std::mt19937_64, shapelike Range>
 decltype(auto) random( const Dist& dist, const Range& range) {

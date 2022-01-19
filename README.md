@@ -72,20 +72,31 @@ Array<double> d = pow(linspace(-50.,49.,100) + random_normal(mean,stddev,shape{1
 * A C++ compiler supporting the C++20 standard and OpenMP
 * cmake
 
+Note that the default C++ compiler bundled with Ubuntu 20.04 does not support the C++20 features used by Ultramat.
+This may be remedied by installing `g++-10` or later on your system. The project currently does not compile using
+`clang++`.
+
 ## Installation
 
 Requires cmake. Simply enter the `build` directory and call the following:
 
 ```
 cmake ..
-cmake --build . --target install
 ```
 
-The installation directory can be specified by instead calling:
+This will generate a Makefile specific to your system. The installation directory can be specified by instead calling:
 
 ```
 cmake .. -DCMAKE_INSTALL_PREFIX_PATH=/your/install/path
 ```
+
+To install Ultramat to your chosen directory, call:
+
+```
+cmake --build . --target install
+```
+
+You may need root access (sudo) to do this.
 
 To build unit tests, enter the `unit_testing` directory and call:
 
@@ -100,13 +111,7 @@ You can also build in debug mode by calling:
 cmake . -DCMAKE_BUILD_TYPE=DEBUG
 ```
 
-Unit tests can be run by calling:
-
-```
-ctest --verbose
-```
-
-from the `unit_testing` directory.
+Unit tests can be run by calling `ctest` from the `unit_testing` directory.
 
 ## Tips
 

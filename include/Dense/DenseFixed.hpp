@@ -45,7 +45,7 @@ template<class T1,class T2> struct reverse_index_sequence_impl;
 template<std::size_t Int1, std::size_t... Ints1, std::size_t Int2, std::size_t... Ints2>
 struct reverse_index_sequence_impl< std::index_sequence<Int1,Ints1...>, std::index_sequence<Int2,Ints2...>> {
     using type = 
-        reverse_index_sequence_impl<std::index_sequence<Ints1...>,std::index_sequence<Int1,Int2,Ints2...>>::type;
+        typename reverse_index_sequence_impl<std::index_sequence<Ints1...>,std::index_sequence<Int1,Int2,Ints2...>>::type;
 };
 
 template<std::size_t... Ints2>
@@ -55,7 +55,7 @@ struct reverse_index_sequence_impl< std::index_sequence<>, std::index_sequence<I
 
 template<std::size_t Int1, std::size_t... Ints1>
 struct reverse_index_sequence_impl< std::index_sequence<Int1,Ints1...>, std::index_sequence<>> {
-    using type = reverse_index_sequence_impl<std::index_sequence<Ints1...>,std::index_sequence<Int1>>::type;
+    using type = typename reverse_index_sequence_impl<std::index_sequence<Ints1...>,std::index_sequence<Int1>>::type;
 };
 
 template<class T> struct reverse_index_sequence;
@@ -64,12 +64,12 @@ template<class T> struct reverse_index_sequence;
 template<std::size_t... Ints>
 struct reverse_index_sequence<std::index_sequence<Ints...>> {
     //! Defines the reversed `index_sequence`
-    using type = reverse_index_sequence_impl<std::index_sequence<Ints...>,std::index_sequence<>>::type;
+    using type = typename reverse_index_sequence_impl<std::index_sequence<Ints...>,std::index_sequence<>>::type;
 };
 
 //! Typedef shortcut for `reverse_index_sequence<T>::type`
 template<class T>
-using reverse_index_sequence_t = reverse_index_sequence<T>::type;
+using reverse_index_sequence_t = typename reverse_index_sequence<T>::type;
 
 // ==========================
 /*! \struct variadic_stride
@@ -85,7 +85,7 @@ template<class T1,class T2> struct variadic_stride_impl;
 template<std::size_t ShapeInt, std::size_t... ShapeInts, std::size_t StrideInt, std::size_t... StrideInts>
 struct variadic_stride_impl< std::index_sequence<ShapeInt,ShapeInts...>, std::index_sequence<StrideInt,StrideInts...>> {
     using type = 
-        variadic_stride_impl<std::index_sequence<ShapeInts...>,std::index_sequence<ShapeInt*StrideInt,StrideInt,StrideInts...>>::type;
+        typename variadic_stride_impl<std::index_sequence<ShapeInts...>,std::index_sequence<ShapeInt*StrideInt,StrideInt,StrideInts...>>::type;
 };
 
 template<std::size_t... StrideInts>
@@ -95,7 +95,7 @@ struct variadic_stride_impl< std::index_sequence<>, std::index_sequence<StrideIn
 
 template<std::size_t ShapeInt, std::size_t... ShapeInts>
 struct variadic_stride_impl< std::index_sequence<ShapeInt,ShapeInts...>, std::index_sequence<>> {
-    using type = variadic_stride_impl<std::index_sequence<ShapeInts...>,std::index_sequence<ShapeInt>>::type;
+    using type = typename variadic_stride_impl<std::index_sequence<ShapeInts...>,std::index_sequence<ShapeInt>>::type;
 };
 
 template<std::size_t... ShapeInts>
@@ -131,12 +131,12 @@ class DenseFixed : public DenseExpression<DenseFixed<T,Order,Dims...>>, public D
 
 public:
 
-    using value_type = T;                                  //!< The type of each element of the array, usually arithmetic or complex types.
-    using shape_type = std::array<std::size_t,_dims>;      //!< The internal type of the array's \ref dense_shape
-    using stride_type = std::array<std::size_t,_dims+1>;   //!< The internal type of the array's \ref dense_stride
-    using data_type = std::array<T,_size>;                 //!< The internal 1D array type used to store the contents of `DenseFixed`.
-    using iterator = data_type::iterator;                  //!< Non-const (modifying) iterator type
-    using const_iterator = data_type::const_iterator;      //!< Const (read-only) iterator type
+    using value_type = T;                                      //!< The type of each element of the array, usually arithmetic or complex types.
+    using shape_type = std::array<std::size_t,_dims>;          //!< The internal type of the array's \ref dense_shape
+    using stride_type = std::array<std::size_t,_dims+1>;       //!< The internal type of the array's \ref dense_stride
+    using data_type = std::array<T,_size>;                     //!< The internal 1D array type used to store the contents of `DenseFixed`.
+    using iterator = typename data_type::iterator;             //!< Non-const (modifying) iterator type
+    using const_iterator = typename data_type::const_iterator; //!< Const (read-only) iterator type
 
     //! Returns the \link dense_order row/column-major ordering \endlink.
     static constexpr DenseOrder order() { 
